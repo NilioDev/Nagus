@@ -17,6 +17,13 @@ int shipFirepower(const ShipClass& s, const EmpireState& empire);
 int shipShields(const ShipClass& s, const EmpireState& empire);
 bool isArmed(const ShipClass& s);
 
+// What a colony's structures add to a battle.
+struct ColonyDefence {
+    int firepower = 0;
+    int shields = 0;
+};
+ColonyDefence colonyDefence(const Game& g, const Colony& c);
+
 // One side's part in a battle: a ship, or (ship -1) a colony's defences.
 struct CombatUnit {
     int owner = -1;

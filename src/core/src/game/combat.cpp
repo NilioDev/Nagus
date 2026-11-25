@@ -38,11 +38,19 @@ std::uint32_t mix(std::uint32_t a, std::uint32_t b, std::uint32_t c, std::uint32
     return h;
 }
 
-// What a colony's structures add to a battle.
-struct ColonyDefence {
-    int firepower = 0;
-    int shields = 0;
-};
+
+int percentBonus(const Game& g, const Colony& c, int which) {
+    int total = 0;
+    for (const auto& st : c.structures) {
+        if (st.on && st.building >= 0 && static_cast<std::size_t>(st.building) < g.economy.buildings.size()) {
+            const Building& b = g.economy.buildings[static_cast<std::size_t>(st.building)];
+            total += b.bonus == which ? b.amount : 0;
+        }
+    }
+    return total;
+}
+
+} // namespace
 
 ColonyDefence colonyDefence(const Game& g, const Colony& c) {
     ColonyDefence d;
@@ -62,19 +70,6 @@ ColonyDefence colonyDefence(const Game& g, const Colony& c) {
     }
     return d;
 }
-
-int percentBonus(const Game& g, const Colony& c, int which) {
-    int total = 0;
-    for (const auto& st : c.structures) {
-        if (st.on && st.building >= 0 && static_cast<std::size_t>(st.building) < g.economy.buildings.size()) {
-            const Building& b = g.economy.buildings[static_cast<std::size_t>(st.building)];
-            total += b.bonus == which ? b.amount : 0;
-        }
-    }
-    return total;
-}
-
-} // namespace
 
 bool hostile(const Game& game, int a, int b) { return a != b && atWar(game, a, b); }
 

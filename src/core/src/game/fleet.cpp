@@ -37,6 +37,10 @@ int fleetSpeed(const Fleet& f, const EconomyData& data, const EmpireState& empir
     return speed + empire.tech[static_cast<std::size_t>(TechField::Propulsion)] / 4;
 }
 
+int rangeSectors(int rangeClass, const EmpireState& empire) {
+    return kRangeSectors[std::clamp(rangeClass, 0, 2)] + empire.tech[static_cast<std::size_t>(TechField::Propulsion)] / 3;
+}
+
 int fleetRange(const Fleet& f, const EconomyData& data, const EmpireState& empire) {
     int range = std::numeric_limits<int>::max();
     for (const auto& s : f.ships) {

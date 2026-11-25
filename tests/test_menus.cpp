@@ -1013,3 +1013,38 @@ NGS_TEST("redeploying ships between fleets, and the avoid order, on the map") {
     click(screen, centre(*screen.orderButton(GalaxyScreen::kOrderAvoid)));
     NGS_CHECK(g.fleet(id)->avoid);
 }
+
+NGS_TEST("the map's modes and layers") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    const EconomyData economy = loadEconomyData(*res);
+    GameSettings settings;
+    settings.empire = 1;
+    Game g = newGame(settings, loadGalaxyData(*res, assets.lexicon()), economy, 3);
+    GalaxyScreen screen(assets, g);
+    Canvas canvas;
+    screen.draw(canvas, 0);
+    using L = GalaxyScreen::Layer;
+    NGS_CHECK(screen.mode() == GalaxyScreen::Mode::Economy && screen.shows(L::Names) && !screen.shows(L::Ranges));
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kOverlay)));
+    NGS_CHECK(screen.overlayOpen());
+    screen.draw(canvas, 0);
+    NGS_CHECK(!screen.layerButton(L::TradeRoutes)); // none yet
+    click(screen, centre(*screen.layerButton(L::Names)));
+    click(screen, centre(*screen.layerButton(L::Ranges)));
+    NGS_CHECK(!screen.shows(L::Names) && screen.shows(L::Ranges));
+    screen.draw(canvas, 0);
+    // Each mode keeps its own.
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kMilitary)));
+    NGS_CHECK(screen.mode() == GalaxyScreen::Mode::Military && screen.shows(L::Names) && screen.shows(L::Paths));
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kEconomy)));
+    NGS_CHECK(!screen.shows(L::Names) && screen.shows(L::Ranges));
+    NGS_CHECK(screen.cancel() && !screen.overlayOpen());
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kEvents)));
+    NGS_CHECK(screen.mode() == GalaxyScreen::Mode::Events && screen.chosenFleet() < 0);
+    screen.draw(canvas, 0);
+}
