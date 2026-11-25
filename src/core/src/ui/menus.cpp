@@ -81,12 +81,12 @@ void drawPicture(Canvas& canvas, Assets& assets, const Panel& panel, std::uint32
 
 // --- Main menu --------------------------------------------------------------
 
-MainMenu::MainMenu(Assets& assets, bool gameRunning, bool canContinue) : panel_(assets, "opening.wdf") {
-    // Only what Nagus can do yet can be chosen; the rest is drawn darker.
-    panel_.setEnabled(kNewMultiPlayer, false);
+MainMenu::MainMenu(Assets& assets, bool gameRunning, bool canContinue, bool multiplayer) : panel_(assets, "opening.wdf") {
+    // What cannot be done now is drawn darker. A multiplayer game is not
+    // saved or retired from.
     panel_.setEnabled(kContinue, gameRunning || canContinue);
-    panel_.setEnabled(kRetire, gameRunning);
-    panel_.setEnabled(kSave, gameRunning);
+    panel_.setEnabled(kRetire, gameRunning && !multiplayer);
+    panel_.setEnabled(kSave, gameRunning && !multiplayer);
 }
 
 void MainMenu::draw(Canvas& canvas, std::uint64_t) { panel_.draw(canvas); }
@@ -96,6 +96,8 @@ void MainMenu::pointerReleased(Point p) {
     const auto clicked = panel_.pointerReleased(p);
     if (clicked == kNewSinglePlayer) {
         outcome_ = Outcome::NewGame;
+    } else if (clicked == kNewMultiPlayer) {
+        outcome_ = Outcome::Multiplayer;
     } else if (clicked == kContinue) {
         outcome_ = Outcome::Continue;
     } else if (clicked == kSave) {
@@ -217,6 +219,23 @@ void EmpireSelect::choose(int empire) {
     }
 }
 
+void EmpireSelect::setTaken(const std::array<bool, kEmpires>& taken) {
+    taken_ = taken;
+    for (int i = 0; i < kEmpires; ++i) {
+        panel_.setEnabled(kEmpireButton[static_cast<std::size_t>(i)], !taken[static_cast<std::size_t>(i)]);
+    }
+    if (taken[static_cast<std::size_t>(settings_.empire)]) {
+        for (int i = 0; i < kEmpires; ++i) {
+            if (!taken[static_cast<std::size_t>(i)]) {
+                choose(i);
+                break;
+            }
+        }
+    }
+}
+
+Rect EmpireSelect::empireButton(int empire) const { return panel_.rect(kEmpireButton[static_cast<std::size_t>(empire)]); }
+
 void EmpireSelect::draw(Canvas& canvas, std::uint64_t) {
     // The chosen empire's portrait lies under the description.
     const auto empire = static_cast<std::size_t>(settings_.empire);
@@ -256,7 +275,7 @@ void EmpireSelect::click(std::uint32_t id) {
         outcome_ = Outcome::Back;
     }
     for (int i = 0; i < kEmpires; ++i) {
-        if (id == kEmpireButton[static_cast<std::size_t>(i)]) {
+        if (id == kEmpireButton[static_cast<std::size_t>(i)] && !taken_[static_cast<std::size_t>(i)]) {
             choose(i);
         }
     }

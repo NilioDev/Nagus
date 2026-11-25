@@ -80,7 +80,8 @@ void Shell::show(Showing s) {
         break;
     case Showing::MainMenu: {
         std::error_code ec;
-        mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr, std::filesystem::exists(autosaveFile(), ec));
+        mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr, std::filesystem::exists(autosaveFile(), ec),
+                                               game_ != nullptr && multiplayer());
         break;
     }
     case Showing::Galaxy:
@@ -93,7 +94,27 @@ void Shell::show(Showing s) {
     case Showing::Diplomacy: diplomacy_ = std::make_unique<DiplomacyScreen>(assets_, *game_); break;
     case Showing::Intel: intel_ = std::make_unique<IntelScreen>(assets_, *game_); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
-    case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
+    case Showing::EmpireSelect:
+        empires_ = std::make_unique<EmpireSelect>(assets_, settings_);
+        if (mpStep_ == MultiplayerStep::Empire) {
+            // The empires the other players have cannot be chosen.
+            std::array<bool, kEmpires> taken{};
+            const Lobby& lobby = host_ ? host_->lobby() : client_->lobby();
+            const int me = host_ ? 0 : client_->place();
+            for (std::size_t i = 0; i < lobby.players.size(); ++i) {
+                const int e = lobby.players[i].empire;
+                if (static_cast<int>(i) != me && e >= 0 && e < kEmpires) {
+                    taken[static_cast<std::size_t>(e)] = true;
+                }
+            }
+            empires_->setTaken(taken);
+        }
+        break;
+    case Showing::Multiplayer:
+        if (!mp_) {
+            mp_ = std::make_unique<MultiplayerScreen>(assets_, settings_, empireNames());
+        }
+        break;
     case Showing::Save:
     case Showing::Load: {
         std::array<SaveSlot, kSaveSlots> slots;
@@ -123,6 +144,7 @@ MenuScreen& Shell::screen() {
     case Showing::Fame: return *fame_;
     case Showing::Options: return *options_;
     case Showing::Combat: return *combat_;
+    case Showing::Multiplayer: return *mp_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -152,6 +174,9 @@ void Shell::finishGame() {
         }
     }
     game_.reset();
+    host_.reset();
+    client_.reset();
+    waitingTurn_ = false;
     // A game that has ended cannot be continued.
     std::error_code gone;
     std::filesystem::remove(autosaveFile(), gone);
@@ -220,6 +245,11 @@ void Shell::settle() {
     case Showing::MainMenu:
         if (o == Outcome::NewGame) {
             show(Showing::GameSetup);
+        } else if (o == Outcome::Multiplayer) {
+            if (!(game_ && multiplayer())) {
+                leaveMultiplayer();
+            }
+            show(Showing::Multiplayer);
         } else if (o == Outcome::Continue && game_) {
             show(Showing::Galaxy);
         } else if (o == Outcome::Continue) {
@@ -253,6 +283,22 @@ void Shell::settle() {
         }
         break;
     case Showing::GameSetup:
+        if (mpStep_ == MultiplayerStep::Settings) {
+            // The host's game set-up: then to the lobby.
+            if (o != Outcome::Accept && o != Outcome::Back) {
+                break;
+            }
+            mpStep_ = MultiplayerStep::None;
+            if (o == Outcome::Accept) {
+                settings_ = setup_->settings();
+                saveSettings(settingsFile_, settings_);
+                host_->setSettings(settings_);
+            } else {
+                host_.reset();
+            }
+            show(Showing::Multiplayer);
+            break;
+        }
         if (o == Outcome::Accept) {
             settings_ = setup_->settings();
             saveSettings(settingsFile_, settings_);
@@ -262,7 +308,24 @@ void Shell::settle() {
         }
         break;
     case Showing::EmpireSelect:
+        if (mpStep_ == MultiplayerStep::Empire) {
+            if (o != Outcome::Accept && o != Outcome::Back) {
+                break;
+            }
+            mpStep_ = MultiplayerStep::None;
+            if (o == Outcome::Accept) {
+                const int e = empires_->settings().empire;
+                if (host_) {
+                    host_->chooseEmpire(e);
+                } else if (client_) {
+                    client_->chooseEmpire(e);
+                }
+            }
+            show(Showing::Multiplayer);
+            break;
+        }
         if (o == Outcome::Accept) {
+            leaveMultiplayer();
             settings_ = empires_->settings();
             saveSettings(settingsFile_, settings_);
             const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
@@ -282,6 +345,44 @@ void Shell::settle() {
             fought_.clear();
             nextBattle_ = 0;
             nextCombat();
+        } else if (o == Outcome::EndTurn && multiplayer()) {
+            if (host_) {
+                host_->submit(*game_);
+            } else {
+                client_->submit(*game_);
+            }
+            waitingTurn_ = true;
+        }
+        break;
+    case Showing::Multiplayer:
+        if (o == Outcome::Back) {
+            leaveMultiplayer();
+            show(Showing::MainMenu);
+        } else if (o == Outcome::Host) {
+            rememberNames();
+            host_ = HostSession::open(mp_->gameName(), mp_->password(), mp_->playerName(), loadEconomyData(assets_.resources()), gamePort_);
+            if (!host_) {
+                mp_->setStatus("This computer cannot host a game: port " + std::to_string(gamePort_) + " is in use.");
+            } else {
+                hostAddress_ = localAddress();
+                if (host_->port() != kGamePort && !hostAddress_.empty()) {
+                    hostAddress_ += ":" + std::to_string(host_->port());
+                }
+                mpStep_ = MultiplayerStep::Settings;
+                show(Showing::GameSetup);
+            }
+        } else if (o == Outcome::Join) {
+            rememberNames();
+            client_ = ClientSession::connect(mp_->address(), mp_->playerName(), mp_->password(), loadEconomyData(assets_.resources()));
+        } else if (o == Outcome::ChooseEmpire) {
+            mpStep_ = MultiplayerStep::Empire;
+            show(Showing::EmpireSelect);
+        } else if (o == Outcome::Start && host_) {
+            if (host_->canStart()) {
+                startMultiplayerGame();
+            } else {
+                mp_->setStatus(host_->lobby().players.size() < 2 ? assets_.lexicon()[441] : "Every player needs an empire");
+            }
         }
         break;
     case Showing::Combat:
@@ -300,6 +401,135 @@ void Shell::settle() {
         }
         break;
     }
+}
+
+std::array<std::string, kEmpires> Shell::empireNames() {
+    std::array<std::string, kEmpires> names;
+    try {
+        const GalaxyData data = loadGalaxyData(assets_.resources(), assets_.lexicon());
+        for (std::size_t e = 0; e < names.size() && e < data.races.size(); ++e) {
+            names[e] = data.races[e].name;
+        }
+    } catch (const std::exception&) {
+        // Names stay empty.
+    }
+    return names;
+}
+
+void Shell::rememberNames() {
+    settings_.playerName = mp_->playerName();
+    settings_.gameName = mp_->gameName();
+    settings_.hostAddress = mp_->address();
+    saveSettings(settingsFile_, settings_);
+}
+
+void Shell::leaveMultiplayer() {
+    host_.reset();
+    client_.reset();
+    mp_.reset();
+    mpStep_ = MultiplayerStep::None;
+    waitingTurn_ = false;
+    if (game_ && game_->multiplayer()) {
+        game_.reset();
+        galaxy_.reset();
+    }
+}
+
+void Shell::startMultiplayerGame() {
+    GameSettings s = host_->lobby().settings;
+    s.automaticCombat = true; // nobody waits for another's battle
+    s.empire = host_->lobby().players.front().empire;
+    const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
+    Game g = newGame(s, loadGalaxyData(assets_.resources(), assets_.lexicon()), loadEconomyData(assets_.resources()), seed);
+    for (const auto& p : host_->lobby().players) {
+        if (p.empire >= 0 && p.empire < kEmpires) {
+            g.humans[static_cast<std::size_t>(p.empire)] = true;
+        }
+    }
+    host_->start(g);
+    galaxy_.reset();
+    game_ = std::make_unique<Game>(std::move(g));
+    mp_.reset();
+    waitingTurn_ = false;
+    playFilm(std::string(1, "chfkr"[std::clamp(game_->player, 0, kEmpires - 1)]) + ".avi", "", Showing::Galaxy);
+}
+
+void Shell::pollNetwork() {
+    if (host_) {
+        host_->poll();
+        for (const auto& n : host_->takeNotices()) {
+            toast_ = n;
+            toastUntil_ = now_ + 6000;
+        }
+        if (mp_ && showing_ == Showing::Multiplayer) {
+            mp_->showLobby(host_->lobby(), 0, true, hostAddress_);
+        }
+        if (waitingTurn_ && game_) {
+            if (auto t = host_->finishTurn()) {
+                *game_ = std::move(t->game);
+                waitingTurn_ = false;
+                if (galaxy_) {
+                    galaxy_->report(t->summary);
+                }
+            }
+        }
+    }
+    if (client_) {
+        client_->poll();
+        switch (client_->state()) {
+        case ClientSession::State::Refused:
+            if (mp_) {
+                mp_->setStatus(assets_.lexicon()[client_->refusedText()]);
+            }
+            client_.reset();
+            break;
+        case ClientSession::State::Lost:
+            if (game_ && game_->multiplayer()) {
+                // The game cannot go on without the host.
+                client_.reset();
+                leaveMultiplayer();
+                show(Showing::MainMenu);
+                notice_ = assets_.lexicon()[439];
+            } else {
+                if (mp_) {
+                    mp_->setStatus(assets_.lexicon()[182] + ": " + client_->error());
+                }
+                client_.reset();
+            }
+            break;
+        case ClientSession::State::Lobby:
+            if (mp_ && showing_ == Showing::Multiplayer) {
+                mp_->showLobby(client_->lobby(), client_->place(), false, "");
+            }
+            break;
+        case ClientSession::State::Playing:
+            if (auto g = client_->takeStart()) {
+                galaxy_.reset();
+                game_ = std::make_unique<Game>(std::move(*g));
+                mp_.reset();
+                waitingTurn_ = false;
+                playFilm(std::string(1, "chfkr"[std::clamp(game_->player, 0, kEmpires - 1)]) + ".avi", "", Showing::Galaxy);
+            } else if (auto t = client_->takeTurn(); t && game_) {
+                *game_ = std::move(t->game);
+                waitingTurn_ = false;
+                if (galaxy_) {
+                    galaxy_->report(t->summary);
+                }
+            }
+            break;
+        case ClientSession::State::Connecting: break;
+        }
+    }
+}
+
+void Shell::typed(std::string_view text) {
+    if (marker_ == nullptr && notice_.empty()) {
+        screen().typed(text);
+    }
+}
+
+bool Shell::wantsText() const {
+    return marker_ == nullptr && notice_.empty() && const_cast<Shell*>(this)->screen().wantsText();
 }
 
 void Shell::nextCombat() {
@@ -347,8 +577,10 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
          showing_ == Showing::Diplomacy || showing_ == Showing::Intel)) {
         finishGame();
     }
+    now_ = ms;
+    pollNetwork();
     // Saved at the end of each turn, once the turn's report shows.
-    if (game_ && settings_.autosave && showing_ == Showing::Galaxy && game_->ending == Ending::None &&
+    if (game_ && !multiplayer() && settings_.autosave && showing_ == Showing::Galaxy && game_->ending == Ending::None &&
         game_->turn != autosavedTurn_) {
         autosave();
     }
@@ -366,6 +598,31 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
         canvas.frame(box, rgb(255, 153, 0), 3);
         drawParagraph(canvas, assets_.font(kNoticeFont), notice_, {box.x + 20, box.y + 20, box.w - 40, box.h - 40},
                       rgb(255, 204, 102));
+    }
+    if (waitingTurn_ && game_) {
+        // Whose orders the turn waits for.
+        std::vector<int> waiting = host_ ? host_->waitingFor() : client_ ? client_->waitingFor() : std::vector<int>{};
+        std::string names;
+        for (const int e : waiting) {
+            if (e != game_->player && static_cast<std::size_t>(e) < game_->raceNames.size()) {
+                names += (names.empty() ? "" : ", ") + game_->raceNames[static_cast<std::size_t>(e)];
+            }
+        }
+        std::string line = assets_.lexicon()[1419];
+        if (const auto cut = line.find(':'); cut != std::string::npos) {
+            line = line.substr(0, cut + 1);
+        }
+        const Rect box{200, 250, 400, 70};
+        canvas.fill(box, rgb(0, 0, 0));
+        canvas.frame(box, rgb(255, 153, 0), 2);
+        drawParagraph(canvas, assets_.font(kNoticeFont), names.empty() ? assets_.lexicon()[1371] : line + " " + names,
+                      {box.x + 12, box.y + 10, box.w - 24, box.h - 20}, rgb(255, 204, 102));
+    }
+    if (!toast_.empty() && ms < toastUntil_) {
+        const Rect box{250, 8, 300, 26};
+        canvas.fill(box, rgb(0, 0, 0));
+        canvas.frame(box, rgb(255, 153, 0), 1);
+        canvas.text(assets_.font(kNoticeFont), toast_, box, rgb(255, 204, 102), Align::Center);
     }
     if (marker_) {
         marker_->draw(canvas);
@@ -422,6 +679,7 @@ void Shell::autosave() {
 }
 
 void Shell::loadFrom(int slot) {
+    leaveMultiplayer();
     try {
         // Slot -1: the game saved at the end of the last turn.
         const auto file = slot < 0 ? autosaveFile() : saveSlotFile(savesFolder(), slot);
@@ -482,8 +740,17 @@ void Shell::pointerMoved(Point p) {
     }
 }
 
+bool Shell::blocked() const {
+    // While the other players give their orders, the game waits.
+    return waitingTurn_ && (showing_ == Showing::Galaxy || showing_ == Showing::System || showing_ == Showing::Research ||
+                            showing_ == Showing::Diplomacy || showing_ == Showing::Intel);
+}
+
 void Shell::pointerPressed(Point p) {
     pointer_ = p;
+    if (blocked()) {
+        return;
+    }
     if (marker_) {
         marker_->pointerPressed(p);
         return;
@@ -495,6 +762,9 @@ void Shell::pointerPressed(Point p) {
 
 void Shell::pointerReleased(Point p) {
     pointer_ = p;
+    if (blocked()) {
+        return;
+    }
     if (!notice_.empty()) {
         notice_.clear();
         show(Showing::MainMenu);
@@ -526,6 +796,9 @@ void Shell::clickAtPointer() {
 }
 
 void Shell::command(Command c) {
+    if (blocked()) {
+        return;
+    }
     if (!notice_.empty()) {
         notice_.clear();
         show(Showing::MainMenu);

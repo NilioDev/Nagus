@@ -227,9 +227,9 @@ Reply propose(Game& g, int from, int to, Treaty t, std::vector<DiplomacyEvent>& 
     if (!canPropose(g, from, to, t)) {
         return Reply::Rejected;
     }
-    if (to == g.player) {
-        if (std::none_of(g.offers.begin(), g.offers.end(), [&](const Offer& o) { return o.from == from; })) {
-            g.offers.push_back({from, t, g.turn});
+    if (g.isHuman(to)) {
+        if (std::none_of(g.offers.begin(), g.offers.end(), [&](const Offer& o) { return o.from == from && o.to == to; })) {
+            g.offers.push_back({from, to, t, g.turn});
             events.push_back({proposalText(t, 0), from, to});
         }
         return Reply::Waiting;
@@ -253,7 +253,9 @@ void declareWar(Game& g, int from, int to, std::vector<DiplomacyEvent>& events) 
     }
     setTreaty(g, from, to, Treaty::War);
     addRegard(g, to, from, -kWarRegard);
-    std::erase_if(g.offers, [&](const Offer& o) { return o.from == from || o.from == to; });
+    std::erase_if(g.offers, [&](const Offer& o) {
+        return (o.from == from && o.to == to) || (o.from == to && o.to == from);
+    });
     events.push_back({278, from, to});
 }
 
@@ -279,11 +281,11 @@ void answerOffer(Game& g, std::size_t i, bool accept, std::vector<DiplomacyEvent
     }
     const Offer o = g.offers[i];
     g.offers.erase(g.offers.begin() + static_cast<std::ptrdiff_t>(i));
-    if (accept && canPropose(g, o.from, g.player, o.treaty)) {
-        apply(g, o.from, g.player, o.treaty, events);
+    if (accept && canPropose(g, o.from, o.to, o.treaty)) {
+        apply(g, o.from, o.to, o.treaty, events);
     } else {
-        addRegard(g, g.player, o.from, -5);
-        events.push_back({proposalText(o.treaty, 2), g.player, o.from});
+        addRegard(g, o.to, o.from, -5);
+        events.push_back({proposalText(o.treaty, 2), o.to, o.from});
     }
 }
 
@@ -357,7 +359,7 @@ std::vector<DiplomacyEvent> diplomacyTurn(Game& g, const std::vector<Battle>& ba
     // Offers the player left unanswered lapse.
     for (const auto& o : g.offers) {
         if (o.turn < g.turn) {
-            events.push_back({proposalText(o.treaty, 3), g.player, o.from});
+            events.push_back({proposalText(o.treaty, 3), o.to, o.from});
         }
     }
     std::erase_if(g.offers, [&](const Offer& o) { return o.turn < g.turn; });
@@ -366,7 +368,7 @@ std::vector<DiplomacyEvent> diplomacyTurn(Game& g, const std::vector<Battle>& ba
     const int level = std::clamp(g.settings.difficulty, 0, GameSettings::kDifficulties - 1);
     constexpr int kStrength[GameSettings::kDifficulties] = {6, 5, 4, 3, 3};
     for (int e = 0; e < kEmpires; ++e) {
-        if (e == g.player) {
+        if (g.isHuman(e)) {
             continue;
         }
         bool fighting = false;
@@ -398,7 +400,7 @@ std::vector<DiplomacyEvent> diplomacyTurn(Game& g, const std::vector<Battle>& ba
             }
             for (const Treaty t : {Treaty::NonAggression, Treaty::Friendship, Treaty::Affiliation, Treaty::Alliance}) {
                 if (canPropose(g, e, m, t) && mine >= kNeeded[static_cast<int>(t)] * aggression(g, e) / 100 + 10 &&
-                    (m == g.player || wouldAccept(g, e, m, t))) {
+                    (g.isHuman(m) || wouldAccept(g, e, m, t))) {
                     propose(g, e, m, t, events);
                     break;
                 }

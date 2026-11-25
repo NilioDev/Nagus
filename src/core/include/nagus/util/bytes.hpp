@@ -118,6 +118,7 @@ public:
         out_.insert(out_.end(), s.begin(), s.begin() + static_cast<std::ptrdiff_t>(n));
     }
     void bytes(std::string_view s) { out_.insert(out_.end(), s.begin(), s.end()); }
+    void bytes(ByteView b) { out_.insert(out_.end(), b.begin(), b.end()); }
     const Bytes& data() const { return out_; }
     Bytes take() { return std::move(out_); }
 

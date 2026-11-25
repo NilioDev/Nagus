@@ -11,7 +11,9 @@ namespace nagus {
 namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
-constexpr std::uint32_t kVersion = 1;
+// Version 2 added the human players and whom offers wait for.
+constexpr std::uint32_t kVersion = 2;
+constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
 constexpr std::uint32_t kMaxSystems = 10000;
@@ -209,6 +211,10 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.i32(o.from);
         w.u8(static_cast<std::uint32_t>(o.treaty));
         w.i32(o.turn);
+        w.i32(o.to);
+    }
+    for (const bool h : g.humans) {
+        w.u8(h ? 1 : 0);
     }
 
     w.i32(g.nextFleetId);
@@ -232,7 +238,10 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
 SaveInfo readSaveInfo(ByteView data) {
     Reader r(data);
     const ByteView magic = r.bytes(kMagic.size());
-    if (std::string_view(reinterpret_cast<const char*>(magic.data()), magic.size()) != kMagic || r.u32() != kVersion) {
+    if (std::string_view(reinterpret_cast<const char*>(magic.data()), magic.size()) != kMagic) {
+        throw FormatError("not a saved game of this version");
+    }
+    if (const std::uint32_t v = r.u32(); v < kOldestVersion || v > kVersion) {
         throw FormatError("not a saved game of this version");
     }
     SaveInfo info;
@@ -245,7 +254,8 @@ SaveInfo readSaveInfo(ByteView data) {
 Game loadGame(ByteView data, const EconomyData& economy) {
     Reader r(data);
     const SaveInfo info = readSaveInfo(data);
-    r.seek(kMagic.size() + 4);
+    r.seek(kMagic.size());
+    const std::uint32_t version = r.u32();
     readText(r);
     readText(r);
     r.u32();
@@ -442,7 +452,7 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         throw FormatError("damaged saved game");
     }
     g.ending = static_cast<Ending>(ending);
-    for (std::uint32_t i = 0, n = count(r, kEmpires); i < n; ++i) {
+    for (std::uint32_t i = 0, n = count(r, kEmpires * kEmpires); i < n; ++i) {
         Offer o;
         o.from = number(r, 0, kEmpires - 1);
         const int t = r.u8();
@@ -451,7 +461,13 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         }
         o.treaty = static_cast<Treaty>(t);
         o.turn = number(r, 0, kBig);
+        o.to = version >= 2 ? number(r, 0, kEmpires - 1) : g.player;
         g.offers.push_back(o);
+    }
+    if (version >= 2) {
+        for (auto& h : g.humans) {
+            h = r.u8() != 0;
+        }
     }
 
     g.nextFleetId = number(r, 1, kBig);

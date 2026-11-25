@@ -684,6 +684,11 @@ void GalaxyScreen::pointerReleased(Point p) {
 }
 
 void GalaxyScreen::endPlayerTurn() {
+    // In a multiplayer game the turn ends when everyone has given orders.
+    if (game_.multiplayer()) {
+        outcome_ = Outcome::EndTurn;
+        return;
+    }
     if (game_.settings.automaticCombat) {
         report(endTurn(game_));
         return;

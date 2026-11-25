@@ -520,8 +520,20 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
             shell.pointerReleased(p);
         }
         break;
+    case SDL_EVENT_TEXT_INPUT:
+        if (shell.wantsText() && event->text.text != nullptr) {
+            shell.typed(event->text.text);
+        }
+        break;
     case SDL_EVENT_KEY_DOWN:
-        if (event->key.key == SDLK_RETURN || event->key.key == SDLK_SPACE || event->key.key == SDLK_KP_ENTER) {
+        if (shell.wantsText() && (event->key.key == SDLK_BACKSPACE || event->key.key == SDLK_SPACE)) {
+            // Typing: these keys are for the text (the space comes as text).
+            if (event->key.key == SDLK_BACKSPACE) {
+                shell.typed("\b");
+            }
+        } else if (shell.wantsText() && (event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER)) {
+            shell.typed("\n");
+        } else if (event->key.key == SDLK_RETURN || event->key.key == SDLK_SPACE || event->key.key == SDLK_KP_ENTER) {
             if (!event->key.repeat) {
                 shell.clickAtPointer();
             }
@@ -597,6 +609,18 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
         app.pointerY = std::clamp(app.pointerY + curve(app.stickY) * kStickSpeed * dt, 0.0f, kH - 1.0f);
         app.shell->setPointerVisible(true);
         app.shell->pointerMoved({static_cast<int>(app.pointerX), static_cast<int>(app.pointerY)});
+    }
+    // A text field waiting for typing brings up the keyboard (on screen
+    // where there is no other).
+    if (app.shell) {
+        const bool wanted = app.shell->wantsText();
+        if (wanted != SDL_TextInputActive(app.window)) {
+            if (wanted) {
+                SDL_StartTextInput(app.window);
+            } else {
+                SDL_StopTextInput(app.window);
+            }
+        }
     }
     present(app);
     return SDL_APP_CONTINUE;
