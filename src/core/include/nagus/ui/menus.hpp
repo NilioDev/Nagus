@@ -40,7 +40,8 @@ public:
     static constexpr std::uint32_t kRetire = 0x2580;
 
     // With a game running, Continue goes back to it.
-    MainMenu(Assets& assets, bool gameRunning = false);
+    // canContinue: a game is running, or one was saved at the end of a turn.
+    MainMenu(Assets& assets, bool gameRunning = false, bool canContinue = false);
     void draw(Canvas& canvas, std::uint64_t ms) override;
     void pointerMoved(Point p) override {
         last_ = p;

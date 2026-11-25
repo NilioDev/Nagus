@@ -67,6 +67,10 @@ GameSettings loadSettings(const std::filesystem::path& file) {
     get("volume_music", s.volume[0]);
     get("volume_sfx", s.volume[1]);
     get("volume_voice", s.volume[2]);
+    get("volume_all", s.volume[3]);
+    int autosave = s.autosave ? 1 : 0;
+    get("autosave", autosave);
+    s.autosave = autosave != 0;
     s.clamp();
     return s;
 }
@@ -90,7 +94,9 @@ void saveSettings(const std::filesystem::path& file, const GameSettings& s) {
             << "empire=" << s.empire << '\n'
             << "volume_music=" << s.volume[0] << '\n'
             << "volume_sfx=" << s.volume[1] << '\n'
-            << "volume_voice=" << s.volume[2] << '\n';
+            << "volume_voice=" << s.volume[2] << '\n'
+            << "volume_all=" << s.volume[3] << '\n'
+            << "autosave=" << (s.autosave ? 1 : 0) << '\n';
         if (!out) {
             return;
         }

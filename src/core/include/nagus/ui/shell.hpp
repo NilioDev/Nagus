@@ -70,6 +70,9 @@ public:
     void enableFilms();
     // Where saved games are kept: next to the settings file.
     std::filesystem::path savesFolder() const { return settingsFile_.parent_path() / "saves"; }
+    // Where the game is saved at the end of each turn (when the option is
+    // on); Continue in the main menu loads it when no game is running.
+    std::filesystem::path autosaveFile() const { return savesFolder() / "autosave.sav"; }
 
     // The marker window: in the game, Back (right click, Esc, B) opens it
     // where the pointer is; its buttons go to the game's screens.
@@ -140,6 +143,8 @@ private:
     void markerChose(std::uint32_t id);
     int playerColony() const;
     void saveTo(int slot);
+    void autosave();
+    int autosavedTurn_ = -1;
     void loadFrom(int slot);
     std::unique_ptr<Game> game_;
     std::optional<std::uint32_t> seed_;
