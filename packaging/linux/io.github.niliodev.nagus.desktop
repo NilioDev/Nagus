@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Nagus
+GenericName=Space strategy game engine
+Comment=Play the 1999 galactic empire strategy game with your own game files
+Exec=Nagus
+Icon=io.github.niliodev.nagus
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=strategy;space;4x;turn-based;
