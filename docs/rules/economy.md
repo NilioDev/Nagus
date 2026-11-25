@@ -67,6 +67,15 @@ only there, and those that need a planet type only where there is one. Not
 offered yet: structures of minor races, those for special planets (such as
 dilithium) and those for conquered systems. The queue holds five items.
 
+## Bonuses
+
+Each terraformed planet with a food or energy bonus (see
+[the galaxy](galaxy.md#bonuses)) adds 25% to its colony's food or energy,
+along with the structures' percentages; the energy bonus also counts
+towards powering structures. Dilithium in a system adds 25% to the
+industry put into a ship there. These numbers are ours. The system screen
+lists each planet's bonus and says when dilithium is present.
+
 ## Trade routes
 
 Our own numbers, after the original's help texts: an empire may trade with

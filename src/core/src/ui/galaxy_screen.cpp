@@ -24,9 +24,12 @@ constexpr Pixel kMinorColour = 0xffd0d0d0u;
 constexpr Pixel kNameColour = 0xff9098b0u;
 constexpr Pixel kChosen = 0xffffff00u;
 constexpr Pixel kInfoColour = 0xffffcc66u;
-constexpr std::uint64_t kFrameMs = 90;
+constexpr Pixel kFoodMark = 0xff40e070u;
+constexpr Pixel kEnergyMark = 0xffffe040u;
+constexpr Pixel kDilithiumMark = 0xff60e0ffu;
+constexpr std::uint64_t kFrameMs = 90; // how long each frame of a turning planet shows
 constexpr Pixel kMoveColour = 0xff40ff40u;
-constexpr Pixel kPathColour = 0xff80c0ffu; // how long each frame of a turning planet shows
+constexpr Pixel kPathColour = 0xff80c0ffu;
 
 std::string format1(const std::string& pattern, const std::string& value) {
     std::string out = pattern;
@@ -75,9 +78,13 @@ void drawPlanetStrip(Canvas& canvas, Assets& assets, const Game& game, const Sta
             canvas.fill({cx - 4, cy - 4, 8, 8}, kNameColour);
         }
         const int w = small.width(p.name);
-        // Planets that hold nobody until terraformed are dimmed.
-        canvas.text(small, p.name, cx - w / 2, strip.y + strip.h - small.height() - 1,
-                    p.terraformed || p.room == 0 ? kNameColour : 0xff707888u);
+        // Planets that hold nobody until terraformed are dimmed; a dot
+        // before the name marks a food (green) or energy (yellow) bonus.
+        const int ty = strip.y + strip.h - small.height() - 1;
+        canvas.text(small, p.name, cx - w / 2, ty, p.terraformed || p.room == 0 ? kNameColour : 0xff707888u);
+        if (p.bonus != kNoBonus) {
+            canvas.fill({cx - w / 2 - 6, ty + small.height() / 2 - 2, 4, 4}, p.bonus == kFoodBonus ? kFoodMark : kEnergyMark);
+        }
     }
     canvas.clearClip();
 }
@@ -99,8 +106,6 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     layers_ = {bits({Layer::Names, Layer::Territory, Layer::Building, Layer::Population, Layer::TradeRoutes}),
                bits({Layer::Names, Layer::Territory, Layer::Ranges, Layer::Paths, Layer::Defences}),
                bits({Layer::Names, Layer::Territory, Layer::Paths})};
-    // There are no sector bonuses yet.
-    overlay_.setEnabled(kLayerButtons[static_cast<int>(Layer::Bonuses)], false);
     const Rect ob = panel_.rect(kOverlay);
     overlay_.setOrigin({ob.x, ob.y - overlay_.layout().rect.h - 4});
     map_ = panel_.rect(kMap);
@@ -398,6 +403,30 @@ void GalaxyScreen::drawLayers(Canvas& canvas) {
     }
     if (whole_) {
         return;
+    }
+    // Bonuses: D for dilithium, F for a food and E for an energy bonus, at
+    // the top left of the sector.
+    if (shows(Layer::Bonuses)) {
+        for (const auto& s : g.systems) {
+            const auto c = sectorCentre(s.sector);
+            if (!c || !s.star || !exploredBy(game_, game_.player, s.sector)) {
+                continue;
+            }
+            int x = c->x - size / 2 + 3;
+            const int y = c->y - size / 2 + 2;
+            const auto mark = [&](const char* letter, Pixel colour) {
+                canvas.text(small, letter, x, y, colour);
+                x += small.width(letter) + 2;
+            };
+            if (s.dilithium) {
+                mark("D", kDilithiumMark);
+            }
+            for (const int kind : {kFoodBonus, kEnergyBonus}) {
+                if (std::any_of(s.planets.begin(), s.planets.end(), [&](const Planet& p) { return p.bonus == kind; })) {
+                    mark(kind == kFoodBonus ? "F" : "E", kind == kFoodBonus ? kFoodMark : kEnergyMark);
+                }
+            }
+        }
     }
     for (const auto& col : game_.colonies) {
         const Sector at = g.systems[static_cast<std::size_t>(col.system)].sector;

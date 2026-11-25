@@ -126,6 +126,43 @@ NGS_TEST("industry builds the queue, then makes credits") {
     NGS_CHECK(colonyTurn(c, data).credits > c.population / 5);
 }
 
+NGS_TEST("planet bonuses add food and energy, dilithium speeds up ships") {
+    EconomyData data = sampleEconomy();
+    ShipClass ship;
+    ship.name = "Cruiser";
+    ship.cost = 100000;
+    data.ships.push_back(ship);
+    Game g;
+    g.economy = data;
+    g.galaxy.systems.push_back(sampleSystem());
+    StarSystem& s = g.galaxy.systems[0];
+    s.planets[0].bonus = kFoodBonus;
+    s.planets[1].bonus = kEnergyBonus;
+    s.planets[1].terraformed = false; // counts only once terraformed
+    s.dilithium = true;
+    EmpireState e;
+    e.tech.fill(1);
+    g.colonies.push_back(homeColony(0, s, 1, e, data));
+    Colony& c = g.colonies[0];
+    const ColonyOutput before = colonyOutput(c, data);
+    refreshBonuses(g);
+    NGS_CHECK(c.foodBonus == kPlanetBonusPercent && c.energyBonus == 0 && c.dilithium);
+    const auto food = static_cast<std::size_t>(Output::Food);
+    NGS_CHECK(colonyOutput(c, data).made[food] == before.made[food] * (100 + kPlanetBonusPercent) / 100);
+    s.planets[1].terraformed = true;
+    refreshBonuses(g);
+    NGS_CHECK(c.energyBonus == kPlanetBonusPercent);
+    const auto energy = static_cast<std::size_t>(Output::Energy);
+    NGS_CHECK(colonyOutput(c, data).made[energy] == before.made[energy] * (100 + kPlanetBonusPercent) / 100);
+    // The same ship gets more industry with dilithium.
+    c.queue.push_back({BuildItem::Kind::Ship, 0});
+    Colony without = c;
+    without.dilithium = false;
+    (void)colonyTurn(c, data);
+    (void)colonyTurn(without, data);
+    NGS_CHECK(c.progress > without.progress && c.progress == without.progress * (100 + kDilithiumPercent) / 100);
+}
+
 NGS_TEST("the game's buildings: every empire's home starts out working") {
     const auto lib = gameLibrary();
     if (!lib) {
@@ -141,6 +178,21 @@ NGS_TEST("the game's buildings: every empire's home starts out working") {
     GameSettings settings;
     Game g = newGame(settings, loadGalaxyData(res, lex), economy, 3);
     NGS_CHECK(g.colonies.size() == kEmpires);
+    // Bonuses: dilithium at every home and elsewhere, food and energy
+    // planets.
+    int dilithium = 0;
+    int bonuses[3] = {};
+    for (const auto& s : g.galaxy.systems) {
+        dilithium += s.dilithium ? 1 : 0;
+        NGS_CHECK(s.star || (!s.dilithium && s.planets.empty()));
+        for (const auto& p : s.planets) {
+            ++bonuses[p.bonus];
+        }
+    }
+    NGS_CHECK(dilithium > kEmpires && bonuses[kFoodBonus] > 0 && bonuses[kEnergyBonus] > 0);
+    for (const auto& c : g.colonies) {
+        NGS_CHECK(c.dilithium);
+    }
     for (int e = 0; e < kEmpires; ++e) {
         const Colony* c = g.colonyAt(g.galaxy.homes[static_cast<std::size_t>(e)]);
         NGS_CHECK(c != nullptr && c->owner == e);

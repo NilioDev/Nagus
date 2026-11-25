@@ -1046,7 +1046,12 @@ NGS_TEST("the map's modes and layers") {
     click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kOverlay)));
     NGS_CHECK(screen.overlayOpen());
     screen.draw(canvas, 0);
-    NGS_CHECK(screen.layerButton(L::TradeRoutes) && !screen.layerButton(L::Bonuses)); // no bonuses yet
+    NGS_CHECK(screen.layerButton(L::TradeRoutes) && screen.layerButton(L::Bonuses));
+    NGS_CHECK(!screen.shows(L::Bonuses));
+    click(screen, centre(*screen.layerButton(L::Bonuses)));
+    NGS_CHECK(screen.shows(L::Bonuses));
+    screen.draw(canvas, 0);
+    click(screen, centre(*screen.layerButton(L::Bonuses)));
     click(screen, centre(*screen.layerButton(L::Names)));
     click(screen, centre(*screen.layerButton(L::Ranges)));
     NGS_CHECK(!screen.shows(L::Names) && screen.shows(L::Ranges));

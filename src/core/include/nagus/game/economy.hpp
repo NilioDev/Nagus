@@ -85,7 +85,17 @@ struct Colony {
     std::vector<Structure> structures;
     std::vector<BuildItem> queue;
     int progress = 0; // industry put into the first item of the queue
+    // From the system's planets and dilithium (not saved; see
+    // refreshBonuses in game.hpp).
+    int foodBonus = 0;   // percent
+    int energyBonus = 0; // percent
+    bool dilithium = false;
 };
+
+// Each terraformed planet with a bonus adds this much to its colony's food
+// or energy; dilithium adds this much to the industry put into ships.
+inline constexpr int kPlanetBonusPercent = 25;
+inline constexpr int kDilithiumPercent = 25;
 
 // What a colony makes in one turn.
 struct ColonyOutput {

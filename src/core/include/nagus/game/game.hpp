@@ -263,6 +263,11 @@ struct TurnSummary {
     Ending ending = Ending::None;
 };
 TurnSummary endTurn(Game& game);
+
+// Sets each colony's bonuses from its system: the food and energy bonuses
+// of its terraformed planets and the system's dilithium. Done at the start
+// and the end of each turn, and when a game is made or loaded.
+void refreshBonuses(Game& game);
 // endTurn in two halves, for battles the player fights themselves between
 // them: the first gives the orders, builds and moves the fleets; the second
 // fights the other battles (fought: those the player fought, already

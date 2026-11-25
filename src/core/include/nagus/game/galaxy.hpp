@@ -35,7 +35,12 @@ struct Planet {
     // Only terraformed planets hold people. Terran planets, and those of the
     // races' home systems, are from the start.
     bool terraformed = true;
+    int bonus = 0; // kNoBonus, kFoodBonus or kEnergyBonus
 };
+
+inline constexpr int kNoBonus = 0;
+inline constexpr int kFoodBonus = 1;
+inline constexpr int kEnergyBonus = 2;
 
 inline constexpr int kTerran = 6;
 
@@ -48,6 +53,7 @@ struct StarSystem {
     int race = -1; // the race whose home this is: 0-4 an empire, 5 and up a minor race
     bool star = true; // a star with planets, not a nebula, black hole or the like
     std::vector<Planet> planets;
+    bool dilithium = false; // dilithium is found here
 };
 
 struct Galaxy {

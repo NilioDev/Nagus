@@ -387,6 +387,28 @@ Galaxy makeGalaxy(const GalaxySetup& setup, const GalaxyData& data) {
         }
     }
 
+    // Bonuses, from a random stream of their own so that the rest of the
+    // galaxy stays as it was without them: dilithium in the empires' homes
+    // and a fifth of the other stars, extra food on some jungle, ocean and
+    // terran planets, extra energy on some barren, desert, gas giant and
+    // volcanic ones.
+    Random extra(setup.seed ^ 0x9e3779b9u);
+    for (auto& s : g.systems) {
+        if (!s.star) {
+            continue;
+        }
+        const bool home = s.race >= 0 && s.race < kEmpires;
+        s.dilithium = extra.below(100) < 20 || home;
+        for (auto& p : s.planets) {
+            const std::uint32_t roll = extra.below(100);
+            if (p.type == 4 || p.type == 5 || p.type == kTerran) {
+                p.bonus = roll < 15 ? kFoodBonus : kNoBonus;
+            } else if (p.type == 1 || p.type == 2 || p.type == kGasGiant || p.type == 7) {
+                p.bonus = roll < 12 ? kEnergyBonus : kNoBonus;
+            }
+        }
+    }
+
     // Names for the other stars.
     std::vector<std::string> names = data.starNames;
     rng.shuffle(names);

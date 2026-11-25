@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (7; versions 1 to 6 still load) | u32 |
+| Version (8; versions 1 to 7 still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -58,9 +58,11 @@ it began (2 × i32). A proposal: from (i32), treaty (u8), turn (i32), and in ver
 player it waits for (i32; in version 1 always the player).
 
 A star system: sector, kind (i32), name (text), race (i32, -1 for none),
-has a star (u8), then a list of planets: name (text), type, atmosphere,
-size, room, picture variant (5 × i32) and, from version 6, whether it is
-terraformed (u8; in older saves every planet is).
+has a star (u8), from version 8 whether it has dilithium (u8), then a list
+of planets: name (text), type, atmosphere, size, room, picture variant
+(5 × i32), from version 6 whether it is terraformed (u8; in older saves
+every planet is) and from version 8 its bonus (u8: 0 none, 1 food,
+2 energy; older saves have none).
 
 A colony: system, owner, population, room, food in store, industry put into
 the first item of the queue (6 × i32); home (u8); for each of the five
