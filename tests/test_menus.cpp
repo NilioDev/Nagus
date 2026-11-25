@@ -105,8 +105,14 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     NGS_CHECK(screen.sectorCentre({game.galaxy.width - 1, game.galaxy.height - 1}).has_value());
     shell.draw(canvas, 0);
 
-    // Back opens the main menu, where Continue goes back to the game.
+    // Back opens the marker window; Back again closes it.
     shell.command(Command::Back);
+    NGS_CHECK(shell.markerOpen());
+    shell.command(Command::Back);
+    NGS_CHECK(!shell.markerOpen() && shell.showing() == Shell::Showing::Galaxy);
+    // Its emblem opens the main menu, where Continue goes back to the game.
+    shell.command(Command::Back);
+    click(shell, centre(*shell.markerButton(Shell::kMarkerMenu)));
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kContinue)));
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
@@ -166,8 +172,20 @@ NGS_TEST("the home system's screen: people at work, the build queue and the next
     NGS_CHECK(colony.queue.size() == 1);
     shell.draw(canvas, 0);
 
+    // The marker window leads to research, where a click on More gives
+    // biotech a larger share.
+    shell.command(Command::Back);
+    NGS_CHECK(shell.markerOpen());
+    click(shell, centre(*shell.markerButton(Shell::kMarkerResearch)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Research);
+    const int biotech = game.empires[static_cast<std::size_t>(game.player)].share[0];
+    click(shell, centre(shell.researchScreen()->fieldRect(0, ResearchScreen::kMore)));
+    NGS_CHECK(game.empires[static_cast<std::size_t>(game.player)].share[0] == biotech + ResearchScreen::kShareStep);
+    shell.draw(canvas, 0);
+
     // Back on the map, the turn ends with the Turn button.
     shell.command(Command::Back);
+    click(shell, centre(*shell.markerButton(Shell::kMarkerGalaxy)));
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
     const int progress = colony.progress;
     for (int t = 0; t < 30 && !colony.queue.empty(); ++t) {

@@ -341,7 +341,11 @@ void GalaxyScreen::pointerReleased(Point p) {
         whole_ = !whole_;
         keepInView();
     } else if (id && *id == kTurn) {
-        events_ = endTurn(game_).events;
+        const TurnSummary summary = endTurn(game_);
+        events_ = summary.events;
+        for (const auto& t : summary.researched) {
+            events_.push_back(assets_.lexicon()[text::kResearch] + ": " + t);
+        }
     }
 }
 

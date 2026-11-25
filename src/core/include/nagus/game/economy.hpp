@@ -45,6 +45,7 @@ inline constexpr int kSpecialShipyard = 43;
 } // namespace bonus
 
 struct EconomyData {
+    std::vector<Tech> techs;
     std::vector<Building> buildings;
     std::vector<GrowthBracket> growth;
     std::vector<Habitat> habitats;
@@ -89,10 +90,17 @@ struct ColonyOutput {
     bool shipyard = false;
 };
 
+// The fields the player puts research into; sociology follows them.
+inline constexpr int kResearchFields = 6;
+inline constexpr int kMaxTechLevel = 10;
+
 struct EmpireState {
     int credits = 0;
-    std::array<int, kTechFields> tech{}; // the level reached in each field
-    int researchPoints = 0;              // gathered, not yet spent
+    std::array<int, kTechFields> tech{};     // the level reached in each field
+    std::array<int, kTechFields> progress{}; // research points towards the next level
+    std::array<int, kResearchFields> share{17, 17, 17, 17, 16, 16}; // percent of research for each field
+    std::array<bool, kResearchFields> locked{};                     // shares kept when others change
+    int researchPoints = 0;              // gathered this turn
     int intelPoints = 0;
 };
 

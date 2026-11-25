@@ -31,7 +31,8 @@ struct Game {
 
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
-    std::vector<std::string> events; // for the player
+    std::vector<std::string> events;     // for the player: what the colonies finished
+    std::vector<std::string> researched; // the player's new technologies
 };
 TurnSummary endTurn(Game& game);
 

@@ -25,8 +25,10 @@ and with gamepad, mouse, keyboard and touch controls.
 > factories, power plants, research and intelligence, switch structures on
 > and off, choose what to build and buy it with credits. *Turn* ends the
 > turn: colonies grow, make food, industry, research and credits, and finish
-> what they build. Research, ships, the other empires and the rest of the
-> game come next. Buttons that do not work yet are shown dimmed.
+> what they build. On the research screen you share your research between
+> the six fields and see how far each has come. The marker window (right
+> click, Esc or B) takes you between the map, your systems, research and the
+> main menu. Ships, the other empires and the rest of the game come next. Buttons that do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.
@@ -103,8 +105,9 @@ itself. You can also give files when starting it:
 | Next / previous tab (system screen) | | Tab or Page Down / Page Up | RB / LB |
 | Choose from the build list, then build it | Click a line, then click it again | Arrow keys on the list, Enter | D-pad on the list, A |
 | Take an item out of the build queue | Click it | | A on it |
-| Back to the map (system screen) | Right click | Esc | B |
-| Back to the main menu while playing (*Continue* returns) | Right click | Esc | B |
+| Marker window: go to the map, your systems, research or the main menu | Right click | Esc | B |
+| Change a field's share of research | Click the bar or its arrows | | A on the arrows |
+| Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Full screen on or off | | F11 or Alt+Enter | |
 
 Settings on the set-up screen change with each click on their button. The

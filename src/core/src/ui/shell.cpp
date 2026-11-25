@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/ui/shell.hpp"
 
+#include <algorithm>
 #include <random>
 
 namespace nagus {
@@ -25,6 +26,8 @@ void Shell::show(Showing s) {
     setup_.reset();
     empires_.reset();
     system_.reset();
+    research_.reset();
+    marker_.reset();
     switch (s) {
     case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
     case Showing::Galaxy:
@@ -32,7 +35,8 @@ void Shell::show(Showing s) {
             galaxy_ = std::make_unique<GalaxyScreen>(assets_, *game_);
         }
         break;
-    case Showing::System: system_ = std::make_unique<SystemScreen>(assets_, *game_, galaxy_ ? galaxy_->chosenColony() : 0); break;
+    case Showing::System: system_ = std::make_unique<SystemScreen>(assets_, *game_, playerColony()); break;
+    case Showing::Research: research_ = std::make_unique<ResearchScreen>(assets_, *game_); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
     }
@@ -45,6 +49,7 @@ MenuScreen& Shell::screen() {
     case Showing::EmpireSelect: return *empires_;
     case Showing::Galaxy: return *galaxy_;
     case Showing::System: return *system_;
+    case Showing::Research: return *research_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -89,8 +94,9 @@ void Shell::settle() {
         }
         break;
     case Showing::System:
+    case Showing::Research:
         if (o == Outcome::Back) {
-            show(Showing::Galaxy);
+            openMarker();
         }
         break;
     }
@@ -107,14 +113,75 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
         drawParagraph(canvas, assets_.font(kNoticeFont), notice_, {box.x + 20, box.y + 20, box.w - 40, box.h - 40},
                       rgb(255, 204, 102));
     }
+    if (marker_) {
+        marker_->draw(canvas);
+    }
     if (pointerVisible_) {
         const Cursor& c = assets_.cursor(kPointer);
         canvas.draw(c.frame(ms), pointer_.x - c.hotX, pointer_.y - c.hotY);
     }
 }
 
+int Shell::playerColony() const {
+    if (galaxy_ && galaxy_->chosenColony() >= 0) {
+        return galaxy_->chosenColony();
+    }
+    // Else the player's home system, or their first colony.
+    int first = -1;
+    for (std::size_t i = 0; game_ && i < game_->colonies.size(); ++i) {
+        const Colony& c = game_->colonies[i];
+        if (c.owner == game_->player) {
+            if (c.home) {
+                return static_cast<int>(i);
+            }
+            first = first < 0 ? static_cast<int>(i) : first;
+        }
+    }
+    return first;
+}
+
+void Shell::openMarker() {
+    marker_ = std::make_unique<Panel>(assets_, std::string(1, "chfkr"[std::clamp(game_->player, 0, kEmpires - 1)]) + "marker.wdf");
+    const Rect r = marker_->layout().rect;
+    int w = 0;
+    int h = 0;
+    for (const auto& e : marker_->layout().elements) {
+        w = std::max(w, e.rect.x + e.rect.w);
+        h = std::max(h, e.rect.y + e.rect.h);
+    }
+    w = std::max(w, r.w);
+    h = std::max(h, r.h);
+    // Centred on the pointer, inside the screen.
+    marker_->setOrigin({std::clamp(pointer_.x - w / 2, 0, kScreenWidth - w), std::clamp(pointer_.y - h / 2, 0, kScreenHeight - h)});
+    marker_->setEnabled(kMarkerDiplomacy, false);
+    marker_->setEnabled(kMarkerIntel, false);
+    marker_->setEnabled(kMarkerSystem, playerColony() >= 0);
+    marker_->pointerMoved(pointer_);
+}
+
+std::optional<Rect> Shell::markerButton(std::uint32_t id) const {
+    if (!marker_ || marker_->layout().find(id) == nullptr) {
+        return std::nullopt;
+    }
+    return marker_->rect(id);
+}
+
+void Shell::markerChose(std::uint32_t id) {
+    switch (id) {
+    case kMarkerGalaxy: show(Showing::Galaxy); break;
+    case kMarkerSystem: show(Showing::System); break;
+    case kMarkerResearch: show(Showing::Research); break;
+    case kMarkerMenu: show(Showing::MainMenu); break;
+    default: break;
+    }
+}
+
 void Shell::pointerMoved(Point p) {
     pointer_ = p;
+    if (marker_) {
+        marker_->pointerMoved(p);
+        return;
+    }
     if (notice_.empty()) {
         screen().pointerMoved(p);
     }
@@ -122,6 +189,10 @@ void Shell::pointerMoved(Point p) {
 
 void Shell::pointerPressed(Point p) {
     pointer_ = p;
+    if (marker_) {
+        marker_->pointerPressed(p);
+        return;
+    }
     if (notice_.empty()) {
         screen().pointerPressed(p);
     }
@@ -132,6 +203,22 @@ void Shell::pointerReleased(Point p) {
     if (!notice_.empty()) {
         notice_.clear();
         show(Showing::MainMenu);
+        return;
+    }
+    if (marker_) {
+        const auto id = marker_->pointerReleased(p);
+        if (id) {
+            markerChose(*id);
+        } else if (!marker_->layout().elements.empty()) {
+            // A click beside the window closes it.
+            bool inside = false;
+            for (const auto& e : marker_->layout().elements) {
+                inside = inside || marker_->rect(e.id).contains(p.x, p.y);
+            }
+            if (!inside) {
+                marker_.reset();
+            }
+        }
         return;
     }
     screen().pointerReleased(p);
@@ -149,8 +236,17 @@ void Shell::command(Command c) {
         show(Showing::MainMenu);
         return;
     }
+    if (marker_) {
+        if (c == Command::Back) {
+            marker_.reset();
+        } else if (const auto jump = marker_->step(c, pointer_)) {
+            pointer_ = *jump;
+            marker_->pointerMoved(pointer_);
+        }
+        return;
+    }
     if (showing_ == Showing::Galaxy && c == Command::Back) {
-        show(Showing::MainMenu);
+        openMarker();
         return;
     }
     if (const auto jump = screen().command(c)) {
