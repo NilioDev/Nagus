@@ -18,6 +18,7 @@ add_library(ngs_core STATIC
     src/game/save.cpp
     src/game/ai.cpp
     src/game/combat.cpp
+    src/game/diplomacy.cpp
     src/game/game.cpp
     src/data/cursor.cpp
     src/game_files.cpp
@@ -27,6 +28,7 @@ add_library(ngs_core STATIC
     src/ui/screen.cpp
     src/ui/menus.cpp
     src/ui/load_save_screen.cpp
+    src/ui/diplomacy_screen.cpp
     src/ui/galaxy_screen.cpp
     src/ui/research_screen.cpp
     src/ui/shell.cpp

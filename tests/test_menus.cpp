@@ -5,6 +5,7 @@
 #include "nagus/settings.hpp"
 #include "nagus/ui/shell.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -308,4 +309,70 @@ NGS_TEST("saving from the main menu and loading the game again") {
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
     NGS_CHECK(saveGame(*shell.game(), {}) == before);
     fs::remove_all(dir);
+}
+
+NGS_TEST("the diplomacy screen: gifts and a declaration of war") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-diplomacy-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(6);
+    shell.command(Command::Start);
+    Game& game = const_cast<Game&>(*shell.game());
+    // Everyone meets everyone.
+    std::fill(game.explored.begin(), game.explored.end(), std::uint8_t{0x1f});
+    (void)endTurn(game);
+
+    shell.command(Command::Back);
+    const auto r = shell.markerButton(Shell::kMarkerDiplomacy);
+    NGS_CHECK(r.has_value());
+    click(shell, centre(*r));
+    NGS_CHECK(shell.showing() == Shell::Showing::Diplomacy);
+    DiplomacyScreen& d = *shell.diplomacyScreen();
+    NGS_CHECK(d.races().size() > kEmpires);
+    shell.draw(canvas, 0);
+
+    // A gift to a minor race, by clicking.
+    const auto minor = std::find_if(d.races().begin(), d.races().end(), [](int race) { return race >= kEmpires; });
+    NGS_CHECK(minor != d.races().end());
+    const int race = *minor;
+    const auto line = d.raceLine(static_cast<int>(minor - d.races().begin()));
+    if (line) {
+        click(shell, centre(*line));
+    } else {
+        d.choose(race);
+    }
+    NGS_CHECK(d.chosen() == race);
+    click(shell, centre(*d.button(DiplomacyScreen::kPropose)));
+    NGS_CHECK(d.tab() == DiplomacyScreen::Tab::Propose);
+    click(shell, centre(*d.button(DiplomacyScreen::kGift)));
+    NGS_CHECK(d.dialog() == DiplomacyScreen::Dialog::Gift);
+    shell.draw(canvas, 0);
+    const int credits = game.empires[1].credits;
+    const int before = regard(game, race, 1);
+    click(shell, centre(*d.button(DiplomacyScreen::kSend)));
+    NGS_CHECK(d.dialog() == DiplomacyScreen::Dialog::None);
+    NGS_CHECK(game.empires[1].credits < credits && regard(game, race, 1) > before && !d.reply().empty());
+
+    // War on the Klingons.
+    d.choose(3);
+    click(shell, centre(*d.button(DiplomacyScreen::kDeclareWar)));
+    NGS_CHECK(d.dialog() == DiplomacyScreen::Dialog::War);
+    click(shell, centre(*d.button(DiplomacyScreen::kSend)));
+    NGS_CHECK(atWar(game, 1, 3));
+    // The race information.
+    click(shell, centre(*d.button(DiplomacyScreen::kRaceInfo)));
+    NGS_CHECK(d.tab() == DiplomacyScreen::Tab::RaceInfo);
+    shell.draw(canvas, 0);
+    // Back opens the marker window.
+    shell.command(Command::Back);
+    NGS_CHECK(shell.markerOpen());
 }

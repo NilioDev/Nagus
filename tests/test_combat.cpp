@@ -51,7 +51,12 @@ NGS_TEST("battles, attacks on systems and invasions") {
     settings.empire = 1;
     Game g = newGame(settings, loadGalaxyData(res, lex), economy, 3);
     g.fleets.clear();
-    NGS_CHECK(hostile(g, 0, 1) && !hostile(g, 1, 1) && !hostile(g, 1, 7));
+    // Only races at war fight.
+    NGS_CHECK(!hostile(g, 0, 1));
+    for (auto& r : g.relations) {
+        r.treaty = Treaty::War;
+    }
+    NGS_CHECK(hostile(g, 0, 1) && !hostile(g, 1, 1));
 
     // Two Klingon cruisers meet a Federation scout in empty space.
     const int home = g.galaxy.homes[1];

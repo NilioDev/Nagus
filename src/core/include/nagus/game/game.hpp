@@ -12,6 +12,24 @@
 
 namespace nagus {
 
+// Treaties between an empire and another race, from war to membership (a
+// minor race joining the empire). None: they have not met.
+enum class Treaty : std::uint8_t { None, War, Neutral, NonAggression, Friendship, Affiliation, Alliance, Membership };
+inline constexpr int kTreaties = 8;
+
+struct Relation {
+    Treaty treaty = Treaty::None;
+    int regard = 50; // how the race thinks of the empire
+    int since = 0;   // the turn the treaty began
+};
+
+// A proposal from a computer player, waiting for the player's answer.
+struct Offer {
+    int from = -1;
+    Treaty treaty = Treaty::None;
+    int turn = 0;
+};
+
 struct Game {
     GameSettings settings;
     Galaxy galaxy;
@@ -20,6 +38,8 @@ struct Game {
     // From the game's tables, for showing the galaxy.
     std::vector<std::string> kindCodes; // map object kinds (see StarObjectKind)
     std::vector<std::string> raceNames;
+    std::vector<RaceInfo> races; // pictures and character, by race
+
 
     EconomyData economy;
     std::vector<Colony> colonies;
@@ -28,6 +48,10 @@ struct Game {
     int nextFleetId = 1;
     // For each sector (y * width + x), a bit for each empire that has seen it.
     std::vector<std::uint8_t> explored;
+    // For each empire and race (empire * races + race): see Relation. The
+    // treaty between two empires is kept both ways.
+    std::vector<Relation> relations;
+    std::vector<Offer> offers; // to the player
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
@@ -76,6 +100,15 @@ struct Assault {
     bool captured = false;
 };
 
+// Something that happened between two races, for the turn report: a
+// lexicon text with %1 (race a) and %2 (race b), or one of our own (see
+// diplomacy.hpp).
+struct DiplomacyEvent {
+    std::size_t text = 0;
+    int a = -1;
+    int b = -1;
+};
+
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
     std::vector<std::string> events;     // for the player: what the colonies finished
@@ -83,6 +116,7 @@ struct TurnSummary {
     std::vector<std::string> colonized;  // systems the player colonized
     std::vector<Battle> battles;         // those the player fought in
     std::vector<Assault> assaults;       // on or by the player
+    std::vector<DiplomacyEvent> diplomacy;
 };
 TurnSummary endTurn(Game& game);
 

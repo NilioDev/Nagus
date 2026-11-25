@@ -9,8 +9,7 @@
 
 namespace nagus {
 
-// Whether two owners fight when they meet. Until diplomacy, the empires are
-// at war with each other and leave the minor races alone.
+// Whether two owners fight when they meet: when they are at war.
 bool hostile(const Game& game, int a, int b);
 
 // What a ship does to an enemy in one round, and what its shields stop.

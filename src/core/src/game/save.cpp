@@ -87,6 +87,16 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
     for (const auto& n : g.raceNames) {
         w.text(n);
     }
+    w.u32(static_cast<std::uint32_t>(g.races.size()));
+    for (const auto& r : g.races) {
+        w.text(r.name);
+        w.text(r.picture);
+        for (const int a : r.attitude) {
+            w.i32(a);
+        }
+        w.i32(r.aggression);
+        w.u32(r.description);
+    }
 
     const Galaxy& gal = g.galaxy;
     w.i32(gal.width);
@@ -157,6 +167,19 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.u8(b);
     }
 
+    w.u32(static_cast<std::uint32_t>(g.relations.size()));
+    for (const auto& r : g.relations) {
+        w.u8(static_cast<std::uint32_t>(r.treaty));
+        w.i32(r.regard);
+        w.i32(r.since);
+    }
+    w.u32(static_cast<std::uint32_t>(g.offers.size()));
+    for (const auto& o : g.offers) {
+        w.i32(o.from);
+        w.u8(static_cast<std::uint32_t>(o.treaty));
+        w.i32(o.turn);
+    }
+
     w.i32(g.nextFleetId);
     w.u32(static_cast<std::uint32_t>(g.fleets.size()));
     for (const auto& f : g.fleets) {
@@ -216,6 +239,17 @@ Game loadGame(ByteView data, const EconomyData& economy) {
     }
     for (std::uint32_t i = 0, n = count(r, kMaxNames); i < n; ++i) {
         g.raceNames.push_back(readText(r));
+    }
+    for (std::uint32_t i = 0, n = count(r, kMaxNames); i < n; ++i) {
+        RaceInfo race;
+        race.name = readText(r);
+        race.picture = readText(r);
+        for (int& a : race.attitude) {
+            a = number(r, 0, 255);
+        }
+        race.aggression = number(r, 0, 1000);
+        race.description = r.u32();
+        g.races.push_back(std::move(race));
     }
 
     Galaxy& gal = g.galaxy;
@@ -314,6 +348,33 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         throw FormatError("damaged saved game");
     }
     g.explored.assign(seen.begin(), seen.end());
+
+    const std::uint32_t relations = count(r, static_cast<std::uint32_t>(kEmpires * g.races.size()));
+    if (relations != 0 && relations != kEmpires * g.races.size()) {
+        throw FormatError("damaged saved game");
+    }
+    for (std::uint32_t i = 0; i < relations; ++i) {
+        Relation rel;
+        const int t = r.u8();
+        if (t >= kTreaties) {
+            throw FormatError("damaged saved game");
+        }
+        rel.treaty = static_cast<Treaty>(t);
+        rel.regard = number(r, 0, kBig);
+        rel.since = number(r, 0, kBig);
+        g.relations.push_back(rel);
+    }
+    for (std::uint32_t i = 0, n = count(r, kEmpires); i < n; ++i) {
+        Offer o;
+        o.from = number(r, 0, kEmpires - 1);
+        const int t = r.u8();
+        if (t >= kTreaties) {
+            throw FormatError("damaged saved game");
+        }
+        o.treaty = static_cast<Treaty>(t);
+        o.turn = number(r, 0, kBig);
+        g.offers.push_back(o);
+    }
 
     g.nextFleetId = number(r, 1, kBig);
     for (std::uint32_t i = 0, n = count(r, kMaxFleets); i < n; ++i) {

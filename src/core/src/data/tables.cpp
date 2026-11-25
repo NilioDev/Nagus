@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/data/tables.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 namespace nagus {
@@ -37,8 +38,30 @@ std::vector<RaceInfo> readRaces(ByteView data) {
         Reader rec(data, 2 + i * kRaceRecord);
         races[i].name = rec.text(40);
         races[i].picture = rec.text(16);
+        rec.seek(2 + i * kRaceRecord + 60);
+        races[i].description = rec.u32();
+        rec.seek(2 + i * kRaceRecord + 72);
+        for (int& a : races[i].attitude) {
+            a = rec.u8();
+        }
+        rec.seek(2 + i * kRaceRecord + 104);
+        const std::uint32_t bits = rec.u32();
+        float factor = 1;
+        static_assert(sizeof factor == sizeof bits);
+        std::memcpy(&factor, &bits, sizeof factor);
+        races[i].aggression = factor >= 0.25f && factor <= 4.0f ? static_cast<int>(factor * 100 + 0.5f) : 100;
     }
     return races;
+}
+
+std::string textAt(ByteView data, std::uint32_t offset) {
+    constexpr std::size_t kMaxText = 64 * 1024;
+    if (offset >= data.size()) {
+        return {};
+    }
+    const auto rest = data.subspan(offset, std::min(data.size() - offset, kMaxText));
+    const auto end = std::find(rest.begin(), rest.end(), std::uint8_t{0});
+    return std::string(rest.begin(), end);
 }
 
 std::vector<StarObjectKind> readStarObjectKinds(ByteView data) {

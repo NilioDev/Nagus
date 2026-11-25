@@ -37,4 +37,5 @@ Credits over a reserve of 150 buy what is being built, colony ships first.
 - Troop transports go to a system the empire's warships are attacking, and
   join the attack.
 
-Research keeps the starting shares.
+Research keeps the starting shares. What they do in diplomacy is in
+[diplomacy](diplomacy.md).
