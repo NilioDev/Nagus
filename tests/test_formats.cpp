@@ -9,6 +9,7 @@
 #include "nagus/data/layout.hpp"
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
+#include "nagus/data/tables.hpp"
 #include "nagus/data/zip_archive.hpp"
 
 using namespace nagus;
@@ -148,4 +149,55 @@ NGS_TEST("all layouts, fonts, pointers and texts of the original read") {
     NGS_CHECK(lex.size() == 1460);
     NGS_CHECK(lex[text::kAccept] == "Accept");
     NGS_CHECK(lex[text::kCancel] == "Cancel");
+}
+
+NGS_TEST("tables of races, stars, home systems and technologies") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const Resources res(*lib);
+    const auto races = readRaces(res.file("race.rst"));
+    NGS_CHECK(races.size() == 35);
+    NGS_CHECK(races[0].name == "Cardassians" && races[4].name == "Romulans");
+    NGS_CHECK(races[0].picture == "cardn_02.tga");
+    const auto kinds = readStarObjectKinds(res.file("objstruc.smt"));
+    NGS_CHECK(kinds.size() == 12);
+    float total = 0;
+    for (const auto& k : kinds) {
+        total += k.share;
+    }
+    NGS_CHECK(total > 0.99f && total < 1.01f);
+    NGS_CHECK(kinds[6].code == "s-y-" && kinds[3].code == "ns");
+    NGS_CHECK(res.has(kinds[6].code + "map.tga"));
+    const auto names = readStarNames(res.file("starname.bin"));
+    NGS_CHECK(names.size() == 297 && names[0] == "Exo");
+    const auto home = readHomePlanets(res.file("meplanet.bin"));
+    NGS_CHECK(home.size() == 30 && home[8].name == "Earth" && home[8].race == "Federation");
+    const auto techs = readTechTree(res.file("techtree.tec"));
+    NGS_CHECK(techs.size() == 77);
+    NGS_CHECK(techs[2].name == "Bionics" && techs[2].level == 2 && techs[2].cost == 200);
+    NGS_CHECK(techs[65].field == TechField::Weapons && techs[65].level == 10);
+}
+
+NGS_TEST("table readers refuse damaged tables") {
+    for (const Bytes& bad : {Bytes{}, Bytes{1}, Bytes{0xff, 0xff, 0, 0}}) {
+        bool threw = false;
+        try {
+            readRaces(bad);
+            readStarNames(bad);
+        } catch (const FormatError&) {
+            threw = true;
+        }
+        NGS_CHECK(threw);
+    }
+    Bytes tech(72, 0);
+    tech[0x37] = 9; // no such field
+    bool threw = false;
+    try {
+        readTechTree(tech);
+    } catch (const FormatError&) {
+        threw = true;
+    }
+    NGS_CHECK(threw);
 }

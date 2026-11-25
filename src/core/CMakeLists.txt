@@ -9,6 +9,7 @@ add_library(ngs_core STATIC
     src/data/layout.cpp
     src/data/font.cpp
     src/data/lexicon.cpp
+    src/data/tables.cpp
     src/data/cursor.cpp
     src/game_files.cpp
     src/settings.cpp
