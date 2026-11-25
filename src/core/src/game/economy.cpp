@@ -89,7 +89,7 @@ ColonyOutput colonyOutput(const Colony& c, const EconomyData& data) {
     int creditsPercent = 0;
     // Structures: those that need no energy always work; the others work
     // while switched on and while there is energy for them, in order.
-    int energyLeft = out.made[static_cast<std::size_t>(indexOf(Output::Energy))];
+    int energyLeft = out.made[static_cast<std::size_t>(indexOf(Output::Energy))] * (100 + c.energyBonus) / 100;
     for (const auto& s : c.structures) {
         const Building* b = buildingAt(data, s.building);
         if (b == nullptr) {
@@ -132,6 +132,8 @@ ColonyOutput colonyOutput(const Colony& c, const EconomyData& data) {
         default: break;
         }
     }
+    percent[static_cast<std::size_t>(indexOf(Output::Food))] += c.foodBonus;
+    percent[static_cast<std::size_t>(indexOf(Output::Energy))] += c.energyBonus;
     for (int o = 0; o < kOutputs; ++o) {
         auto& v = out.made[static_cast<std::size_t>(o)];
         v = v * (100 + percent[static_cast<std::size_t>(o)]) / 100;
@@ -402,6 +404,9 @@ TurnReport colonyTurn(Colony& c, const EconomyData& data) {
     if (c.queue.empty()) {
         report.credits += industry;
         return report;
+    }
+    if (c.dilithium && c.queue.front().kind == BuildItem::Kind::Ship) {
+        industry = industry * (100 + kDilithiumPercent) / 100;
     }
     c.progress += industry;
     while (!c.queue.empty()) {

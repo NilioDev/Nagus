@@ -62,9 +62,25 @@ The buttons below the map choose its mode: *Economic*, *Military* or
 *Events*. Each mode keeps its own choice of layers from the *Overlay* menu:
 system names, the edges of the player's ship ranges (short green, medium
 yellow, long red), the paths of the player's moving fleets, colony
-defences (firepower, and "+" with shields), territory, what the player's
-colonies build, and each colony's population. Economic starts with names,
-territory, build orders and population; Military with names, territory,
-ranges, paths and defences; Events with names, territory and paths. In
-Events mode the panel below the map lists last turn's events. Trade routes
-and system bonuses are not part of Nagus yet, so their switches are dimmed.
+defences (firepower, and "+" with shields), territory, trade routes, what
+the player's colonies build, each colony's population, and the systems'
+bonuses (top left of the sector: D for dilithium, F for a food and E for an
+energy bonus). Economic starts with names, territory, trade routes, build
+orders and population; Military with names, territory, ranges, paths and
+defences; Events with names, territory and paths. In Events mode the panel
+below the map lists last turn's events. Below the map, a dot before a
+planet's name marks its bonus (green food, yellow energy).
+
+## Bonuses
+
+The original's galaxies have dilithium and planets with food and energy
+bonuses; how it places them (`planboni.bin` may hold the odds) is not
+known, so Nagus places them its own way, from a random stream of their own
+so that the rest of a galaxy is the same as without them:
+
+- Dilithium in each empire's home system and in a fifth of the other star
+  systems.
+- A food bonus on 15% of jungle, oceanic and terran planets; an energy
+  bonus on 12% of barren, desert, gas giant and volcanic planets.
+
+What they do is in [the economy](economy.md#bonuses).

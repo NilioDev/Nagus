@@ -306,8 +306,15 @@ void SystemScreen::drawSummary(Canvas& canvas, std::uint64_t ms) {
             // Holds nobody until terraformed: the work it takes.
             kind += "   " + lex[1257] + " " + std::to_string(terraformCost(p));
         }
+        if (p.bonus != kNoBonus) {
+            // Food (lexicon 365) or energy (279), and how much it adds.
+            kind += "   " + lex[p.bonus == kFoodBonus ? 365 : 279] + " bonus " + std::to_string(kPlanetBonusPercent);
+        }
         canvas.text(small, kind, middle.x + 120, y + lineH / 2 + 2, kDim);
         y += lineH;
+    }
+    if (s.dilithium) {
+        canvas.text(small, lex[240], middle.x + 120, middle.y + 32, kText); // "Dilithium Present"
     }
 }
 

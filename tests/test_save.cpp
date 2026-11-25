@@ -77,6 +77,16 @@ NGS_TEST("a game in progress saves and loads the same") {
     NGS_CHECK(back.turn == g.turn && back.player == g.player);
     NGS_CHECK(back.colonies.size() == g.colonies.size() && back.fleets.size() == g.fleets.size());
     NGS_CHECK(back.galaxy.systems.size() == g.galaxy.systems.size());
+    // Bonuses come back, and the colonies' share of them.
+    for (std::size_t i = 0; i < g.galaxy.systems.size(); ++i) {
+        NGS_CHECK(back.galaxy.systems[i].dilithium == g.galaxy.systems[i].dilithium);
+        for (std::size_t k = 0; k < g.galaxy.systems[i].planets.size(); ++k) {
+            NGS_CHECK(back.galaxy.systems[i].planets[k].bonus == g.galaxy.systems[i].planets[k].bonus);
+        }
+    }
+    for (std::size_t i = 0; i < g.colonies.size(); ++i) {
+        NGS_CHECK(back.colonies[i].foodBonus == g.colonies[i].foodBonus && back.colonies[i].dilithium == g.colonies[i].dilithium);
+    }
     NGS_CHECK(saveGame(back, info) == saved);
     // Both go on the same way.
     (void)endTurn(g);

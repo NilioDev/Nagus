@@ -28,7 +28,9 @@ and with gamepad, mouse, keyboard and touch controls.
 > what they build. *Economic*, *Military* and *Events* below the map switch
 > the map's mode, each with its own layers chosen under *Overlay* (system
 > names, ship ranges, paths, defences, territory, trade routes, build
-> orders, population); *Events* lists last turn's events below the map. In
+> orders, population, bonuses); *Events* lists last turn's events below the
+> map. Some systems have dilithium, which speeds up building ships, and some
+> planets a food or energy bonus for the colony that terraforms them. In
 > *Economic* mode, one of your systems shows its trade routes on the left:
 > click *Trade Routes* and then a system of a race you have a friendship
 > (or better) with to trade, and earn credits each turn. *Summary*

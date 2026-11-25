@@ -837,8 +837,32 @@ void colonize(Game& game, TurnSummary& summary) {
 
 } // namespace
 
+void refreshBonuses(Game& game) {
+    for (auto& c : game.colonies) {
+        c.foodBonus = 0;
+        c.energyBonus = 0;
+        c.dilithium = false;
+        if (c.system < 0 || static_cast<std::size_t>(c.system) >= game.galaxy.systems.size()) {
+            continue;
+        }
+        const StarSystem& s = game.galaxy.systems[static_cast<std::size_t>(c.system)];
+        c.dilithium = s.dilithium;
+        for (const Planet& p : s.planets) {
+            if (!p.terraformed) {
+                continue;
+            }
+            if (p.bonus == kFoodBonus) {
+                c.foodBonus += kPlanetBonusPercent;
+            } else if (p.bonus == kEnergyBonus) {
+                c.energyBonus += kPlanetBonusPercent;
+            }
+        }
+    }
+}
+
 TurnSummary beginEndTurn(Game& game) {
     TurnSummary summary;
+    refreshBonuses(game);
     // The computer players give their orders.
     for (int e = 0; e < kEmpires; ++e) {
         if (!game.isHuman(e)) {
@@ -915,6 +939,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
         game.ending = checkEnding(game);
         summary.ending = game.ending;
     }
+    refreshBonuses(game);
     game.turn += 1;
 }
 
@@ -965,6 +990,7 @@ Game newGame(const GameSettings& settings, const GalaxyData& data, const Economy
     }
     startDiplomacy(g, data.races);
     explore(g);
+    refreshBonuses(g);
     return g;
 }
 

@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 7;
+constexpr std::uint32_t kVersion = 8;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -115,6 +115,7 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.text(sys.name);
         w.i32(sys.race);
         w.u8(sys.star ? 1 : 0);
+        w.u8(sys.dilithium ? 1 : 0);
         w.u32(static_cast<std::uint32_t>(sys.planets.size()));
         for (const auto& p : sys.planets) {
             w.text(p.name);
@@ -122,6 +123,7 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
                 w.i32(v);
             }
             w.u8(p.terraformed ? 1 : 0);
+            w.u8(static_cast<std::uint8_t>(p.bonus));
         }
     }
 
@@ -327,6 +329,8 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         sys.name = readText(r);
         sys.race = number(r, -1, static_cast<int>(kMaxNames));
         sys.star = r.u8() != 0;
+        // Bonuses came with version 8.
+        sys.dilithium = version >= 8 && r.u8() != 0;
         for (std::uint32_t k = 0, n = count(r, kMaxPlanets); k < n; ++k) {
             Planet p;
             p.name = readText(r);
@@ -337,6 +341,12 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             p.variant = number(r, 0, 100);
             // Before version 6 every planet counted as terraformed.
             p.terraformed = version < 6 || r.u8() != 0;
+            if (version >= 8) {
+                p.bonus = r.u8();
+                if (p.bonus > kEnergyBonus) {
+                    throw FormatError("bad planet bonus");
+                }
+            }
             sys.planets.push_back(p);
         }
         gal.systems.push_back(std::move(sys));
@@ -552,6 +562,7 @@ Game loadGame(ByteView data, const EconomyData& economy) {
     if (r.left() != 0) {
         throw FormatError("damaged saved game");
     }
+    refreshBonuses(g);
     return g;
 }
 
