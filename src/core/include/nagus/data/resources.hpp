@@ -2,9 +2,11 @@
 //
 // The game's resources as the engine sees them: the files in the main
 // resource archive (STBOF.RES), with the 1.0.2 patch's files taking their
-// place where it has them. Names are compared without regard to case.
+// place where it has them, and the second archive (alt.res) for the files
+// the first does not have. Names are compared without regard to case.
 #pragma once
 
+#include "nagus/data/lz_archive.hpp"
 #include "nagus/data/zip_archive.hpp"
 #include "nagus/util/bytes.hpp"
 
@@ -37,6 +39,7 @@ public:
 private:
     std::filesystem::path base_;
     std::unique_ptr<ZipArchive> archive_;
+    std::unique_ptr<LzArchive> alt_; // may be missing
     std::map<std::string, Bytes> overrides_;
 };
 

@@ -6,6 +6,7 @@
 #include "nagus/game/diplomacy.hpp"
 #include "nagus/game/intel.hpp"
 #include "nagus/game/research.hpp"
+#include "nagus/game/victory.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -319,6 +320,11 @@ TurnSummary endTurn(Game& game) {
     }
     explore(game);
     summary.diplomacy = diplomacyTurn(game, battles, assaults);
+    summary.fallen = removeFallenEmpires(game);
+    if (game.ending == Ending::None) {
+        game.ending = checkEnding(game);
+        summary.ending = game.ending;
+    }
     game.turn += 1;
     return summary;
 }

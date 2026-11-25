@@ -9,6 +9,8 @@
 #include "nagus/settings.hpp"
 #include "nagus/sound/jukebox.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
+#include "nagus/ui/ending_screen.hpp"
+#include "nagus/ui/fame_screen.hpp"
 #include "nagus/ui/film_screen.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/intel_screen.hpp"
@@ -42,7 +44,7 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -54,6 +56,10 @@ public:
     IntelScreen* intelScreen() { return intel_.get(); }
     LoadSaveScreen* loadSaveScreen() { return loadSave_.get(); }
     FilmScreen* filmScreen() { return film_.get(); }
+    EndingScreen* endingScreen() { return ending_.get(); }
+    FameScreen* fameScreen() { return fame_.get(); }
+    // The hall of fame: next to the settings file.
+    std::filesystem::path fameFile() const { return settingsFile_.parent_path() / "fame.txt"; }
     // Turns the films on (the app does; tests leave them off) and plays the
     // opening film.
     void enableFilms();
@@ -108,6 +114,12 @@ private:
     std::unique_ptr<LoadSaveScreen> loadSave_;
     std::unique_ptr<Panel> marker_;
     std::unique_ptr<FilmScreen> film_;
+    std::unique_ptr<EndingScreen> ending_;
+    std::unique_ptr<FameScreen> fame_;
+    int fameRow_ = -1;
+    // The game has ended: its score goes into the hall of fame, the
+    // ending's pictures show (unless retired), then the hall of fame.
+    void finishGame();
     Showing afterFilm_ = Showing::MainMenu;
     bool films_ = false;
     // Plays a film, then shows `next`; shows `next` at once if the film

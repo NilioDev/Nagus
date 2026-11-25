@@ -39,6 +39,8 @@ count and then its entries.
 | Explored sectors: one byte for each sector (y × width + x), a bit for each empire, or none | list of u8 |
 | Relations, for each empire and race (empire × races + race) | list, see below |
 | Intelligence reports, oldest first (at most 60) | list, see below |
+| Empires out of the game | 5 × u8 |
+| How the game ended (0 not yet, 1 conquest, 2 domination, 3 allies, 4 defeat, 5 retired) | u8 |
 | Proposals waiting for the player | list, see below |
 | Next fleet number | i32 |
 | Fleets | list, see below |

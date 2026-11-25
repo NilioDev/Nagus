@@ -42,6 +42,24 @@ manifest is written last.
 
 ## Resource archives
 
-`STBOF.RES` and `ALT.RES` are ordinary zip archives (stored and deflated
-entries). Names are matched without regard to case. Files in
-`library/base/patch` take the place of the archive's files with the same name.
+`STBOF.RES` is an ordinary zip archive (stored and deflated entries).
+Names are matched without regard to case. Files in `library/base/patch`
+take the place of the archive's files with the same name.
+
+`ALT.RES` holds the end-of-game pictures, for files `STBOF.RES` does not
+have. It is our own reading:
+
+| Field | Type |
+| --- | --- |
+| Name ("alt.res") | 16 bytes |
+| Where the list is | u32 |
+| Number of files | u32 |
+| The packed files | bytes |
+| The list: for each file name (16 bytes), offset, number, size, packed size, method (0 stored, 1 LZSS), a check value we do not use | 16 bytes + 6 × u32 |
+
+LZSS: a flag byte comes before each eight items, lowest bit first. A set
+bit is a byte as it is; a clear bit is two bytes `a b`: copy
+`(a >> 4) + 2` bytes from place `(a & 15) << 8 | b` of a 4096-byte window.
+Every byte unpacked also goes into the window, starting at place 1; the
+window starts as zeros. The reader checks that every file lies inside the
+archive and stops when the packed data runs out.

@@ -12,7 +12,7 @@
 namespace nagus {
 
 // What a screen asks the shell to do next.
-enum class Outcome { None, NewGame, Continue, Back, Accept, Quit, Open, Save, Load };
+enum class Outcome { None, NewGame, Continue, Back, Accept, Quit, Open, Save, Load, HallOfFame, Retire };
 
 class MenuScreen : public Screen {
 public:
