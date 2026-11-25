@@ -64,7 +64,7 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     // A disabled button does nothing.
-    click(shell, centre(element(assets, "opening.wdf", MainMenu::kHallOfFame)));
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kOptions)));
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
@@ -465,4 +465,60 @@ NGS_TEST("films: the opening film and the empire's film") {
     // At its end the game begins.
     shell.draw(canvas, 60 * 1000);
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+}
+
+NGS_TEST("the end of a game: pictures, speech and the hall of fame") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-ending";
+    fs::remove_all(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    // The pictures come from the second archive.
+    NGS_CHECK(assets.image("hw.tga").width == 800 && assets.image("hw.tga").height == 600);
+    Shell shell(res, dir / "settings.txt");
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(9);
+    shell.command(Command::Start);
+    Game& game = const_cast<Game&>(*shell.game());
+    NGS_CHECK(game.player == 1);
+    game.ending = Ending::Domination;
+    shell.draw(canvas, 0);
+    NGS_CHECK(shell.showing() == Shell::Showing::Ending && shell.game() == nullptr);
+    NGS_CHECK(shell.endingScreen()->picture() == "hw.tga" && shell.jukebox().soundsPlaying());
+    NGS_CHECK(shell.wantedTrack() == -1);
+    shell.draw(canvas, 7000); // past the first wait
+    NGS_CHECK(shell.endingScreen()->picture() == "h_fchq.tga");
+    // A click goes on to the hall of fame, with this game in it.
+    click(shell, {400, 300});
+    NGS_CHECK(shell.showing() == Shell::Showing::Fame);
+    NGS_CHECK(shell.fameScreen()->entries().size() == 1);
+    NGS_CHECK(shell.fameScreen()->entries()[0].description.rfind("Victory by domination", 0) == 0);
+    shell.draw(canvas, 0);
+    shell.command(Command::Back);
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+
+    // The hall of fame from the main menu.
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kHallOfFame)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Fame && shell.fameScreen()->entries().size() == 1);
+    click(shell, centre(element(assets, "fame.wdf", FameScreen::kReturn)));
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+
+    // Retiring from a game.
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.command(Command::Start);
+    shell.command(Command::Back);
+    const auto menu = shell.markerButton(Shell::kMarkerMenu);
+    NGS_CHECK(menu.has_value());
+    click(shell, centre(*menu));
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kRetire)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Fame && shell.game() == nullptr);
+    NGS_CHECK(shell.fameScreen()->entries().size() == 2);
+    fs::remove_all(dir);
 }

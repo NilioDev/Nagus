@@ -9,7 +9,7 @@ original does, with the same rules and screens, scaled sharply to any screen
 and with gamepad, mouse, keyboard and touch controls.
 
 > [!NOTE]
-> **Status: just started.** Nagus imports your game (the CD image, the zip
+> **Status: playable from start to end.** Nagus imports your game (the CD image, the zip
 > it came in, a copy of the CD or the installed game folder) and the
 > official 1.0.2 patch, and shows the original's main menu with its own
 > pictures, fonts and pointer. *New Single Player Game* opens the game
@@ -47,9 +47,13 @@ and with gamepad, mouse, keyboard and touch controls.
 > empires. The original's music plays, the main theme in the menus and
 > your empire's theme in the game, and buttons click. The opening film plays
 > when Nagus starts, and your empire's film when a new game begins (any
-> click, Enter, Esc or gamepad button skips it). The end of the game comes
-> next. Buttons that do not work yet are shown
-> dimmed.
+> click, Enter, Esc or gamepad button skips it). A game ends in victory by
+> conquest, by domination or (in team play) with allies, or in defeat; you
+> can also retire from the main menu. The original's end pictures and
+> speech then play, and the game goes into the hall of fame (main menu).
+> Not there yet: tactical combat (battles are resolved automatically),
+> multiplayer, the options screen and random events. Buttons that do not
+> work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.

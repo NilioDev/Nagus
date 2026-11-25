@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/ui/shell.hpp"
 
+#include "nagus/game/victory.hpp"
+
 #include <algorithm>
 #include <ctime>
 #include <random>
@@ -58,8 +60,17 @@ void Shell::show(Showing s) {
     if (s != Showing::Film) {
         film_.reset();
     }
+    if (s != Showing::Ending) {
+        ending_.reset();
+    }
+    fame_.reset();
     switch (s) {
-    case Showing::Film: break;
+    case Showing::Film:
+    case Showing::Ending: break;
+    case Showing::Fame:
+        fame_ = std::make_unique<FameScreen>(assets_, loadFame(fameFile()), fameRow_);
+        fameRow_ = -1;
+        break;
     case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
     case Showing::Galaxy:
         if (!galaxy_) {
@@ -97,9 +108,44 @@ MenuScreen& Shell::screen() {
     case Showing::Save:
     case Showing::Load: return *loadSave_;
     case Showing::Film: return *film_;
+    case Showing::Ending: return *ending_;
+    case Showing::Fame: return *fame_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
+}
+
+void Shell::finishGame() {
+    const Game& g = *game_;
+    static const char* const kHow[kEndings] = {"", "Victory by conquest", "Victory by domination", "Victory with allies",
+                                              "Defeat", "Retired"};
+    FameEntry entry;
+    entry.score = score(g);
+    const int me = std::clamp(g.player, 0, kEmpires - 1);
+    entry.name = static_cast<std::size_t>(me) < g.raceNames.size() ? g.raceNames[static_cast<std::size_t>(me)] : "?";
+    entry.description = std::string(kHow[static_cast<int>(g.ending)]) + " on turn " + std::to_string(g.turn - 1);
+    auto entries = loadFame(fameFile());
+    fameRow_ = addFame(entries, entry);
+    saveFame(fameFile(), entries);
+    // The ending's pictures and speech, from the original's script.
+    std::vector<ScriptStep> script;
+    const std::string kind = endingName(g.ending);
+    if (!kind.empty()) {
+        const std::string name = std::string(1, "chfkr"[me]) + "eog" + kind + ".scr";
+        try {
+            const Bytes text = assets_.resources().file(name);
+            script = readEndingScript(std::string_view(reinterpret_cast<const char*>(text.data()), text.size()));
+        } catch (const FormatError&) {
+        }
+    }
+    game_.reset();
+    galaxy_.reset();
+    if (script.empty()) {
+        show(Showing::Fame);
+        return;
+    }
+    ending_ = std::make_unique<EndingScreen>(assets_, jukebox_, std::move(script));
+    show(Showing::Ending);
 }
 
 void Shell::enableFilms() {
@@ -131,6 +177,16 @@ void Shell::settle() {
             show(afterFilm_);
         }
         break;
+    case Showing::Ending:
+        if (o != Outcome::None) {
+            show(Showing::Fame);
+        }
+        break;
+    case Showing::Fame:
+        if (o == Outcome::Back) {
+            show(Showing::MainMenu);
+        }
+        break;
     case Showing::MainMenu:
         if (o == Outcome::NewGame) {
             show(Showing::GameSetup);
@@ -142,6 +198,11 @@ void Shell::settle() {
             show(Showing::Load);
         } else if (o == Outcome::Quit) {
             quit_ = true;
+        } else if (o == Outcome::HallOfFame) {
+            show(Showing::Fame);
+        } else if (o == Outcome::Retire && game_) {
+            game_->ending = Ending::Retired;
+            finishGame();
         }
         break;
     case Showing::Save:
@@ -196,7 +257,7 @@ void Shell::settle() {
 }
 
 int Shell::wantedTrack() const {
-    if (showing_ == Showing::Film) {
+    if (showing_ == Showing::Film || showing_ == Showing::Ending) {
         return -1;
     }
     const bool inGame = game_ && showing_ != Showing::MainMenu && showing_ != Showing::GameSetup &&
@@ -218,10 +279,16 @@ void Shell::updateSound() {
 }
 
 void Shell::draw(Canvas& canvas, std::uint64_t ms) {
+    // A game that has ended goes to its end.
+    if (game_ && game_->ending != Ending::None && marker_ == nullptr &&
+        (showing_ == Showing::Galaxy || showing_ == Showing::System || showing_ == Showing::Research ||
+         showing_ == Showing::Diplomacy || showing_ == Showing::Intel)) {
+        finishGame();
+    }
     updateSound();
     canvas.clear();
     screen().draw(canvas, ms);
-    if (showing_ == Showing::Film && film_->done()) {
+    if ((showing_ == Showing::Film && film_->done()) || (showing_ == Showing::Ending && ending_->done())) {
         settle();
         return draw(canvas, ms);
     }
@@ -236,7 +303,7 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     if (marker_) {
         marker_->draw(canvas);
     }
-    if (pointerVisible_ && showing_ != Showing::Film) {
+    if (pointerVisible_ && showing_ != Showing::Film && showing_ != Showing::Ending) {
         const Cursor& c = assets_.cursor(kPointer);
         canvas.draw(c.frame(ms), pointer_.x - c.hotX, pointer_.y - c.hotY);
     }

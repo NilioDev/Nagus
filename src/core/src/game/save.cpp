@@ -200,6 +200,10 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.i32(ir.value);
         w.i32(ir.system);
     }
+    for (const bool o : g.out) {
+        w.u8(o ? 1 : 0);
+    }
+    w.u8(static_cast<std::uint32_t>(g.ending));
     w.u32(static_cast<std::uint32_t>(g.offers.size()));
     for (const auto& o : g.offers) {
         w.i32(o.from);
@@ -430,6 +434,14 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         ir.system = number(r, -1, static_cast<int>(systems) - 1);
         g.intelReports.push_back(ir);
     }
+    for (auto& o : g.out) {
+        o = r.u8() != 0;
+    }
+    const int ending = r.u8();
+    if (ending >= kEndings) {
+        throw FormatError("damaged saved game");
+    }
+    g.ending = static_cast<Ending>(ending);
     for (std::uint32_t i = 0, n = count(r, kEmpires); i < n; ++i) {
         Offer o;
         o.from = number(r, 0, kEmpires - 1);

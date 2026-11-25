@@ -3,6 +3,7 @@ configure_file(version.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/generated/nagus/versi
 add_library(ngs_core STATIC
     src/util/inflate.cpp
     src/data/zip_archive.cpp
+    src/data/lz_archive.cpp
     src/data/cd_stream.cpp
     src/data/resources.cpp
     src/data/image.cpp
@@ -21,6 +22,7 @@ add_library(ngs_core STATIC
     src/game/combat.cpp
     src/game/diplomacy.cpp
     src/game/game.cpp
+    src/game/victory.cpp
     src/data/cursor.cpp
     src/game_files.cpp
     src/settings.cpp
@@ -35,6 +37,8 @@ add_library(ngs_core STATIC
     src/ui/menus.cpp
     src/ui/load_save_screen.cpp
     src/ui/diplomacy_screen.cpp
+    src/ui/ending_screen.cpp
+    src/ui/fame_screen.cpp
     src/ui/film_screen.cpp
     src/ui/galaxy_screen.cpp
     src/ui/intel_screen.cpp

@@ -11,8 +11,15 @@ namespace fs = std::filesystem;
 
 Resources::Resources(const fs::path& library) : base_(Importer::baseDir(library)) {
     archive_ = std::make_unique<ZipArchive>(std::make_shared<FileSource>(base_ / "stbof.res"));
-    const fs::path patch = Importer::patchDir(library);
     std::error_code ec;
+    if (fs::is_regular_file(base_ / "alt.res", ec)) {
+        try {
+            alt_ = std::make_unique<LzArchive>(std::make_shared<FileSource>(base_ / "alt.res"));
+        } catch (const FormatError&) {
+            // Without it only the end-of-game pictures are missing.
+        }
+    }
+    const fs::path patch = Importer::patchDir(library);
     if (fs::exists(patch / "manifest.txt", ec)) {
         for (const auto& e : fs::directory_iterator(patch)) {
             const std::string name = lower(e.path().filename().string());
@@ -47,11 +54,16 @@ std::vector<std::string> Resources::names(std::string_view ending) const {
     for (const auto& [name, data] : overrides_) {
         take(name);
     }
+    if (alt_) {
+        for (const auto& e : alt_->entries()) {
+            take(e.name);
+        }
+    }
     return {found.begin(), found.end()};
 }
 
 bool Resources::has(std::string_view name) const {
-    return overrides_.count(lower(name)) != 0 || archive_->find(name) != nullptr;
+    return overrides_.count(lower(name)) != 0 || archive_->find(name) != nullptr || (alt_ && alt_->find(name) != nullptr);
 }
 
 Bytes Resources::file(std::string_view name) const {
@@ -59,6 +71,11 @@ Bytes Resources::file(std::string_view name) const {
         return it->second;
     }
     const auto* entry = archive_->find(name);
+    if (entry == nullptr && alt_) {
+        if (const auto* e = alt_->find(name)) {
+            return alt_->read(*e);
+        }
+    }
     if (entry == nullptr) {
         throw FormatError("missing game file " + std::string(name));
     }

@@ -42,6 +42,11 @@ struct IntelReport {
     int system = -1; // where, if at a system
 };
 
+// How a game ended for the player (see victory.hpp). Retired: the player
+// gave up from the main menu.
+enum class Ending : std::uint8_t { None, Annihilation, Domination, Alliance, Loss, Retired };
+inline constexpr int kEndings = 6;
+
 struct Game {
     GameSettings settings;
     Galaxy galaxy;
@@ -65,6 +70,8 @@ struct Game {
     std::vector<Relation> relations;
     std::vector<Offer> offers; // to the player
     std::vector<IntelReport> intelReports; // the latest, oldest first
+    std::array<bool, kEmpires> out{}; // empires that have lost every colony
+    Ending ending = Ending::None;
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
@@ -131,6 +138,8 @@ struct TurnSummary {
     std::vector<Assault> assaults;       // on or by the player
     std::vector<DiplomacyEvent> diplomacy;
     std::vector<IntelReport> intel;      // the player's operations, and those against them
+    std::vector<int> fallen;             // empires that lost their last colony
+    Ending ending = Ending::None;
 };
 TurnSummary endTurn(Game& game);
 
