@@ -38,6 +38,7 @@ count and then its entries.
 | Each empire's state | 5 × see below |
 | Explored sectors: one byte for each sector (y × width + x), a bit for each empire, or none | list of u8 |
 | Relations, for each empire and race (empire × races + race) | list, see below |
+| Intelligence reports, oldest first (at most 60) | list, see below |
 | Proposals waiting for the player | list, see below |
 | Next fleet number | i32 |
 | Fleets | list, see below |
@@ -64,7 +65,15 @@ or ship class (i32).
 An empire: credits (i32), level in each of the seven fields (7 × i32),
 research towards the next level (7 × i32), share of research for the six
 fields (6 × i32), locked shares (6 × u8), research and intelligence points
-(2 × i32).
+(2 × i32), security share in percent (i32), for each empire the espionage
+and sabotage shares (2 × i32) and focus (u8: 0 general, 1 science,
+2 economy, 3 military), points gathered for espionage against each empire
+(5 × i32) and for sabotage (5 × i32), and last turn's intelligence and
+security points (2 × i32). The shares of all operations add up to at most
+100.
+
+An intelligence report: turn, attacker, target (3 × i32), sabotage (u8),
+focus (u8), success (u8), value and system (2 × i32, system -1 for none).
 
 A fleet: number, owner (2 × i32), sector, under way (u8), destination
 (sector), order (u8: 0 none, 1 colonize, 2 attack system), and a list of ships: class, hull

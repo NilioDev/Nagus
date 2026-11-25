@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/save.hpp"
 
+#include "nagus/game/intel.hpp"
+
 #include <cstdio>
 #include <fstream>
 
@@ -160,6 +162,20 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         }
         w.i32(e.researchPoints);
         w.i32(e.intelPoints);
+        w.i32(e.security);
+        for (const auto& p : e.intel) {
+            w.i32(p.espionage);
+            w.i32(p.sabotage);
+            w.u8(static_cast<std::uint32_t>(p.focus));
+        }
+        for (const int v : e.espionagePool) {
+            w.i32(v);
+        }
+        for (const int v : e.sabotagePool) {
+            w.i32(v);
+        }
+        w.i32(e.lastIntel);
+        w.i32(e.lastSecurity);
     }
 
     w.u32(static_cast<std::uint32_t>(g.explored.size()));
@@ -172,6 +188,17 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.u8(static_cast<std::uint32_t>(r.treaty));
         w.i32(r.regard);
         w.i32(r.since);
+    }
+    w.u32(static_cast<std::uint32_t>(g.intelReports.size()));
+    for (const auto& ir : g.intelReports) {
+        w.i32(ir.turn);
+        w.i32(ir.attacker);
+        w.i32(ir.target);
+        w.u8(ir.sabotage ? 1 : 0);
+        w.u8(static_cast<std::uint32_t>(ir.focus));
+        w.u8(ir.success ? 1 : 0);
+        w.i32(ir.value);
+        w.i32(ir.system);
     }
     w.u32(static_cast<std::uint32_t>(g.offers.size()));
     for (const auto& o : g.offers) {
@@ -340,6 +367,29 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         }
         e.researchPoints = number(r, 0, kBig);
         e.intelPoints = number(r, 0, kBig);
+        e.security = number(r, 0, 100);
+        int planned = 0;
+        for (auto& p : e.intel) {
+            p.espionage = number(r, 0, 100);
+            p.sabotage = number(r, 0, 100);
+            planned += p.espionage + p.sabotage;
+            const int focus = r.u8();
+            if (focus >= kIntelFocuses) {
+                throw FormatError("damaged saved game");
+            }
+            p.focus = static_cast<IntelFocus>(focus);
+        }
+        if (planned > 100) {
+            throw FormatError("damaged saved game");
+        }
+        for (int& v : e.espionagePool) {
+            v = number(r, 0, kBig);
+        }
+        for (int& v : e.sabotagePool) {
+            v = number(r, 0, kBig);
+        }
+        e.lastIntel = number(r, 0, kBig);
+        e.lastSecurity = number(r, 0, kBig);
     }
 
     const std::uint32_t sectors = count(r, static_cast<std::uint32_t>(gal.width * gal.height));
@@ -363,6 +413,22 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         rel.regard = number(r, 0, kBig);
         rel.since = number(r, 0, kBig);
         g.relations.push_back(rel);
+    }
+    for (std::uint32_t i = 0, n = count(r, kMaxReports); i < n; ++i) {
+        IntelReport ir;
+        ir.turn = number(r, 0, kBig);
+        ir.attacker = number(r, 0, kEmpires - 1);
+        ir.target = number(r, 0, kEmpires - 1);
+        ir.sabotage = r.u8() != 0;
+        const int focus = r.u8();
+        if (focus >= kIntelFocuses) {
+            throw FormatError("damaged saved game");
+        }
+        ir.focus = static_cast<IntelFocus>(focus);
+        ir.success = r.u8() != 0;
+        ir.value = number(r, 0, kBig);
+        ir.system = number(r, -1, static_cast<int>(systems) - 1);
+        g.intelReports.push_back(ir);
     }
     for (std::uint32_t i = 0, n = count(r, kEmpires); i < n; ++i) {
         Offer o;

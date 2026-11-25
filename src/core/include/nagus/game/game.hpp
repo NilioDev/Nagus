@@ -30,6 +30,18 @@ struct Offer {
     int turn = 0;
 };
 
+// An intelligence operation, for the reports.
+struct IntelReport {
+    int turn = 0;
+    int attacker = -1;
+    int target = -1;
+    bool sabotage = false;
+    IntelFocus focus = IntelFocus::General;
+    bool success = false;
+    int value = 0;   // credits, research points or people it took
+    int system = -1; // where, if at a system
+};
+
 struct Game {
     GameSettings settings;
     Galaxy galaxy;
@@ -52,6 +64,7 @@ struct Game {
     // treaty between two empires is kept both ways.
     std::vector<Relation> relations;
     std::vector<Offer> offers; // to the player
+    std::vector<IntelReport> intelReports; // the latest, oldest first
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
@@ -117,6 +130,7 @@ struct TurnSummary {
     std::vector<Battle> battles;         // those the player fought in
     std::vector<Assault> assaults;       // on or by the player
     std::vector<DiplomacyEvent> diplomacy;
+    std::vector<IntelReport> intel;      // the player's operations, and those against them
 };
 TurnSummary endTurn(Game& game);
 

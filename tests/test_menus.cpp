@@ -376,3 +376,57 @@ NGS_TEST("the diplomacy screen: gifts and a declaration of war") {
     shell.command(Command::Back);
     NGS_CHECK(shell.markerOpen());
 }
+
+NGS_TEST("the intelligence screen: the plan, the reports and the empires") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-intel-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(6);
+    shell.command(Command::Start);
+    Game& game = const_cast<Game&>(*shell.game());
+    std::fill(game.explored.begin(), game.explored.end(), std::uint8_t{0x1f});
+    (void)endTurn(game);
+
+    shell.command(Command::Back);
+    const auto r = shell.markerButton(Shell::kMarkerIntel);
+    NGS_CHECK(r.has_value());
+    click(shell, centre(*r));
+    NGS_CHECK(shell.showing() == Shell::Showing::Intel);
+    IntelScreen& s = *shell.intelScreen();
+    NGS_CHECK(s.tab() == IntelScreen::Tab::Management);
+    shell.draw(canvas, 0);
+
+    // Security, and espionage against the first empire shown.
+    EmpireState& me = game.empires[static_cast<std::size_t>(game.player)];
+    NGS_CHECK(me.security == 100);
+    click(shell, centre(*s.button(IntelScreen::kSecurityLess)));
+    NGS_CHECK(me.security == 100 - kIntelStep);
+    click(shell, centre(*s.button(IntelScreen::kSecurityMore)));
+    NGS_CHECK(me.security == 100);
+    const int target = s.quarterEmpire(0);
+    NGS_CHECK(target >= 0 && target != game.player);
+    const int before = me.intel[static_cast<std::size_t>(target)].espionage;
+    click(shell, centre(*s.button(IntelScreen::kRowMore[0])));
+    NGS_CHECK(me.intel[static_cast<std::size_t>(target)].espionage == before + kIntelStep);
+    click(shell, centre(*s.button(IntelScreen::kFocus[3])));
+    NGS_CHECK(me.intel[static_cast<std::size_t>(target)].focus == IntelFocus::Military);
+
+    // The report and the empires' status, by tab.
+    shell.command(Command::Next);
+    NGS_CHECK(s.tab() == IntelScreen::Tab::Report);
+    shell.draw(canvas, 0);
+    click(shell, centre(*s.button(IntelScreen::kStatus)));
+    NGS_CHECK(s.tab() == IntelScreen::Tab::Status);
+    shell.draw(canvas, 0);
+    shell.command(Command::Back);
+    NGS_CHECK(shell.markerOpen());
+}

@@ -14,6 +14,7 @@ add_library(ngs_core STATIC
     src/game/economy.cpp
     src/game/fleet.cpp
     src/game/galaxy.cpp
+    src/game/intel.cpp
     src/game/research.cpp
     src/game/save.cpp
     src/game/ai.cpp
@@ -30,6 +31,7 @@ add_library(ngs_core STATIC
     src/ui/load_save_screen.cpp
     src/ui/diplomacy_screen.cpp
     src/ui/galaxy_screen.cpp
+    src/ui/intel_screen.cpp
     src/ui/research_screen.cpp
     src/ui/shell.cpp
     src/ui/system_screen.cpp

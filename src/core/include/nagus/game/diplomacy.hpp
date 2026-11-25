@@ -37,6 +37,8 @@ enum class Reply { Accepted, Rejected, Waiting };
 Reply propose(Game& game, int from, int to, Treaty t, std::vector<DiplomacyEvent>& events);
 bool canDeclareWar(const Game& game, int from, int to);
 void declareWar(Game& game, int from, int to, std::vector<DiplomacyEvent>& events);
+// Changes how a race regards an empire.
+void changeRegard(Game& game, int race, int empire, int change);
 bool giveGift(Game& game, int from, int to, int credits, std::vector<DiplomacyEvent>& events);
 // The player answers an offer.
 void answerOffer(Game& game, std::size_t offer, bool accept, std::vector<DiplomacyEvent>& events);
