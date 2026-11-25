@@ -258,3 +258,9 @@ NGS_TEST("multiplayer over the network: joining, choosing empires and a turn") {
     const auto next = host->finishTurn();
     NGS_CHECK(next && !next->game.humans[0]);
 }
+
+NGS_TEST("multiplayer: chat lines are kept printable and short") {
+    NGS_CHECK(cleanChat("Hi\x01 there\n  ") == "Hi there");
+    NGS_CHECK(cleanChat(std::string(500, 'a')).size() == kMaxChat);
+    NGS_CHECK(cleanChat("\x7f\x80\xff").empty());
+}

@@ -29,6 +29,7 @@ inline constexpr std::uint8_t kStart = 6;   // host → player: the game
 inline constexpr std::uint8_t kOrders = 7;  // player → host: the turn and their copy of the game
 inline constexpr std::uint8_t kWaiting = 8; // host → players: whose orders have not come
 inline constexpr std::uint8_t kTurn = 9;    // host → player: the game after the turn and the report
+inline constexpr std::uint8_t kChat = 10;   // player → host: a line; host → players: who said it and the line
 } // namespace msg
 
 // Players are refused for a wrong password or when every empire is taken.
@@ -49,6 +50,16 @@ struct Lobby {
 
 // Names: printable characters only, and not too long.
 std::string cleanName(std::string_view name);
+// A chat line: printable characters only, and not too long.
+inline constexpr std::size_t kMaxChat = 160;
+std::string cleanChat(std::string_view text);
+
+// A line said in the chat, and who said it.
+struct ChatLine {
+    std::string name;
+    int empire = -1;
+    std::string text;
+};
 
 class HostSession {
 public:
@@ -78,6 +89,10 @@ public:
     std::optional<PlayerTurn> finishTurn();
     // What happened that the host should hear of ("X has left").
     std::vector<std::string> takeNotices();
+    // Says a line to every player.
+    void say(const std::string& text);
+    // The lines said since last asked, the host's own too.
+    std::vector<ChatLine> takeChat();
 
 private:
     struct Player {
@@ -93,6 +108,7 @@ private:
     void sendLobby();
     void sendWaiting();
     void drop(Player& p, const std::string& why);
+    void broadcast(const ChatLine& line);
 
     std::unique_ptr<Listener> listener_;
     EconomyData economy_;
@@ -102,6 +118,7 @@ private:
     std::optional<Game> start_;   // the game as this turn began (host's copy)
     std::optional<Game> mine_;    // the host's orders
     std::vector<std::string> notices_;
+    std::vector<ChatLine> chat_;
 };
 
 class ClientSession {
@@ -129,6 +146,9 @@ public:
     const std::vector<int>& waitingFor() const { return waiting_; }
     // The turn's end, once the host sends it (given once).
     std::optional<PlayerTurn> takeTurn();
+    // Says a line to every player (it comes back through the host).
+    void say(const std::string& text);
+    std::vector<ChatLine> takeChat();
 
 private:
     ClientSession(std::unique_ptr<Connection> link, const EconomyData& economy) : link_(std::move(link)), economy_(economy) {}
@@ -146,6 +166,7 @@ private:
     std::vector<int> waiting_;
     bool submitted_ = false;
     int turnNumber_ = 0;
+    std::vector<ChatLine> chat_;
 };
 
 } // namespace nagus

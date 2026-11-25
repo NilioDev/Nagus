@@ -389,6 +389,7 @@ std::optional<Command> padCommand(Uint8 button) {
     case SDL_GAMEPAD_BUTTON_START: return Command::Start;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return Command::Next;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return Command::Previous;
+    case SDL_GAMEPAD_BUTTON_NORTH: return Command::Chat;
     default: return std::nullopt;
     }
 }
@@ -405,6 +406,7 @@ std::optional<Command> keyCommand(SDL_Keycode key) {
     case SDLK_PAGEDOWN:
     case SDLK_TAB: return Command::Next;
     case SDLK_PAGEUP: return Command::Previous;
+    case SDLK_F2: return Command::Chat;
     default: return std::nullopt;
     }
 }

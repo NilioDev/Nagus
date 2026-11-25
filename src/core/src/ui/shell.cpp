@@ -428,6 +428,9 @@ void Shell::leaveMultiplayer() {
     host_.reset();
     client_.reset();
     mp_.reset();
+    chat_.reset();
+    chatLog_.clear();
+    ignored_ = {};
     mpStep_ = MultiplayerStep::None;
     waitingTurn_ = false;
     if (game_ && game_->multiplayer()) {
@@ -456,11 +459,34 @@ void Shell::startMultiplayerGame() {
 }
 
 void Shell::pollNetwork() {
+    std::vector<ChatLine> said;
     if (host_) {
         host_->poll();
+        said = host_->takeChat();
+    } else if (client_) {
+        client_->poll();
+        said = client_->takeChat();
+    }
+    const int me = game_ ? game_->player : -1;
+    for (auto& l : said) {
+        if (l.empire >= 0 && l.empire < kEmpires && l.empire != me && ignored_[static_cast<std::size_t>(l.empire)]) {
+            continue;
+        }
+        if (!chat_ && l.empire != me) {
+            toast_ = l.name + ": " + l.text;
+            toastUntil_ = now_ + 8000;
+            toastChat_ = true;
+        }
+        chatLog_.push_back(std::move(l));
+        if (chatLog_.size() > 200) {
+            chatLog_.pop_front();
+        }
+    }
+    if (host_) {
         for (const auto& n : host_->takeNotices()) {
             toast_ = n;
             toastUntil_ = now_ + 6000;
+            toastChat_ = false;
         }
         if (mp_ && showing_ == Showing::Multiplayer) {
             mp_->showLobby(host_->lobby(), 0, true, hostAddress_);
@@ -476,7 +502,6 @@ void Shell::pollNetwork() {
         }
     }
     if (client_) {
-        client_->poll();
         switch (client_->state()) {
         case ClientSession::State::Refused:
             if (mp_) {
@@ -523,13 +548,55 @@ void Shell::pollNetwork() {
     }
 }
 
+Rect Shell::toastBox() {
+    const int w = std::clamp(assets_.font(kNoticeFont).width(toast_) + 24, 300, kScreenWidth - 40);
+    return {(kScreenWidth - w) / 2, 8, w, 26};
+}
+
+bool Shell::openChat() {
+    if (!game_ || !game_->multiplayer() || !multiplayer() || chat_) {
+        return false;
+    }
+    std::array<std::string, kEmpires> names;
+    for (std::size_t e = 0; e < names.size() && e < game_->raceNames.size(); ++e) {
+        names[e] = game_->raceNames[e];
+    }
+    std::array<bool, kEmpires> others = game_->humans;
+    others[static_cast<std::size_t>(std::clamp(game_->player, 0, kEmpires - 1))] = false;
+    chat_ = std::make_unique<ChatWindow>(assets_, game_->player, others, names, ignored_);
+    marker_.reset();
+    assets_.clearHover();
+    chat_->pointerMoved(pointer_);
+    return true;
+}
+
+void Shell::chatResult(ChatWindow::Result r) {
+    if (r == ChatWindow::Result::Close) {
+        chat_.reset();
+    } else if (r == ChatWindow::Result::Send) {
+        const std::string line = chat_->takeLine();
+        if (host_) {
+            host_->say(line);
+        } else if (client_) {
+            client_->say(line);
+        }
+    }
+}
+
 void Shell::typed(std::string_view text) {
+    if (chat_) {
+        chatResult(chat_->typed(text));
+        return;
+    }
     if (marker_ == nullptr && notice_.empty()) {
         screen().typed(text);
     }
 }
 
 bool Shell::wantsText() const {
+    if (chat_) {
+        return true;
+    }
     return marker_ == nullptr && notice_.empty() && const_cast<Shell*>(this)->screen().wantsText();
 }
 
@@ -620,13 +687,16 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
                       {box.x + 12, box.y + 10, box.w - 24, box.h - 20}, rgb(255, 204, 102));
     }
     if (!toast_.empty() && ms < toastUntil_) {
-        const Rect box{250, 8, 300, 26};
+        const Rect box = toastBox();
         canvas.fill(box, rgb(0, 0, 0));
         canvas.frame(box, rgb(255, 153, 0), 1);
         canvas.text(assets_.font(kNoticeFont), toast_, box, rgb(255, 204, 102), Align::Center);
     }
     if (marker_) {
         marker_->draw(canvas);
+    }
+    if (chat_) {
+        chat_->draw(canvas, chatLog_);
     }
     drawTooltip(canvas, ms);
     if (pointerVisible_ && showing_ != Showing::Film && showing_ != Showing::Ending) {
@@ -779,6 +849,10 @@ void Shell::pointerMoved(Point p) {
     pointer_ = p;
     // The panels under the pointer say which button it is on.
     assets_.clearHover();
+    if (chat_) {
+        chat_->pointerMoved(p);
+        return;
+    }
     if (marker_) {
         marker_->pointerMoved(p);
         return;
@@ -797,6 +871,10 @@ bool Shell::blocked() const {
 void Shell::pointerPressed(Point p) {
     pointer_ = p;
     tipHidden_ = true;
+    if (chat_) {
+        chat_->pointerPressed(p);
+        return;
+    }
     if (blocked()) {
         return;
     }
@@ -811,6 +889,15 @@ void Shell::pointerPressed(Point p) {
 
 void Shell::pointerReleased(Point p) {
     pointer_ = p;
+    if (chat_) {
+        chatResult(chat_->pointerReleased(p));
+        return;
+    }
+    // A chat line shown at the top opens the chat.
+    if (toastChat_ && now_ < toastUntil_ && toastBox().contains(p.x, p.y) && openChat()) {
+        toastUntil_ = 0;
+        return;
+    }
     if (blocked()) {
         return;
     }
@@ -846,6 +933,14 @@ void Shell::clickAtPointer() {
 
 void Shell::command(Command c) {
     tipHidden_ = true;
+    if (chat_) {
+        chatResult(c == Command::Chat ? ChatWindow::Result::Close : chat_->command(c, pointer_));
+        return;
+    }
+    if (c == Command::Chat) {
+        openChat();
+        return;
+    }
     if (blocked()) {
         return;
     }
