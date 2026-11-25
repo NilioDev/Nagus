@@ -433,3 +433,36 @@ NGS_TEST("the intelligence screen: the plan, the reports and the empires") {
     shell.command(Command::Back);
     NGS_CHECK(shell.markerOpen());
 }
+
+NGS_TEST("films: the opening film and the empire's film") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-film-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    shell.enableFilms();
+    NGS_CHECK(shell.showing() == Shell::Showing::Film);
+    shell.draw(canvas, 1000);
+    NGS_CHECK(shell.filmScreen()->shownFrame() == 0 && shell.jukebox().soundsPlaying());
+    NGS_CHECK(shell.wantedTrack() == -1);
+    shell.draw(canvas, 2000); // a second on: frame 24
+    NGS_CHECK(shell.filmScreen()->shownFrame() == 24);
+    // A click ends it.
+    click(shell, {400, 300});
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu && !shell.jukebox().soundsPlaying());
+
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(3);
+    shell.command(Command::Start);
+    NGS_CHECK(shell.showing() == Shell::Showing::Film);
+    shell.draw(canvas, 0);
+    // At its end the game begins.
+    shell.draw(canvas, 60 * 1000);
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+}

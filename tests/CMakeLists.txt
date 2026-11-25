@@ -8,6 +8,7 @@ add_executable(ngs_tests
     test_diplomacy.cpp
     test_intel.cpp
     test_sound.cpp
+    test_film.cpp
     test_fleets.cpp
     test_save.cpp
     test_galaxy.cpp
