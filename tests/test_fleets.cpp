@@ -4,7 +4,9 @@
 
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
+#include "nagus/game/combat.hpp"
 #include "nagus/game/game.hpp"
+#include "nagus/game/save.hpp"
 
 #include <algorithm>
 
@@ -85,4 +87,76 @@ NGS_TEST("the game's ships: tables, the start, moving and a new colony") {
         const Colony* c = g.colonyAt(target);
         NGS_CHECK(c != nullptr && c->owner == 1 && c->population > 0);
     }
+}
+
+NGS_TEST("fleet orders: redeploy, scrap, avoid and raid") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const Resources res(*lib);
+    const Lexicon lex(res.file("lexicon.dic"));
+    const EconomyData economy = loadEconomyData(res);
+    GameSettings settings;
+    settings.empire = 1;
+    settings.randomEvents = false;
+    Game g = newGame(settings, loadGalaxyData(res, lex), economy, 3);
+    g.fleets.clear();
+    int warship = -1;
+    for (std::size_t i = 0; i < economy.ships.size(); ++i) {
+        if (economy.ships[i].race == 1 && isArmed(economy.ships[i]) && warship < 0) {
+            warship = static_cast<int>(i);
+        }
+    }
+    NGS_CHECK(warship >= 0);
+    const Sector home = g.galaxy.systems[static_cast<std::size_t>(g.galaxy.homes[1])].sector;
+
+    // Split and merge.
+    const int a = g.addFleet(1, home, warship).id;
+    g.fleet(a)->ships.push_back(g.fleet(a)->ships.front());
+    g.fleet(a)->ships.push_back(g.fleet(a)->ships.front());
+    const int b = splitShip(g, a, 0);
+    NGS_CHECK(b > 0 && g.fleet(a)->ships.size() == 2 && g.fleet(b)->ships.size() == 1 && g.fleet(b)->at == home);
+    NGS_CHECK(splitShip(g, b, 0) == -1); // the last ship stays
+    NGS_CHECK(mergeFleets(g, b, a));
+    NGS_CHECK(g.fleet(a) == nullptr && g.fleet(b)->ships.size() == 3);
+    const int other = g.addFleet(0, home, warship).id;
+    NGS_CHECK(!mergeFleets(g, b, other)); // not the same owner
+
+    // Avoiding: no battle unless the other side engages.
+    for (auto& r : g.relations) {
+        r.treaty = Treaty::War;
+    }
+    const Sector empty{0, 0};
+    g.fleet(b)->at = empty;
+    g.fleet(other)->at = empty;
+    orderAvoid(g, b, true);
+    orderAvoid(g, other, true);
+    NGS_CHECK(!battleStarts(g, combatUnits(g, empty)));
+    orderAvoid(g, other, false);
+    NGS_CHECK(battleStarts(g, combatUnits(g, empty)));
+
+    // Save and load keep the orders.
+    orderScrap(g, other);
+    const Game back = loadGame(saveGame(g, {}), economy);
+    NGS_CHECK(back.fleet(b)->avoid && back.fleet(other)->order == Fleet::Order::Scrap);
+
+    // Scrapped at the end of the turn.
+    endTurn(g);
+    NGS_CHECK(g.fleet(other) == nullptr && g.fleet(b) != nullptr);
+
+    // Raiding an enemy colony takes credits.
+    const Sector cardassia = g.galaxy.systems[static_cast<std::size_t>(g.galaxy.homes[0])].sector;
+    g.fleets.clear();
+    const int raider = g.addFleet(1, cardassia, warship).id;
+    orderAvoid(g, raider, true);
+    NGS_CHECK(canRaid(g, *g.fleet(raider)) && orderRaid(g, raider));
+    g.empires[0].credits = 1000;
+    // No defences, so the raider stays.
+    g.colonyAt(g.galaxy.homes[0])->structures.clear();
+    TurnSummary s = beginEndTurn(g);
+    finishEndTurn(g, s, {});
+    NGS_CHECK(g.fleet(raider) != nullptr && g.fleet(raider)->order == Fleet::Order::None);
+    NGS_CHECK(std::any_of(s.events.begin(), s.events.end(),
+                          [](const std::string& e) { return e.starts_with("Raid on") && e.ends_with(": 25 credits taken"); }));
 }

@@ -229,7 +229,108 @@ bool orderColonize(Game& game, int id) {
     return true;
 }
 
+bool canRaid(const Game& game, const Fleet& f) {
+    const int at = game.galaxy.systemAt(f.at);
+    const Colony* c = at >= 0 ? game.colonyAt(at) : nullptr;
+    if (c == nullptr || c->owner < 0 || c->owner >= kEmpires || !atWar(game, f.owner, c->owner)) {
+        return false;
+    }
+    return std::any_of(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        return s.shipClass >= 0 && static_cast<std::size_t>(s.shipClass) < game.economy.ships.size() &&
+               isArmed(game.economy.ships[static_cast<std::size_t>(s.shipClass)]);
+    });
+}
+
+bool orderRaid(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !canRaid(game, *f)) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Raid;
+    return true;
+}
+
+bool orderScrap(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Scrap;
+    return true;
+}
+
+bool orderAvoid(Game& game, int id, bool avoid) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr) {
+        return false;
+    }
+    f->avoid = avoid;
+    return true;
+}
+
+int splitShip(Game& game, int id, int ship) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || f->ships.size() < 2 || ship < 0 || static_cast<std::size_t>(ship) >= f->ships.size()) {
+        return -1;
+    }
+    Fleet out;
+    out.id = game.nextFleetId++;
+    out.owner = f->owner;
+    out.at = f->at;
+    out.avoid = f->avoid;
+    out.ships.push_back(f->ships[static_cast<std::size_t>(ship)]);
+    f->ships.erase(f->ships.begin() + ship);
+    // f may move when the list grows.
+    game.fleets.push_back(std::move(out));
+    return game.fleets.back().id;
+}
+
+bool mergeFleets(Game& game, int into, int from) {
+    Fleet* a = game.fleet(into);
+    Fleet* b = game.fleet(from);
+    if (a == nullptr || b == nullptr || into == from || a->owner != b->owner || !(a->at == b->at)) {
+        return false;
+    }
+    a->ships.insert(a->ships.end(), b->ships.begin(), b->ships.end());
+    game.fleets.erase(std::find_if(game.fleets.begin(), game.fleets.end(), [&](const Fleet& f) { return f.id == from; }));
+    return true;
+}
+
 namespace {
+
+void scrapFleets(Game& game) {
+    std::erase_if(game.fleets, [](const Fleet& f) { return f.order == Fleet::Order::Scrap; });
+}
+
+void raid(Game& game, TurnSummary& summary) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::Raid) {
+            continue;
+        }
+        f.order = Fleet::Order::None;
+        if (!canRaid(game, f)) {
+            continue;
+        }
+        const int at = game.galaxy.systemAt(f.at);
+        const Colony& c = *game.colonyAt(at);
+        int warships = 0;
+        for (const auto& s : f.ships) {
+            warships += isArmed(game.economy.ships[static_cast<std::size_t>(s.shipClass)]) ? 1 : 0;
+        }
+        auto& victim = game.empires[static_cast<std::size_t>(c.owner)];
+        const int taken = std::clamp(warships * kRaidCredits, 0, std::max(0, victim.credits));
+        victim.credits -= taken;
+        game.empires[static_cast<std::size_t>(f.owner)].credits += taken;
+        const std::string& where = game.galaxy.systems[static_cast<std::size_t>(at)].name;
+        if (f.owner == game.player) {
+            summary.events.push_back("Raid on " + where + ": " + std::to_string(taken) + " credits taken");
+        } else if (c.owner == game.player) {
+            summary.events.push_back(where + " was raided: " + std::to_string(taken) + " credits lost");
+        }
+    }
+}
 
 void moveFleets(Game& game) {
     for (auto& f : game.fleets) {
@@ -307,6 +408,7 @@ TurnSummary beginEndTurn(Game& game) {
             }
         }
     }
+    scrapFleets(game);
     colonize(game, summary);
     moveFleets(game);
     return summary;
@@ -330,6 +432,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
             summary.assaults.push_back(a);
         }
     }
+    raid(game, summary);
     repairShips(game);
     summary.intel = intelTurn(game);
     summary.happenings = randomEvents(game);

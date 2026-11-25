@@ -34,6 +34,26 @@ turn the colony ship becomes a colony of ten million people for each point
 of its capacity, with a farm and a factory of the best kind the empire can
 build.
 
+## Orders
+
+The fleet panel below the map gives a fleet its orders. These rules are our
+own reading of the original's help texts:
+
+- *Redeploy*: while it is lit, a click on a ship in the panel takes it out
+  into a fleet of its own, and a click on another of the player's fleets in
+  the list on the left joins that fleet's ships to the chosen one. A fleet
+  keeps at least one ship.
+- *Avoid* and *Engage*: a fleet that avoids battles never starts one; it
+  fights only when an enemy that engages (or a system's defences) finds it.
+  Fleets engage unless told otherwise.
+- *Raid*: at an enemy empire's colony, with at least one warship. At the end
+  of the turn, after the battles, a fleet still there takes 25 credits per
+  warship from the colony's owner, up to what they have.
+- *Scrap*: the fleet is dismantled at the end of the turn, before it moves
+  or fights. Nothing is paid back.
+
+Moving a fleet cancels its raid or scrap order.
+
 ## Seeing
 
 An empire sees what is within two sectors of its colonies and within one

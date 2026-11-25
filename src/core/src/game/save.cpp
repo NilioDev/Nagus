@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 2;
+constexpr std::uint32_t kVersion = 3;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -226,6 +226,7 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.u8(f.destination ? 1 : 0);
         writeSector(w, f.destination.value_or(Sector{-1, -1}));
         w.u8(static_cast<std::uint32_t>(f.order));
+        w.u8(f.avoid ? 1 : 0);
         w.u32(static_cast<std::uint32_t>(f.ships.size()));
         for (const auto& ship : f.ships) {
             w.i32(ship.shipClass);
@@ -485,10 +486,11 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.destination = to;
         }
         const int order = r.u8();
-        if (order > static_cast<int>(Fleet::Order::Attack)) {
+        if (order > static_cast<int>(version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack)) {
             throw FormatError("damaged saved game");
         }
         f.order = static_cast<Fleet::Order>(order);
+        f.avoid = version >= 3 && r.u8() != 0;
         for (std::uint32_t k = 0, m = count(r, kMaxShips); k < m; ++k) {
             Ship ship;
             ship.shipClass = number(r, 0, lastShip);

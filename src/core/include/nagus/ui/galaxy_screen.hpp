@@ -46,10 +46,16 @@ public:
     static constexpr std::uint32_t kFleetText = 0x4c0;
     static constexpr std::uint32_t kOrderColonize = 0x4b2;
     static constexpr std::uint32_t kOrderAttack = 0x4ce;
+    static constexpr std::uint32_t kOrderRaid = 0x4b3;
+    static constexpr std::uint32_t kOrderScrap = 0x4cb;
+    static constexpr std::uint32_t kOrderAvoid = 0x4b5;
+    static constexpr std::uint32_t kOrderEngage = 0x4b6;
     static constexpr int kFleetLine = 14; // height of a fleet's line in the list on the left
     // The most fleet lines shown at once; the arrows beside the list scroll
     // through more.
     static constexpr int kFleetLines = 10;
+    // The width of a ship's place in the panel below the map.
+    static constexpr int kShipCell = 84;
     static constexpr std::uint32_t kListUp = 0x40e;
     static constexpr std::uint32_t kListDown = 0x40f;
 
@@ -86,6 +92,9 @@ public:
     // Where fleet i of fleetsHere() is in the list, while it is in view.
     std::optional<Rect> fleetLine(int i) const;
     void scrollFleets(int lines);
+    bool redeploying() const { return redeploy_; }
+    // Where a ship of the chosen fleet is shown in the panel below the map.
+    std::optional<Rect> shipCell(int ship) const;
     int firstFleetLine() const { return listFirst_; }
     int chosenFleet() const { return fleet_; }
     void chooseFleet(int id);
@@ -139,6 +148,9 @@ private:
     Panel orders_;
     int fleet_ = -1;      // the chosen fleet's id
     int listFirst_ = 0;   // the first fleet line in view
+    // Redeploying: a click on a ship takes it out of the fleet, a click on
+    // another of the player's fleets here joins it to the chosen one.
+    bool redeploy_ = false;
     bool moving_ = false; // the next click on the map sends the chosen fleet
     bool ordersOpen_ = false;
 };

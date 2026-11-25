@@ -31,7 +31,9 @@ and with gamepad, mouse, keyboard and touch controls.
 > click, Esc or B) takes you between the map, your systems, research and the
 > main menu. Build ships at systems with a shipyard; choose a fleet in the
 > list on the left and click a sector on the map to send it there, and use
-> *Orders* → *Colonize* with a colony ship to found new colonies. *Save Game*
+> *Orders* → *Colonize* with a colony ship to found new colonies;
+> *Redeploy* splits and joins fleets, and *Orders* also has avoid or engage,
+> raid and scrap. *Save Game*
 > and *Load Game* in the main menu keep up to twelve games. The other four
 > empires are played by the computer: they build, settle new systems and
 > send out scouts and warships. The map shows only what your empire has
