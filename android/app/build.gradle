@@ -41,20 +41,14 @@ android {
     // Release builds are signed with the debug key unless a key is given
     // (NAGUS_KEYSTORE, NAGUS_KEYSTORE_PASSWORD, NAGUS_KEY_ALIAS,
     // NAGUS_KEY_PASSWORD), so that the APK installs either way.
+    def releaseStore = System.getenv('NAGUS_KEYSTORE')
     signingConfigs {
-        release {
-            def store = System.getenv('NAGUS_KEYSTORE')
-            if (store) {
-                storeFile file(store)
+        if (releaseStore) {
+            release {
+                storeFile file(releaseStore)
                 storePassword System.getenv('NAGUS_KEYSTORE_PASSWORD')
                 keyAlias System.getenv('NAGUS_KEY_ALIAS')
                 keyPassword System.getenv('NAGUS_KEY_PASSWORD')
-            } else {
-                def debug = signingConfigs.debug
-                storeFile debug.storeFile
-                storePassword debug.storePassword
-                keyAlias debug.keyAlias
-                keyPassword debug.keyPassword
             }
         }
     }
@@ -62,7 +56,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
+            signingConfig releaseStore ? signingConfigs.release : signingConfigs.debug
         }
     }
 

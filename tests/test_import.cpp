@@ -102,11 +102,14 @@ NGS_TEST("import from a zipped CD image and the zipped patch") {
 
     NGS_CHECK(importer.importFile("botf102e.zip", std::make_shared<MemorySource>(fakePatch())) == Found::Patch);
     NGS_CHECK(Importer::state(lib).patch);
-    const Resources res(lib);
-    NGS_CHECK(res.file("minor6.tdb") == bytesOf("minor"));
-    NGS_CHECK(res.file("LEXICON.DIC") == makeLexicon({"Accept", "Cancel", "Patched"}));
-    NGS_CHECK(res.has("x.tga"));
-    NGS_CHECK(!res.has("setup.exe"));
+    {
+        // Closed before the folder goes: Windows cannot delete open files.
+        const Resources res(lib);
+        NGS_CHECK(res.file("minor6.tdb") == bytesOf("minor"));
+        NGS_CHECK(res.file("LEXICON.DIC") == makeLexicon({"Accept", "Cancel", "Patched"}));
+        NGS_CHECK(res.has("x.tga"));
+        NGS_CHECK(!res.has("setup.exe"));
+    }
     fs::remove_all(lib);
 }
 
