@@ -504,6 +504,48 @@ int stationWork(const Game& game, const Fleet& f) {
     return std::max(1, cost);
 }
 
+int terraformCost(const Planet& p) { return std::max(20, p.room); }
+
+int terraformTarget(const Game& game, const Fleet& f) {
+    const int at = game.galaxy.systemAt(f.at);
+    const bool colonyShip = std::any_of(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        const ShipClass* c = shipClassOf(game, s);
+        return c != nullptr && c->role == ShipRole::Colony;
+    });
+    if (!colonyShip || at < 0) {
+        return -1;
+    }
+    const StarSystem& s = game.galaxy.systems[static_cast<std::size_t>(at)];
+    const Colony* c = game.colonyAt(at);
+    if (!s.star || (c != nullptr && c->owner != f.owner) || (c == nullptr && s.race >= 0)) {
+        return -1;
+    }
+    int best = -1;
+    int bestRoom = 0;
+    for (std::size_t i = 0; i < s.planets.size(); ++i) {
+        const Planet& p = s.planets[i];
+        const int room = p.type == kGasGiant ? 0 : planetRoom(p, f.owner, game.economy);
+        if (!p.terraformed && room > bestRoom) {
+            best = static_cast<int>(i);
+            bestRoom = room;
+        }
+    }
+    return best;
+}
+
+bool orderTerraform(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || terraformTarget(game, *f) < 0) {
+        return false;
+    }
+    f->destination.reset();
+    if (f->order != Fleet::Order::Terraform) {
+        f->progress = 0;
+    }
+    f->order = Fleet::Order::Terraform;
+    return true;
+}
+
 bool canTrain(const Game& game, const Fleet& f) {
     const Colony* c = game.colonyAt(game.galaxy.systemAt(f.at));
     if (c == nullptr || c->owner != f.owner) {
@@ -715,6 +757,40 @@ void buildStations(Game& game, TurnSummary& summary) {
     std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
 }
 
+void terraform(Game& game, TurnSummary& summary) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::Terraform) {
+            continue;
+        }
+        const int target = terraformTarget(game, f);
+        if (target < 0) {
+            f.order = Fleet::Order::None;
+            f.progress = 0;
+            continue;
+        }
+        const int ships = static_cast<int>(std::count_if(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+            const ShipClass* c = shipClassOf(game, s);
+            return c != nullptr && c->role == ShipRole::Colony;
+        }));
+        f.progress += ships * kTerraformPerShip;
+        const int at = game.galaxy.systemAt(f.at);
+        StarSystem& s = game.galaxy.systems[static_cast<std::size_t>(at)];
+        Planet& p = s.planets[static_cast<std::size_t>(target)];
+        if (f.progress < terraformCost(p)) {
+            continue;
+        }
+        p.terraformed = true;
+        f.order = Fleet::Order::None;
+        f.progress = 0;
+        if (Colony* c = game.colonyAt(at)) {
+            c->maxPopulation = std::max(c->maxPopulation, systemRoom(s, c->owner, game.economy));
+        }
+        if (f.owner == game.player) {
+            summary.events.push_back(p.name.empty() ? "Planet terraformed in " + s.name : p.name + " terraformed");
+        }
+    }
+}
+
 void trainCrews(Game& game) {
     for (auto& f : game.fleets) {
         if (f.order != Fleet::Order::Train) {
@@ -816,6 +892,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
     }
     raid(game, summary);
     buildStations(game, summary);
+    terraform(game, summary);
     repairShips(game);
     trainCrews(game);
     summary.intel = intelTurn(game);

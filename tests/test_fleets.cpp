@@ -380,3 +380,61 @@ NGS_TEST("outposts and starbases: built by transports, they fight, mend and exte
     const Game back = loadGame(saveGame(g, {}), economy);
     NGS_CHECK(back.stations.size() == 1 && back.stations[0].at == out && back.stations[0].hull <= fullHull);
 }
+
+NGS_TEST("terraforming: colony ships make a planet ready for a colony, and grow one") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const Resources res(*lib);
+    const Lexicon lex(res.file("lexicon.dic"));
+    const EconomyData economy = loadEconomyData(res);
+    GameSettings settings;
+    settings.empire = 1;
+    settings.randomEvents = false;
+    Game g = newGame(settings, loadGalaxyData(res, lex), economy, 3);
+    // Only terran planets and those of the races' homes start terraformed.
+    for (const auto& s : g.galaxy.systems) {
+        for (const auto& p : s.planets) {
+            NGS_CHECK(p.terraformed == (s.race >= 0 || p.type == kTerran));
+        }
+    }
+    // A free system with room only after terraforming.
+    int target = -1;
+    for (std::size_t i = 0; i < g.galaxy.systems.size() && target < 0; ++i) {
+        const StarSystem& s = g.galaxy.systems[i];
+        if (s.star && s.race < 0 && systemRoom(s, 1, g.economy) == 0 && systemRoomTerraformed(s, 1, g.economy) > 0) {
+            target = static_cast<int>(i);
+        }
+    }
+    NGS_CHECK(target >= 0);
+    g.fleets.clear();
+    int colonyShip = -1;
+    for (std::size_t i = 0; i < economy.ships.size() && colonyShip < 0; ++i) {
+        colonyShip = economy.ships[i].race == 1 && economy.ships[i].role == ShipRole::Colony ? static_cast<int>(i) : -1;
+    }
+    const Sector at = g.galaxy.systems[static_cast<std::size_t>(target)].sector;
+    const int f = g.addFleet(1, at, colonyShip).id;
+    NGS_CHECK(!canColonize(*g.fleet(f), g.galaxy, g.colonies, g.economy));
+    const int planet = terraformTarget(g, *g.fleet(f));
+    NGS_CHECK(planet >= 0);
+    const Planet& p = g.galaxy.systems[static_cast<std::size_t>(target)].planets[static_cast<std::size_t>(planet)];
+    NGS_CHECK(!p.terraformed && p.type != kGasGiant);
+    NGS_CHECK(orderTerraform(g, f));
+    const int turns = (terraformCost(p) + kTerraformPerShip - 1) / kTerraformPerShip;
+    for (int t = 1; t < turns; ++t) {
+        endTurn(g);
+        NGS_CHECK(!p.terraformed && g.fleet(f)->progress == t * kTerraformPerShip);
+    }
+    const Game half = loadGame(saveGame(g, {}), economy);
+    NGS_CHECK(half.fleet(f)->order == Fleet::Order::Terraform &&
+              !half.galaxy.systems[static_cast<std::size_t>(target)].planets[static_cast<std::size_t>(planet)].terraformed);
+    endTurn(g);
+    NGS_CHECK(p.terraformed && g.fleet(f) != nullptr && g.fleet(f)->order == Fleet::Order::None);
+    // Now a colony can be founded, with the planet's room.
+    NGS_CHECK(orderColonize(g, f));
+    endTurn(g);
+    const Colony* c = g.colonyAt(target);
+    NGS_CHECK(c != nullptr && c->maxPopulation == systemRoom(g.galaxy.systems[static_cast<std::size_t>(target)], 1, g.economy));
+    NGS_CHECK(loadGame(saveGame(g, {}), economy).galaxy.systems[static_cast<std::size_t>(target)].planets[static_cast<std::size_t>(planet)].terraformed);
+}

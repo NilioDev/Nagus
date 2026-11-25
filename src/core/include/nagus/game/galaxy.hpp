@@ -32,7 +32,12 @@ struct Planet {
     int size = 0;       // 0 small, 1 medium, 2 large
     int room = 0;       // the most people (in millions) the planet can hold
     int variant = 0;    // picks one of several pictures for the same kind
+    // Only terraformed planets hold people. Terran planets, and those of the
+    // races' home systems, are from the start.
+    bool terraformed = true;
 };
+
+inline constexpr int kTerran = 6;
 
 inline constexpr int kGasGiant = 3;
 

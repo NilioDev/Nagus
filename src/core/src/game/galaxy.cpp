@@ -117,6 +117,7 @@ Planet randomPlanet(const GalaxyData& data, Random& rng) {
     p.size = p.type == kGasGiant ? 2 : static_cast<int>(rng.below(3));
     p.room = roomFor(data, p.type, p.size, rng);
     p.variant = static_cast<int>(rng.below(4));
+    p.terraformed = p.type == kTerran;
     return p;
 }
 
@@ -365,6 +366,11 @@ Galaxy makeGalaxy(const GalaxySetup& setup, const GalaxyData& data) {
             const int n = planetCount(rng);
             for (int i = 0; i < n; ++i) {
                 s.planets.push_back(randomPlanet(data, rng));
+            }
+        }
+        if (s.race >= 0) {
+            for (auto& p : s.planets) {
+                p.terraformed = true;
             }
         }
         if (s.race >= kEmpires) {

@@ -129,6 +129,10 @@ struct EmpireState {
 
 // How many people (millions) a system can hold for an empire or minor race.
 int systemRoom(const StarSystem& s, int race, const EconomyData& data);
+// The room a system would have with all its planets terraformed.
+int systemRoomTerraformed(const StarSystem& s, int race, const EconomyData& data);
+// What a planet holds of a race's people (millions), when terraformed.
+int planetRoom(const Planet& p, int race, const EconomyData& data);
 
 // The best facility an empire can build for an output (a building index, or -1).
 int bestFacility(Output o, const EmpireState& empire, int race, const EconomyData& data);

@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 5;
+constexpr std::uint32_t kVersion = 6;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -121,6 +121,7 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
             for (const int v : {p.type, p.atmosphere, p.size, p.room, p.variant}) {
                 w.i32(v);
             }
+            w.u8(p.terraformed ? 1 : 0);
         }
     }
 
@@ -329,6 +330,8 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             p.size = number(r, 0, 2);
             p.room = number(r, 0, kBig);
             p.variant = number(r, 0, 100);
+            // Before version 6 every planet counted as terraformed.
+            p.terraformed = version < 6 || r.u8() != 0;
             sys.planets.push_back(p);
         }
         gal.systems.push_back(std::move(sys));
@@ -496,7 +499,8 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.destination = to;
         }
         const int order = r.u8();
-        const Fleet::Order last = version >= 5   ? Fleet::Order::Upgrade
+        const Fleet::Order last = version >= 6   ? Fleet::Order::Terraform
+                                  : version >= 5 ? Fleet::Order::Upgrade
                                   : version >= 4 ? Fleet::Order::Train : version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack;
         if (order > static_cast<int>(last)) {
             throw FormatError("damaged saved game");

@@ -29,7 +29,7 @@ enum class CrewLevel : std::uint8_t { Green, Regular, Veteran, Elite, Legendary 
 CrewLevel crewLevel(int experience);
 
 struct Fleet {
-    enum class Order : std::uint8_t { None, Colonize, Attack, Raid, Scrap, Defend, Wormhole, Train, BuildOutpost, BuildStarbase, Upgrade };
+    enum class Order : std::uint8_t { None, Colonize, Attack, Raid, Scrap, Defend, Wormhole, Train, BuildOutpost, BuildStarbase, Upgrade, Terraform };
     int id = 0;
     int owner = -1;
     Sector at;
@@ -39,7 +39,8 @@ struct Fleet {
     bool avoid = false;
     // Cloaked: other empires do not see it, and it takes no part in battles.
     bool cloaked = false;
-    // Industry put into the station it builds or upgrades (see Station).
+    // Work put into the station it builds or upgrades (see Station), or
+    // into the planet it terraforms.
     int progress = 0;
     std::vector<Ship> ships;
 };

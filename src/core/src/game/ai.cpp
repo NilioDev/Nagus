@@ -224,7 +224,9 @@ std::optional<int> colonyTarget(const Game& g, const Fleet& f, const std::vector
         if (distanceFromBases(g, s.sector, f.owner) > range) {
             continue;
         }
-        const int score = systemRoom(s, f.owner, g.economy) / 10 - 4 * distance(f.at, s.sector);
+        // Room now counts double: it needs no terraforming first.
+        const int score = (systemRoom(s, f.owner, g.economy) + systemRoomTerraformed(s, f.owner, g.economy)) / 10 -
+                          4 * distance(f.at, s.sector);
         if (score > bestScore) {
             best = i;
             bestScore = score;
@@ -286,7 +288,7 @@ bool freeForColony(const Game& game, int system, int empire) {
         return false;
     }
     const StarSystem& s = game.galaxy.systems[static_cast<std::size_t>(system)];
-    return s.star && s.race < 0 && game.colonyAt(system) == nullptr && systemRoom(s, empire, game.economy) > 0;
+    return s.star && s.race < 0 && game.colonyAt(system) == nullptr && systemRoomTerraformed(s, empire, game.economy) > 0;
 }
 
 void playEmpire(Game& game, int empire) {
@@ -331,8 +333,8 @@ void playEmpire(Game& game, int empire) {
     // Fleets.
     std::vector<int> taken; // systems a colony ship is going to
     for (const auto& f : game.fleets) {
-        if (f.owner == empire && f.destination && fleetHas(game, f, isColonyShip)) {
-            const int at = game.galaxy.systemAt(*f.destination);
+        if (f.owner == empire && (f.destination || f.order == Fleet::Order::Terraform) && fleetHas(game, f, isColonyShip)) {
+            const int at = game.galaxy.systemAt(f.destination.value_or(f.at));
             if (at >= 0) {
                 taken.push_back(at);
             }
@@ -349,6 +351,12 @@ void playEmpire(Game& game, int empire) {
         if (fleetHas(game, f, isColonyShip)) {
             const int here = game.galaxy.systemAt(f.at);
             if (here >= 0 && std::find(taken.begin(), taken.end(), here) == taken.end() && orderColonize(game, id)) {
+                taken.push_back(here);
+                continue;
+            }
+            // A free system with no planet ready yet: make one ready.
+            if (here >= 0 && std::find(taken.begin(), taken.end(), here) == taken.end() && freeForColony(game, here, empire) &&
+                orderTerraform(game, id)) {
                 taken.push_back(here);
                 continue;
             }

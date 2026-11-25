@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (5; versions 1 to 4 still load) | u32 |
+| Version (6; versions 1 to 5 still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -58,7 +58,8 @@ player it waits for (i32; in version 1 always the player).
 
 A star system: sector, kind (i32), name (text), race (i32, -1 for none),
 has a star (u8), then a list of planets: name (text), type, atmosphere,
-size, room, picture variant (6 × i32).
+size, room, picture variant (5 × i32) and, from version 6, whether it is
+terraformed (u8; in older saves every planet is).
 
 A colony: system, owner, population, room, food in store, industry put into
 the first item of the queue (6 × i32); home (u8); for each of the five
@@ -83,9 +84,9 @@ focus (u8), success (u8), value and system (2 × i32, system -1 for none).
 A fleet: number, owner (2 × i32), sector, under way (u8), destination
 (sector), order (u8: 0 none, 1 colonize, 2 attack system, from version 3 also
 3 raid, 4 scrap, and from version 4 also 5 defend, 6 enter wormhole, 7 train
-crew, and from version 5 also 8 build outpost, 9 build starbase, 10 upgrade
-station), from version 3 whether it avoids battles (u8), from version 4 whether it
-is cloaked (u8), from version 5 the industry put into its station (i32), and a list of ships: class, hull (2 × i32) and, from version
+crew, from version 5 also 8 build outpost, 9 build starbase, 10 upgrade
+station, and from version 6 also 11 terraform), from version 3 whether it avoids battles (u8), from version 4 whether it
+is cloaked (u8), from version 5 the work put into its station or terraforming (i32), and a list of ships: class, hull (2 × i32) and, from version
 4, the crew's experience (u8, 0 to 100).
 
 From version 5, after the fleets, a list of stations (outposts and
