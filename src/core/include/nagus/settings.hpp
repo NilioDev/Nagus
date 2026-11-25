@@ -5,13 +5,14 @@
 // Nagus's own folder.
 #pragma once
 
+#include "nagus/data/tables.hpp"
+
 #include <array>
 #include <filesystem>
 #include <string>
 
 namespace nagus {
 
-inline constexpr int kEmpires = 5; // Cardassian, Federation, Ferengi, Klingon, Romulan
 
 struct GameSettings {
     int galaxyShape = 0;  // irregular, elliptical, ring, spiral

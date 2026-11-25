@@ -81,11 +81,12 @@ void drawPicture(Canvas& canvas, Assets& assets, const Panel& panel, std::uint32
 
 // --- Main menu --------------------------------------------------------------
 
-MainMenu::MainMenu(Assets& assets) : panel_(assets, "opening.wdf") {
+MainMenu::MainMenu(Assets& assets, bool gameRunning) : panel_(assets, "opening.wdf") {
     // Only what Nagus can do yet can be chosen; the rest is drawn darker.
-    for (const std::uint32_t id : {kContinue, kNewMultiPlayer, kLoad, kHallOfFame, kSave, kOptions, kRetire}) {
+    for (const std::uint32_t id : {kNewMultiPlayer, kLoad, kHallOfFame, kSave, kOptions, kRetire}) {
         panel_.setEnabled(id, false);
     }
+    panel_.setEnabled(kContinue, gameRunning);
 }
 
 void MainMenu::draw(Canvas& canvas, std::uint64_t) { panel_.draw(canvas); }
@@ -95,6 +96,8 @@ void MainMenu::pointerReleased(Point p) {
     const auto clicked = panel_.pointerReleased(p);
     if (clicked == kNewSinglePlayer) {
         outcome_ = Outcome::NewGame;
+    } else if (clicked == kContinue) {
+        outcome_ = Outcome::Continue;
     } else if (clicked == kQuit) {
         outcome_ = Outcome::Quit;
     }

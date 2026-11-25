@@ -90,10 +90,13 @@ int main(int argc, char** argv) {
         press("opening.wdf", MainMenu::kNewSinglePlayer);
         shot("game-setup.bmp");
         press("gmesetup.wdf", GameSetup::kAccept);
+        shell.setSeed(7);
         press("emppick.wdf", 0x2392);
         shot("empire-select.bmp");
         shell.command(Command::Start);
-        shot("not-yet.bmp");
+        shot("galaxy.bmp");
+        press("hmaingal.wdf", GalaxyScreen::kWholeMap);
+        shot("galaxy-whole.bmp");
     } catch (const std::exception& e) {
         std::fprintf(stderr, "%s\n", e.what());
         return 1;

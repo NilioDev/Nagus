@@ -10,6 +10,8 @@ add_library(ngs_core STATIC
     src/data/font.cpp
     src/data/lexicon.cpp
     src/data/tables.cpp
+    src/game/galaxy.cpp
+    src/game/game.cpp
     src/data/cursor.cpp
     src/game_files.cpp
     src/settings.cpp
@@ -17,6 +19,7 @@ add_library(ngs_core STATIC
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp
+    src/ui/galaxy_screen.cpp
     src/ui/shell.cpp
 )
 add_library(nagus::core ALIAS ngs_core)

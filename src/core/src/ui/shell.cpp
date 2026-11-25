@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/ui/shell.hpp"
 
+#include <random>
+
 namespace nagus {
 
 namespace {
@@ -8,10 +10,6 @@ namespace {
 constexpr const char* kPointer = "generic.cur";
 constexpr const char* kNoticeFont = "human20.fnt";
 
-// Our own words: there is no game behind the menus yet.
-constexpr const char* kNotYet =
-    "Your empire is chosen. Nagus cannot make the galaxy and play the game yet: "
-    "that comes in a later version. Click or press a button to go back to the main menu.";
 
 } // namespace
 
@@ -26,8 +24,10 @@ void Shell::show(Showing s) {
     mainMenu_.reset();
     setup_.reset();
     empires_.reset();
+    galaxy_.reset();
     switch (s) {
-    case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_); break;
+    case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
+    case Showing::Galaxy: galaxy_ = std::make_unique<GalaxyScreen>(assets_, *game_); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
     }
@@ -38,6 +38,7 @@ MenuScreen& Shell::screen() {
     switch (showing_) {
     case Showing::GameSetup: return *setup_;
     case Showing::EmpireSelect: return *empires_;
+    case Showing::Galaxy: return *galaxy_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -49,6 +50,8 @@ void Shell::settle() {
     case Showing::MainMenu:
         if (o == Outcome::NewGame) {
             show(Showing::GameSetup);
+        } else if (o == Outcome::Continue && game_) {
+            show(Showing::Galaxy);
         } else if (o == Outcome::Quit) {
             quit_ = true;
         }
@@ -66,10 +69,14 @@ void Shell::settle() {
         if (o == Outcome::Accept) {
             settings_ = empires_->settings();
             saveSettings(settingsFile_, settings_);
-            notice_ = kNotYet;
+            const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
+            game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), seed));
+            show(Showing::Galaxy);
         } else if (o == Outcome::Back) {
             show(Showing::GameSetup);
         }
+        break;
+    case Showing::Galaxy:
         break;
     }
 }
@@ -124,6 +131,10 @@ void Shell::clickAtPointer() {
 void Shell::command(Command c) {
     if (!notice_.empty()) {
         notice_.clear();
+        show(Showing::MainMenu);
+        return;
+    }
+    if (showing_ == Showing::Galaxy && c == Command::Back) {
         show(Showing::MainMenu);
         return;
     }

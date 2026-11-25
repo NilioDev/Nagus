@@ -5,7 +5,9 @@
 // draws.
 #pragma once
 
+#include "nagus/game/game.hpp"
 #include "nagus/settings.hpp"
+#include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/menus.hpp"
 
 #include <filesystem>
@@ -33,9 +35,14 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
+    // The game being played, if any.
+    const Game* game() const { return game_.get(); }
+    GalaxyScreen* galaxyScreen() { return galaxy_.get(); }
+    // The seed for the next new galaxy (random unless set, for tests).
+    void setSeed(std::uint32_t seed) { seed_ = seed; }
 
 private:
     void settle();
@@ -49,6 +56,9 @@ private:
     std::unique_ptr<MainMenu> mainMenu_;
     std::unique_ptr<GameSetup> setup_;
     std::unique_ptr<EmpireSelect> empires_;
+    std::unique_ptr<GalaxyScreen> galaxy_;
+    std::unique_ptr<Game> game_;
+    std::optional<std::uint32_t> seed_;
     std::string notice_;
     Point pointer_{kScreenWidth / 2, kScreenHeight / 2};
     bool pointerVisible_ = true;

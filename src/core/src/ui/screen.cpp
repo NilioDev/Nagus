@@ -8,9 +8,12 @@ namespace nagus {
 
 Panel::Panel(Assets& assets, const std::string& layoutName) : assets_(assets), layout_(&assets.layout(layoutName)) {}
 
+Point Panel::origin() const { return origin_ ? *origin_ : Point{layout_->rect.x, layout_->rect.y}; }
+
 Rect Panel::rect(std::uint32_t id) const {
     if (const auto* e = layout_->find(id)) {
-        return e->rect;
+        const Point o = origin();
+        return {o.x + e->rect.x, o.y + e->rect.y, e->rect.w, e->rect.h};
     }
     return {};
 }
@@ -27,7 +30,7 @@ bool Panel::usable(std::uint32_t id) const {
 void Panel::draw(Canvas& canvas) {
     const Layout& l = *layout_;
     if (!l.background.empty()) {
-        canvas.draw(assets_.image(l.background), l.rect.x, l.rect.y);
+        canvas.draw(assets_.image(l.background), origin().x, origin().y);
     }
     for (const auto& e : l.elements) {
         if (e.kind != LayoutElement::Kind::Button) {
@@ -40,7 +43,7 @@ void Panel::draw(Canvas& canvas) {
         }
         const bool down = s.on || (held_ == e.id && overHeld_);
         const std::string& name = down && !e.downImage.empty() ? e.downImage : e.upImage;
-        const Rect r{l.rect.x + e.rect.x, l.rect.y + e.rect.y, e.rect.w, e.rect.h};
+        const Rect r{origin().x + e.rect.x, origin().y + e.rect.y, e.rect.w, e.rect.h};
         canvas.draw(assets_.image(name), r.x, r.y);
         if (!s.enabled) {
             canvas.blend(r, rgb(0, 0, 0), 150);
@@ -55,7 +58,7 @@ std::optional<std::uint32_t> Panel::buttonAt(Point p) const {
         if (it->kind != LayoutElement::Kind::Button || !usable(it->id)) {
             continue;
         }
-        const Rect r{l.rect.x + it->rect.x, l.rect.y + it->rect.y, it->rect.w, it->rect.h};
+        const Rect r{origin().x + it->rect.x, origin().y + it->rect.y, it->rect.w, it->rect.h};
         if (r.contains(p.x, p.y)) {
             return it->id;
         }
@@ -87,10 +90,10 @@ std::optional<std::uint32_t> Panel::pointerReleased(Point p) {
 std::optional<Point> Panel::step(Command direction, Point from) const {
     const Layout& l = *layout_;
     const auto current = buttonAt(from);
-    Point origin = from;
+    Point start = from;
     if (current) {
         const Rect r = rect(*current);
-        origin = {l.rect.x + r.centerX(), l.rect.y + r.centerY()};
+        start = {r.centerX(), r.centerY()};
     }
     std::optional<Point> best;
     double bestScore = std::numeric_limits<double>::max();
@@ -98,9 +101,10 @@ std::optional<Point> Panel::step(Command direction, Point from) const {
         if (e.kind != LayoutElement::Kind::Button || !usable(e.id) || e.id == current) {
             continue;
         }
-        const Point c{l.rect.x + e.rect.centerX(), l.rect.y + e.rect.centerY()};
-        const int dx = c.x - origin.x;
-        const int dy = c.y - origin.y;
+        const Point o = origin();
+        const Point c{o.x + e.rect.centerX(), o.y + e.rect.centerY()};
+        const int dx = c.x - start.x;
+        const int dy = c.y - start.y;
         if (!current) {
             // Nothing under the pointer yet: start at the button nearest it.
             const double d = std::hypot(dx, dy);

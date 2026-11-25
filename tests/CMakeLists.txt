@@ -2,6 +2,7 @@ add_executable(ngs_tests
     test_main.cpp
     test_util.cpp
     test_formats.cpp
+    test_galaxy.cpp
     test_import.cpp
     test_menus.cpp
 )
