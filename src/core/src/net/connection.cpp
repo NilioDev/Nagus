@@ -31,6 +31,8 @@ namespace {
 
 #ifdef _WIN32
 using Native = SOCKET;
+using AddrLen = int;
+using IoLen = int;
 constexpr Native kNone = INVALID_SOCKET;
 bool wouldBlock() {
     const int e = WSAGetLastError();
@@ -47,6 +49,8 @@ void startNetwork() {
 }
 #else
 using Native = int;
+using AddrLen = socklen_t;
+using IoLen = std::size_t;
 constexpr Native kNone = -1;
 bool wouldBlock() { return errno == EWOULDBLOCK || errno == EAGAIN || errno == EINPROGRESS; }
 void closeNative(Native s) { ::close(s); }
@@ -125,7 +129,7 @@ std::unique_ptr<Connection> Connection::connect(const std::string& address) {
             continue;
         }
         setNonBlocking(s);
-        if (::connect(s, a->ai_addr, static_cast<int>(a->ai_addrlen)) == 0 || wouldBlock()) {
+        if (::connect(s, a->ai_addr, static_cast<AddrLen>(a->ai_addrlen)) == 0 || wouldBlock()) {
             c->socket_ = stored(s);
             c->state_ = State::Connecting;
             break;
@@ -177,7 +181,7 @@ Connection::State Connection::poll() {
     }
     // Send what waits.
     while (!out_.empty()) {
-        const auto n = ::send(s, reinterpret_cast<const char*>(out_.data()), static_cast<int>(std::min<std::size_t>(out_.size(), 1 << 20)), kSendFlags);
+        const auto n = ::send(s, reinterpret_cast<const char*>(out_.data()), static_cast<IoLen>(std::min<std::size_t>(out_.size(), 1 << 20)), kSendFlags);
         if (n > 0) {
             out_.erase(out_.begin(), out_.begin() + n);
         } else if (n < 0 && wouldBlock()) {
@@ -190,7 +194,7 @@ Connection::State Connection::poll() {
     // Read what came.
     std::uint8_t buffer[16384];
     for (;;) {
-        const auto n = ::recv(s, reinterpret_cast<char*>(buffer), static_cast<int>(sizeof buffer), 0);
+        const auto n = ::recv(s, reinterpret_cast<char*>(buffer), static_cast<IoLen>(sizeof buffer), 0);
         if (n > 0) {
             in_.insert(in_.end(), buffer, buffer + n);
             // A message may not be longer than allowed; more than that
