@@ -525,6 +525,54 @@ NGS_TEST("the end of a game: pictures, speech and the hall of fame") {
     fs::remove_all(dir);
 }
 
+NGS_TEST("a button's tooltip shows when the pointer rests on it") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-tooltips";
+    fs::remove_all(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Canvas canvas;
+    Shell shell(res, dir / "settings.txt");
+    const Point single = centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer));
+    shell.pointerMoved(single);
+    shell.draw(canvas, 1000);
+    NGS_CHECK(!shell.tooltipShown()); // not at once
+    shell.draw(canvas, 1500);
+    NGS_CHECK(!shell.tooltipShown());
+    shell.draw(canvas, 1800);
+    NGS_CHECK(shell.tooltipShown() == MainMenu::kNewSinglePlayer);
+    // Another button starts again; beside the buttons there is none.
+    shell.pointerMoved(centre(element(assets, "opening.wdf", MainMenu::kQuit)));
+    shell.draw(canvas, 1900);
+    NGS_CHECK(!shell.tooltipShown());
+    shell.draw(canvas, 2700);
+    NGS_CHECK(shell.tooltipShown() == MainMenu::kQuit);
+    shell.pointerMoved({2, 2});
+    shell.draw(canvas, 4000);
+    NGS_CHECK(!shell.tooltipShown());
+    // A press hides it; touch shows none.
+    shell.pointerMoved(single);
+    shell.draw(canvas, 5000);
+    shell.pointerPressed(single);
+    shell.draw(canvas, 6000);
+    NGS_CHECK(!shell.tooltipShown());
+    shell.pointerMoved({2, 2});
+    shell.draw(canvas, 6100);
+    shell.setPointerVisible(false);
+    shell.pointerMoved(single);
+    shell.draw(canvas, 6200);
+    shell.draw(canvas, 7200);
+    NGS_CHECK(!shell.tooltipShown());
+    // With the pointer back it shows again.
+    shell.setPointerVisible(true);
+    shell.draw(canvas, 8000);
+    NGS_CHECK(shell.tooltipShown() == MainMenu::kNewSinglePlayer);
+    fs::remove_all(dir);
+}
+
 NGS_TEST("the options: volumes, kept with the settings") {
     const auto lib = gameLibrary();
     if (!lib) {
@@ -551,16 +599,20 @@ NGS_TEST("the options: volumes, kept with the settings") {
         const Rect b = o.bar(2);
         click(shell, {b.x + b.w / 2, b.centerY()});
         NGS_CHECK(o.settings().volume[2] == 50);
-        // The switches: tactical combat by a click, saving each turn by the
-        // gamepad; there are no tooltips.
-        NGS_CHECK(!o.button(OptionsScreen::kTooltips));
+        // The switches: tooltips and tactical combat by a click, saving each
+        // turn by the gamepad.
+        NGS_CHECK(o.settings().tooltips);
+        click(shell, centre(*o.button(OptionsScreen::kTooltips)));
+        NGS_CHECK(!o.settings().tooltips && o.chosenRow() == OptionsScreen::kVolumes);
+        click(shell, centre(*o.button(OptionsScreen::kTooltips)));
+        NGS_CHECK(o.settings().tooltips);
         const bool automatic = o.settings().automaticCombat;
         click(shell, centre(*o.button(OptionsScreen::kTactical)));
         NGS_CHECK(o.settings().automaticCombat != automatic);
-        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes);
+        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes + 1);
         shell.command(Command::Down);
         shell.command(Command::Down);
-        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes + 2);
+        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes + 3);
         shell.command(Command::Right);
         NGS_CHECK(!o.settings().autosave);
         click(shell, centre(*o.button(OptionsScreen::kAccept)));

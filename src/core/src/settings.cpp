@@ -73,6 +73,9 @@ GameSettings loadSettings(const std::filesystem::path& file) {
     int autosave = s.autosave ? 1 : 0;
     get("autosave", autosave);
     s.autosave = autosave != 0;
+    int tooltips = s.tooltips ? 1 : 0;
+    get("tooltips", tooltips);
+    s.tooltips = tooltips != 0;
     // Multiplayer: the names last used and the host last joined.
     for (auto [key, out] : {std::pair{"player_name", &s.playerName}, std::pair{"game_name", &s.gameName}, std::pair{"host_address", &s.hostAddress}}) {
         if (const auto it = texts.find(key); it != texts.end()) {
@@ -105,6 +108,7 @@ void saveSettings(const std::filesystem::path& file, const GameSettings& s) {
             << "volume_voice=" << s.volume[2] << '\n'
             << "volume_all=" << s.volume[3] << '\n'
             << "autosave=" << (s.autosave ? 1 : 0) << '\n'
+            << "tooltips=" << (s.tooltips ? 1 : 0) << '\n'
             << "player_name=" << s.playerName << '\n'
             << "game_name=" << s.gameName << '\n'
             << "host_address=" << s.hostAddress << '\n';

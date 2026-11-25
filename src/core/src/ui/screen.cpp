@@ -67,6 +67,7 @@ std::optional<std::uint32_t> Panel::buttonAt(Point p) const {
 }
 
 void Panel::pointerMoved(Point p) {
+    assets_.hover(this, buttonAt(p));
     if (held_) {
         overHeld_ = buttonAt(p) == held_;
     }

@@ -11,9 +11,11 @@
 #include "nagus/data/layout.hpp"
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
+#include "nagus/data/tips.hpp"
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,6 +39,24 @@ public:
     // Counts the buttons pressed, for the click sound.
     void clicked() { ++clicks_; }
     std::uint64_t clicks() const { return clicks_; }
+    // The tooltips (empty when the game has none, or they are damaged).
+    const Tips& tips();
+
+    // The button under the pointer, for its tooltip. Each panel says when the
+    // pointer comes onto one of its buttons and when it leaves it.
+    void hover(const void* owner, std::optional<std::uint32_t> button);
+    // Forgets the button (when the screen changes or the panel goes).
+    void unhover(const void* owner) {
+        if (hoverOwner_ == owner) {
+            hovered_.reset();
+            hoverOwner_ = nullptr;
+        }
+    }
+    std::optional<std::uint32_t> hovered() const { return hovered_; }
+    void clearHover() {
+        hovered_.reset();
+        hoverOwner_ = nullptr;
+    }
 
 private:
     std::shared_ptr<Resources> resources_;
@@ -48,6 +68,9 @@ private:
     std::map<std::string, Animation> animations_;
     std::map<std::string, std::vector<std::string>> texts_;
     std::uint64_t clicks_ = 0;
+    std::optional<Tips> tips_;
+    const void* hoverOwner_ = nullptr;
+    std::optional<std::uint32_t> hovered_;
 };
 
 } // namespace nagus

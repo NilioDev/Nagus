@@ -27,6 +27,7 @@ add_library(ngs_core STATIC
     src/game/events.cpp
     src/game/victory.cpp
     src/data/cursor.cpp
+    src/data/tips.cpp
     src/game_files.cpp
     src/settings.cpp
     src/render/canvas.cpp

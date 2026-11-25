@@ -32,6 +32,8 @@ struct GameSettings {
     int heard(std::size_t which) const { return volume[which] * volume[kMasterVolume] / 100; }
     // Saves the game at the end of each turn, for Continue.
     bool autosave = true;
+    // Shows a button's help text when the pointer rests on it.
+    bool tooltips = true;
     // Multiplayer: the player's name, the game's name and the host last
     // joined.
     std::string playerName;
