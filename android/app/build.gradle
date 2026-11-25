@@ -1,0 +1,85 @@
+// The Android app: SDL's Java glue code (from the SDL checkout that
+// fetch-sdl.sh puts in android/sdl) plus Nagus built with CMake as libmain.so.
+plugins {
+    id 'com.android.application'
+}
+
+def root = file('../..')
+def sdl = file('../sdl')
+def versionMatch = (new File(root, 'CMakeLists.txt').text =~ /VERSION (\d+)\.(\d+)\.(\d+)/)
+if (!versionMatch.find()) {
+    throw new GradleException('No VERSION in CMakeLists.txt')
+}
+def cmakeVersion = [
+    name: "${versionMatch.group(1)}.${versionMatch.group(2)}.${versionMatch.group(3)}".toString(),
+    code: versionMatch.group(1).toInteger() * 10000 + versionMatch.group(2).toInteger() * 100 + versionMatch.group(3).toInteger()
+]
+
+android {
+    namespace = 'io.github.niliodev.nagus'
+    compileSdk = 35
+    ndkVersion = '28.2.13676358'
+
+    defaultConfig {
+        applicationId 'io.github.niliodev.nagus'
+        minSdk = 24
+        targetSdk = 35
+        versionCode cmakeVersion.code
+        versionName cmakeVersion.name
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared',
+                    '-DNGS_BUILD_TESTS=OFF',
+                    "-DFETCHCONTENT_SOURCE_DIR_SDL3=${sdl.absolutePath}"
+            }
+        }
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    // Release builds are signed with the debug key unless a key is given
+    // (NAGUS_KEYSTORE, NAGUS_KEYSTORE_PASSWORD, NAGUS_KEY_ALIAS,
+    // NAGUS_KEY_PASSWORD), so that the APK installs either way.
+    def releaseStore = System.getenv('NAGUS_KEYSTORE')
+    signingConfigs {
+        if (releaseStore) {
+            release {
+                storeFile file(releaseStore)
+                storePassword System.getenv('NAGUS_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('NAGUS_KEY_ALIAS')
+                keyPassword System.getenv('NAGUS_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig releaseStore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    sourceSets.main {
+        java.srcDirs += new File(sdl, 'android-project/app/src/main/java')
+    }
+
+    externalNativeBuild {
+        cmake {
+            path new File(root, 'CMakeLists.txt')
+        }
+    }
+
+    lint {
+        abortOnError = false
+    }
+}
+
+tasks.register('checkSdl') {
+    doFirst {
+        if (!new File(sdl, 'android-project').exists()) {
+            throw new GradleException('No SDL checkout in android/sdl: run android/fetch-sdl.sh first')
+        }
+    }
+}
+preBuild.dependsOn checkSdl
