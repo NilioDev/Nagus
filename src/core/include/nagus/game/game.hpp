@@ -6,6 +6,7 @@
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/game/economy.hpp"
+#include "nagus/game/fleet.hpp"
 #include "nagus/game/galaxy.hpp"
 #include "nagus/settings.hpp"
 
@@ -23,16 +24,30 @@ struct Game {
     EconomyData economy;
     std::vector<Colony> colonies;
     std::array<EmpireState, kEmpires> empires{};
+    std::vector<Fleet> fleets;
+    int nextFleetId = 1;
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
     const Colony* colonyAt(int system) const;
+    Fleet* fleet(int id);
+    const Fleet* fleet(int id) const;
+    // The fleets in a sector, of an owner or (-1) of anyone.
+    std::vector<int> fleetsAt(Sector s, int owner = -1) const;
+    // A new fleet of one ship.
+    Fleet& addFleet(int owner, Sector at, int shipClass);
 };
+
+// Sends a fleet towards a sector, if it is in range. Returns whether it goes.
+bool orderMove(Game& game, int fleet, Sector to);
+// Tells a fleet to found a colony where it is (on the next turn).
+bool orderColonize(Game& game, int fleet);
 
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
     std::vector<std::string> events;     // for the player: what the colonies finished
     std::vector<std::string> researched; // the player's new technologies
+    std::vector<std::string> colonized;  // systems the player colonized
 };
 TurnSummary endTurn(Game& game);
 
