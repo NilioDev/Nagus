@@ -23,9 +23,10 @@ struct Relation {
     int since = 0;   // the turn the treaty began
 };
 
-// A proposal from a computer player, waiting for the player's answer.
+// A proposal waiting for a human player's answer.
 struct Offer {
     int from = -1;
+    int to = -1; // the human player it waits for
     Treaty treaty = Treaty::None;
     int turn = 0;
 };
@@ -51,6 +52,9 @@ struct Game {
     GameSettings settings;
     Galaxy galaxy;
     int player = 1; // the player's empire (see Empire)
+    // In a multiplayer game, the empires other people play; the computer
+    // plays the rest. The player is always human.
+    std::array<bool, kEmpires> humans{};
     int turn = 1;
     // From the game's tables, for showing the galaxy.
     std::vector<std::string> kindCodes; // map object kinds (see StarObjectKind)
@@ -68,10 +72,16 @@ struct Game {
     // For each empire and race (empire * races + race): see Relation. The
     // treaty between two empires is kept both ways.
     std::vector<Relation> relations;
-    std::vector<Offer> offers; // to the player
+    std::vector<Offer> offers; // to human players
     std::vector<IntelReport> intelReports; // the latest, oldest first
     std::array<bool, kEmpires> out{}; // empires that have lost every colony
     Ending ending = Ending::None;
+
+    // Whether a person plays the empire (the player, or another in a
+    // multiplayer game).
+    bool isHuman(int empire) const;
+    // Whether other people play in this game too.
+    bool multiplayer() const;
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);

@@ -93,9 +93,10 @@ public:
     void endPlayerTurn();
     const std::vector<Sector>& battlesWaiting() const { return waiting_; }
     void finishTurn(const std::vector<Battle>& fought);
+    // Shows what happened in a turn ended elsewhere (a multiplayer game).
+    void report(const TurnSummary& summary);
 
 private:
-    void report(const TurnSummary& summary);
     TurnSummary pending_;
     std::vector<Sector> waiting_;
     int sectorSize() const;

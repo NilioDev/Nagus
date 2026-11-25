@@ -21,6 +21,7 @@ add_library(ngs_core STATIC
     src/game/ai.cpp
     src/game/combat.cpp
     src/game/tactical.cpp
+    src/game/multiplayer.cpp
     src/game/diplomacy.cpp
     src/game/game.cpp
     src/game/events.cpp
@@ -29,6 +30,8 @@ add_library(ngs_core STATIC
     src/game_files.cpp
     src/settings.cpp
     src/render/canvas.cpp
+    src/net/connection.cpp
+    src/net/session.cpp
     src/sound/pcm.cpp
     src/sound/archives.cpp
     src/sound/jukebox.cpp
@@ -37,6 +40,7 @@ add_library(ngs_core STATIC
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp
+    src/ui/multiplayer_screen.cpp
     src/ui/options_screen.cpp
     src/ui/load_save_screen.cpp
     src/ui/combat_screen.cpp
@@ -51,6 +55,9 @@ add_library(ngs_core STATIC
     src/ui/system_screen.cpp
 )
 add_library(nagus::core ALIAS ngs_core)
+if(WIN32)
+    target_link_libraries(ngs_core PUBLIC ws2_32)
+endif()
 
 target_include_directories(ngs_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"

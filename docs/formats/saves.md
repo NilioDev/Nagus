@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (1) | u32 |
+| Version (2; version 1 files still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -41,7 +41,8 @@ count and then its entries.
 | Intelligence reports, oldest first (at most 60) | list, see below |
 | Empires out of the game | 5 × u8 |
 | How the game ended (0 not yet, 1 conquest, 2 domination, 3 allies, 4 defeat, 5 retired) | u8 |
-| Proposals waiting for the player | list, see below |
+| Proposals waiting for a human player | list, see below |
+| Version 2: the empires people play (multiplayer) | 5 × u8 |
 | Next fleet number | i32 |
 | Fleets | list, see below |
 
@@ -51,7 +52,8 @@ A race: name and picture (text), its first regard for each empire
 
 A relation: treaty (u8: 0 not met, 1 war, 2 neutral, 3 non-aggression,
 4 friendship, 5 affiliation, 6 alliance, 7 membership), regard and the turn
-it began (2 × i32). A proposal: from (i32), treaty (u8), turn (i32).
+it began (2 × i32). A proposal: from (i32), treaty (u8), turn (i32), and in version 2 the
+player it waits for (i32; in version 1 always the player).
 
 A star system: sector, kind (i32), name (text), race (i32, -1 for none),
 has a star (u8), then a list of planets: name (text), type, atmosphere,

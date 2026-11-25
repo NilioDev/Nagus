@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string_view>
 #include <string>
 
 namespace nagus {
@@ -36,6 +37,11 @@ public:
     virtual void pointerReleased(Point) {}
     // A command from the keyboard or gamepad. May ask the pointer to jump.
     virtual std::optional<Point> command(Command) { return std::nullopt; }
+    // Typed text, for a screen with a text field ("\b" erases a letter).
+    virtual void typed(std::string_view) {}
+    // Whether a text field waits for typing (the app then shows a
+    // keyboard where there is none).
+    virtual bool wantsText() const { return false; }
 };
 
 // The buttons of a screen layout: drawing them up or down, clicking them

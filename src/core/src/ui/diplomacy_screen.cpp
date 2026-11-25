@@ -76,8 +76,10 @@ DiplomacyScreen::DiplomacyScreen(Assets& assets, Game& game)
         }
     }
     // The first race with a proposal for the player, or the first met.
+    bool offered = false;
     for (const auto& o : game_.offers) {
-        if (chosen_ < 0) {
+        offered = offered || o.to == game_.player;
+        if (chosen_ < 0 && o.to == game_.player) {
             chosen_ = o.from;
         }
     }
@@ -87,7 +89,7 @@ DiplomacyScreen::DiplomacyScreen(Assets& assets, Game& game)
     for (const std::uint32_t id : {kRequest, kWarPact}) {
         panel_.setEnabled(id, false);
     }
-    showTab(game_.offers.empty() ? Tab::Propose : Tab::Active);
+    showTab(offered ? Tab::Active : Tab::Propose);
 }
 
 char DiplomacyScreen::prefix() const { return kPrefixes[std::clamp(game_.player, 0, kEmpires - 1)]; }
@@ -200,7 +202,7 @@ void DiplomacyScreen::refresh() {
                 sub_->setVisible(kSurrender, war);
             }
         } else if (tab_ == Tab::Active) {
-            const bool offer = std::any_of(game_.offers.begin(), game_.offers.end(), [&](const Offer& o) { return o.from == them; });
+            const bool offer = std::any_of(game_.offers.begin(), game_.offers.end(), [&](const Offer& o) { return o.from == them && o.to == game_.player; });
             enable(kAccept, offer);
             enable(kReject, offer);
             sub_->setVisible(0x1542, false);
@@ -312,7 +314,7 @@ void DiplomacyScreen::click(std::uint32_t id) {
                 }
             } else if (tab_ == Tab::Active && (id == kAccept || id == kReject)) {
                 for (std::size_t i = 0; i < game_.offers.size(); ++i) {
-                    if (game_.offers[i].from == chosen_) {
+                    if (game_.offers[i].from == chosen_ && game_.offers[i].to == game_.player) {
                         answerOffer(game_, i, id == kAccept, events_);
                         if (!events_.empty()) {
                             reply_ = diplomacyText(assets_.lexicon(), game_, events_.back());
@@ -409,7 +411,7 @@ void DiplomacyScreen::draw(Canvas& canvas, std::uint64_t) {
     }
     switch (tab_) {
     case Tab::Active: {
-        const auto offer = std::find_if(game_.offers.begin(), game_.offers.end(), [&](const Offer& o) { return o.from == chosen_; });
+        const auto offer = std::find_if(game_.offers.begin(), game_.offers.end(), [&](const Offer& o) { return o.from == chosen_ && o.to == game_.player; });
         if (sub_ && offer != game_.offers.end()) {
             canvas.text(f20, treatyName(lex, offer->treaty), sub_->rect(kOfferTitle), kText, Align::Left);
             const std::size_t texts[kTreaties] = {0, 0, 0, 868, 385, 11, 24, 635};

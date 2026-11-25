@@ -65,7 +65,7 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     // A disabled button does nothing.
-    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewMultiPlayer)));
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kRetire)));
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
@@ -236,8 +236,9 @@ NGS_TEST("the gamepad's d-pad moves the pointer between buttons") {
     shell.command(Command::Down);
     const Point p = shell.pointer();
     NGS_CHECK(newGame.contains(p.x, p.y) || load.contains(p.x, p.y) || quit.contains(p.x, p.y));
-    // Up from Load Game is New Single Player Game; press A there.
+    // Up twice from Load Game is New Single Player Game; press A there.
     shell.pointerMoved(centre(load));
+    shell.command(Command::Up);
     shell.command(Command::Up);
     NGS_CHECK(newGame.contains(shell.pointer().x, shell.pointer().y));
     shell.clickAtPointer();
@@ -690,5 +691,102 @@ NGS_TEST("saving each turn, and Continue after a new start") {
     click(again, centre(element(assets, "opening.wdf", MainMenu::kContinue)));
     NGS_CHECK(again.showing() == Shell::Showing::Galaxy);
     NGS_CHECK(again.game() != nullptr && again.game()->turn == turn);
+    fs::remove_all(dir);
+}
+
+NGS_TEST("a multiplayer game: hosting, joining, empires and a turn together") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-multiplayer";
+    fs::remove_all(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Canvas canvas;
+    Shell host(res, dir / "host" / "settings.txt");
+    Shell guest(res, dir / "guest" / "settings.txt");
+    host.setGamePort(0);
+    host.setSeed(5);
+    std::uint64_t ms = 0;
+    auto pump = [&](auto done) {
+        for (int i = 0; i < 3000 && !done(); ++i) {
+            ms += 5;
+            host.draw(canvas, ms);
+            guest.draw(canvas, ms);
+        }
+        return done();
+    };
+    auto type = [&](Shell& s, std::uint32_t id, const std::string& text) {
+        click(s, centre(s.multiplayerScreen()->field(id)));
+        NGS_CHECK(s.wantsText());
+        s.typed(text);
+        s.typed("\n");
+    };
+
+    // The host: a name, Host, the game set-up, then the lobby.
+    click(host, centre(element(assets, "opening.wdf", MainMenu::kNewMultiPlayer)));
+    NGS_CHECK(host.showing() == Shell::Showing::Multiplayer);
+    MultiplayerScreen& hm = *host.multiplayerScreen();
+    click(host, centre(*hm.button(MultiplayerScreen::kHost)));
+    NGS_CHECK(host.showing() == Shell::Showing::Multiplayer && !hm.status().empty()); // no name yet
+    type(host, MultiplayerScreen::kPlayerName, "Picard");
+    NGS_CHECK(hm.playerName() == "Picard" && !host.wantsText());
+    click(host, centre(*hm.button(MultiplayerScreen::kHost)));
+    NGS_CHECK(host.showing() == Shell::Showing::GameSetup && host.hostSession() != nullptr);
+    click(host, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    NGS_CHECK(host.showing() == Shell::Showing::Multiplayer);
+    host.draw(canvas, ms);
+    NGS_CHECK(host.multiplayerScreen()->mode() == MultiplayerScreen::Mode::Lobby);
+
+    // The guest joins with the host's address.
+    click(guest, centre(element(assets, "opening.wdf", MainMenu::kNewMultiPlayer)));
+    MultiplayerScreen& gm = *guest.multiplayerScreen();
+    type(guest, MultiplayerScreen::kPlayerName, "Riker");
+    click(guest, centre(*gm.button(MultiplayerScreen::kJoin)));
+    NGS_CHECK(gm.focus() == MultiplayerScreen::kAddress);
+    guest.typed("127.0.0.1:" + std::to_string(host.hostSession()->port()) + "\n");
+    click(guest, centre(*gm.button(MultiplayerScreen::kConnect)));
+    NGS_CHECK(guest.clientSession() != nullptr);
+    NGS_CHECK(pump([&] { return gm.mode() == MultiplayerScreen::Mode::Lobby && guest.clientSession()->lobby().players.size() == 2; }));
+
+    // Empires: the host has the Federation; the guest cannot choose it.
+    click(host, centre(*host.multiplayerScreen()->button(MultiplayerScreen::kChooseEmpire)));
+    NGS_CHECK(host.showing() == Shell::Showing::EmpireSelect);
+    click(host, centre(element(assets, "emppick.wdf", EmpireSelect::kAccept)));
+    NGS_CHECK(host.showing() == Shell::Showing::Multiplayer && host.hostSession()->lobby().players[0].empire == 1);
+    NGS_CHECK(pump([&] { return guest.clientSession()->lobby().players[0].empire == 1; }));
+    click(guest, centre(*gm.button(MultiplayerScreen::kChooseEmpire)));
+    NGS_CHECK(guest.showing() == Shell::Showing::EmpireSelect);
+    click(guest, centre(element(assets, "emppick.wdf", EmpireSelect::kAccept)));
+    NGS_CHECK(pump([&] { return host.hostSession()->canStart(); }));
+    NGS_CHECK(host.hostSession()->lobby().players[1].empire != 1);
+
+    // The host starts; both play.
+    click(host, centre(*host.multiplayerScreen()->button(MultiplayerScreen::kStart)));
+    NGS_CHECK(host.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(pump([&] { return guest.showing() == Shell::Showing::Galaxy; }));
+    NGS_CHECK(guest.game()->player != 1 && guest.game()->humans[1] && host.game()->multiplayer());
+    const int turn = host.game()->turn;
+    click(host, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    NGS_CHECK(host.waitingForPlayers());
+    host.draw(canvas, ms);
+    NGS_CHECK(host.game()->turn == turn);
+    const char* guestMap = guest.game()->player == 0 ? "cmaingal.wdf" : guest.game()->player == 2 ? "fmaingal.wdf"
+                           : guest.game()->player == 3 ? "kmaingal.wdf" : "rmaingal.wdf";
+    click(guest, centre(element(assets, guestMap, GalaxyScreen::kTurn)));
+    NGS_CHECK(pump([&] { return !host.waitingForPlayers() && !guest.waitingForPlayers(); }));
+    NGS_CHECK(host.game()->turn == turn + 1 && guest.game()->turn == turn + 1);
+
+    // The host leaves: the guest's game cannot go on.
+    host.command(Command::Back);
+    click(host, centre(*host.markerButton(Shell::kMarkerMenu)));
+    NGS_CHECK(host.showing() == Shell::Showing::MainMenu);
+    click(host, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(host, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    click(host, centre(element(assets, "emppick.wdf", EmpireSelect::kAccept)));
+    NGS_CHECK(!host.multiplayer());
+    NGS_CHECK(pump([&] { return guest.noticeOpen(); }));
+    NGS_CHECK(guest.game() == nullptr && !guest.multiplayer());
     fs::remove_all(dir);
 }

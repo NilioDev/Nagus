@@ -17,6 +17,7 @@
 #include "nagus/ui/intel_screen.hpp"
 #include "nagus/ui/load_save_screen.hpp"
 #include "nagus/ui/menus.hpp"
+#include "nagus/ui/multiplayer_screen.hpp"
 #include "nagus/ui/options_screen.hpp"
 #include "nagus/ui/research_screen.hpp"
 #include "nagus/ui/system_screen.hpp"
@@ -39,6 +40,9 @@ public:
     void command(Command c);
     // The gamepad's A button: a click where the pointer is.
     void clickAtPointer();
+    // Typed text ("\b" erases), and whether a text field waits for it.
+    void typed(std::string_view text);
+    bool wantsText() const;
 
     Point pointer() const { return pointer_; }
     // The original's pointer is drawn while a mouse or gamepad is in use,
@@ -46,7 +50,7 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame, Options, Combat };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame, Options, Combat, Multiplayer };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -62,6 +66,15 @@ public:
     FameScreen* fameScreen() { return fame_.get(); }
     OptionsScreen* optionsScreen() { return options_.get(); }
     CombatScreen* combatScreen() { return combat_.get(); }
+    MultiplayerScreen* multiplayerScreen() { return mp_.get(); }
+    HostSession* hostSession() { return host_.get(); }
+    ClientSession* clientSession() { return client_.get(); }
+    // A multiplayer game is being set up or played.
+    bool multiplayer() const { return host_ != nullptr || client_ != nullptr; }
+    // Orders are given; the turn ends when the other players' come.
+    bool waitingForPlayers() const { return waitingTurn_; }
+    // The port a hosted game listens on (0: any, for tests).
+    void setGamePort(std::uint16_t port) { gamePort_ = port; }
     const GameSettings& settings() const { return settings_; }
     // The hall of fame: next to the settings file.
     std::filesystem::path fameFile() const { return settingsFile_.parent_path() / "fame.txt"; }
@@ -127,6 +140,25 @@ private:
     std::unique_ptr<OptionsScreen> options_;
     // Tactical combat: the battles of the turn being ended, one by one.
     std::unique_ptr<CombatScreen> combat_;
+    // Multiplayer: the set-up screen, the session, and which part of the
+    // set-up the game set-up and empire choice screens are for.
+    std::unique_ptr<MultiplayerScreen> mp_;
+    std::unique_ptr<HostSession> host_;
+    std::unique_ptr<ClientSession> client_;
+    enum class MultiplayerStep { None, Settings, Empire };
+    MultiplayerStep mpStep_ = MultiplayerStep::None;
+    bool waitingTurn_ = false;
+    std::uint16_t gamePort_ = kGamePort;
+    std::string hostAddress_;
+    std::string toast_;
+    std::uint64_t toastUntil_ = 0;
+    std::uint64_t now_ = 0;
+    void pollNetwork();
+    bool blocked() const;
+    void startMultiplayerGame();
+    void leaveMultiplayer();
+    std::array<std::string, kEmpires> empireNames();
+    void rememberNames();
     std::vector<Battle> fought_;
     std::size_t nextBattle_ = 0;
     void nextCombat();

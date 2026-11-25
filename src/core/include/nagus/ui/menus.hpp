@@ -12,7 +12,8 @@
 namespace nagus {
 
 // What a screen asks the shell to do next.
-enum class Outcome { None, NewGame, Continue, Back, Accept, Quit, Open, Save, Load, HallOfFame, Retire, Options, Combat };
+enum class Outcome { None, NewGame, Continue, Back, Accept, Quit, Open, Save, Load, HallOfFame, Retire, Options, Combat,
+                     Multiplayer, Host, Join, ChooseEmpire, Start, EndTurn };
 
 class MenuScreen : public Screen {
 public:
@@ -41,7 +42,7 @@ public:
 
     // With a game running, Continue goes back to it.
     // canContinue: a game is running, or one was saved at the end of a turn.
-    MainMenu(Assets& assets, bool gameRunning = false, bool canContinue = false);
+    MainMenu(Assets& assets, bool gameRunning = false, bool canContinue = false, bool multiplayer = false);
     void draw(Canvas& canvas, std::uint64_t ms) override;
     void pointerMoved(Point p) override {
         last_ = p;
@@ -95,6 +96,11 @@ public:
     std::optional<Point> command(Command c) override;
 
     void click(std::uint32_t id);
+    // In a multiplayer game: the empires other players have, which cannot
+    // be chosen.
+    void setTaken(const std::array<bool, kEmpires>& taken);
+    // Where an empire's button is, for tests and the pointer.
+    Rect empireButton(int empire) const;
 
 private:
     void choose(int empire);
@@ -102,6 +108,7 @@ private:
     Assets& assets_;
     Panel panel_;
     GameSettings settings_;
+    std::array<bool, kEmpires> taken_{};
     Point last_{};
 };
 

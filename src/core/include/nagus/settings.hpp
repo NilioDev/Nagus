@@ -32,6 +32,12 @@ struct GameSettings {
     int heard(std::size_t which) const { return volume[which] * volume[kMasterVolume] / 100; }
     // Saves the game at the end of each turn, for Continue.
     bool autosave = true;
+    // Multiplayer: the player's name, the game's name and the host last
+    // joined.
+    std::string playerName;
+    std::string gameName;
+    std::string hostAddress;
+    static constexpr std::size_t kMaxText = 64;
 
     static constexpr int kShapes = 4;
     static constexpr int kSizes = 3;

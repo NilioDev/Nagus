@@ -87,6 +87,19 @@ EconomyData loadEconomyData(const Resources& resources) {
     return d;
 }
 
+bool Game::isHuman(int empire) const {
+    return empire == player || (empire >= 0 && empire < kEmpires && humans[static_cast<std::size_t>(empire)]);
+}
+
+bool Game::multiplayer() const {
+    for (int e = 0; e < kEmpires; ++e) {
+        if (e != player && humans[static_cast<std::size_t>(e)]) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Colony* Game::colonyAt(int system) {
     for (auto& c : colonies) {
         if (c.system == system) {
@@ -270,7 +283,7 @@ TurnSummary beginEndTurn(Game& game) {
     TurnSummary summary;
     // The computer players give their orders.
     for (int e = 0; e < kEmpires; ++e) {
-        if (e != game.player) {
+        if (!game.isHuman(e)) {
             playEmpire(game, e);
         }
     }

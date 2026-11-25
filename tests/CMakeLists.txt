@@ -6,6 +6,7 @@ add_executable(ngs_tests
     test_ai.cpp
     test_combat.cpp
     test_tactical.cpp
+    test_multiplayer.cpp
     test_diplomacy.cpp
     test_intel.cpp
     test_sound.cpp
