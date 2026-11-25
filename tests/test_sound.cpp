@@ -7,6 +7,7 @@
 #include "nagus/sound/jukebox.hpp"
 
 #include <algorithm>
+#include <array>
 
 using namespace nagus;
 using namespace nagus::test;
