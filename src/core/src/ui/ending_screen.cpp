@@ -3,6 +3,7 @@
 
 #include "nagus/data/resources.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 namespace nagus {
