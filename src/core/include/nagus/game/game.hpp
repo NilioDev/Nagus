@@ -112,6 +112,25 @@ bool canAttack(const Game& game, const Fleet& fleet);
 // Tells a fleet to attack the system where it is, each turn until it is
 // taken or the order is changed.
 bool orderAttack(Game& game, int fleet);
+// Whether a fleet can raid the system where it is: an enemy empire's
+// colony, and a warship to raid it with.
+bool canRaid(const Game& game, const Fleet& fleet);
+// Tells a fleet to raid the system where it is at the end of the turn: it
+// takes credits from the system's owner, if it is still there after the
+// battles.
+bool orderRaid(Game& game, int fleet);
+// Credits a raid takes: per warship, up to what the owner has.
+inline constexpr int kRaidCredits = 25;
+// Tells a fleet to be dismantled at the end of the turn.
+bool orderScrap(Game& game, int fleet);
+// Tells a fleet to avoid battles, or to engage the enemy (the default).
+bool orderAvoid(Game& game, int fleet, bool avoid);
+// Takes one ship out of a fleet into a fleet of its own, in the same
+// sector. Returns the new fleet's id, or -1.
+int splitShip(Game& game, int fleet, int ship);
+// Puts another fleet's ships into a fleet: both the same owner's and in
+// the same sector. The other fleet is gone; the fleet keeps its orders.
+bool mergeFleets(Game& game, int into, int from);
 
 // A battle in a sector (see combat.hpp).
 struct Battle {

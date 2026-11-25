@@ -104,15 +104,19 @@ void mergeOrders(Game& merged, const Game& start, const Game& played, int empire
             merged.colonies.push_back(c);
         }
     }
-    // Fleets: where they go and what they do.
-    for (const auto& f : played.fleets) {
+    // Fleets: where they go and what they do, and how the player split
+    // and joined them. Fleets split off this turn get new numbers, which
+    // other players' new fleets cannot have.
+    std::erase_if(merged.fleets, [&](const Fleet& f) { return f.owner == empire; });
+    for (Fleet f : played.fleets) {
         if (f.owner != empire) {
             continue;
         }
-        if (Fleet* now = merged.fleet(f.id); now != nullptr && now->owner == empire) {
-            now->destination = f.destination;
-            now->order = f.order;
+        const Fleet* before = start.fleet(f.id);
+        if (before == nullptr || before->owner != empire) {
+            f.id = merged.nextFleetId++;
         }
+        merged.fleets.push_back(std::move(f));
     }
     // Credits: whatever the player spent or gave, from everyone's purse.
     for (std::size_t e = 0; e < merged.empires.size(); ++e) {

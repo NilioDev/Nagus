@@ -22,12 +22,14 @@ struct Ship {
 };
 
 struct Fleet {
-    enum class Order : std::uint8_t { None, Colonize, Attack };
+    enum class Order : std::uint8_t { None, Colonize, Attack, Raid, Scrap };
     int id = 0;
     int owner = -1;
     Sector at;
     std::optional<Sector> destination;
     Order order = Order::None;
+    // Avoids battles: it fights only when an enemy that engages finds it.
+    bool avoid = false;
     std::vector<Ship> ships;
 };
 

@@ -89,7 +89,6 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     system_.setOrigin({infoArea.x, infoArea.y});
     fleetPanel_.setOrigin({infoArea.x, infoArea.y});
     fleetPanel_.setEnabled(kFleetCloak, false);
-    fleetPanel_.setEnabled(kFleetRedeploy, false);
     // The orders menu opens above the Orders button.
     const Rect ordersButton = fleetPanel_.rect(kFleetOrders);
     orders_.setOrigin({ordersButton.x - 40, infoArea.y - 260});
@@ -466,6 +465,7 @@ std::optional<Rect> GalaxyScreen::fleetLine(int i) const {
 void GalaxyScreen::chooseFleet(int id) {
     fleet_ = id;
     ordersOpen_ = false;
+    redeploy_ = false;
     const Fleet* f = game_.fleet(id);
     moving_ = f != nullptr && f->owner == game_.player;
     refreshFleet();
@@ -477,6 +477,29 @@ void GalaxyScreen::refreshFleet() {
     fleetPanel_.setEnabled(kFleetOrders, mine);
     orders_.setEnabled(kOrderColonize, mine && canColonize(*f, game_.galaxy, game_.colonies, game_.economy));
     orders_.setEnabled(kOrderAttack, mine && canAttack(game_, *f));
+    orders_.setEnabled(kOrderRaid, mine && canRaid(game_, *f));
+    orders_.setEnabled(kOrderScrap, mine);
+    orders_.setEnabled(kOrderAvoid, mine && !f->avoid);
+    orders_.setEnabled(kOrderEngage, mine && f->avoid);
+    // Redeploying needs a second ship, in this fleet or another one here.
+    const bool more = mine && (f->ships.size() > 1 || game_.fleetsAt(f->at, game_.player).size() > 1);
+    fleetPanel_.setEnabled(kFleetRedeploy, more);
+    redeploy_ = redeploy_ && more;
+    fleetPanel_.setOn(kFleetRedeploy, redeploy_);
+}
+
+std::optional<Rect> GalaxyScreen::shipCell(int ship) const {
+    const Fleet* f = game_.fleet(fleet_);
+    if (f == nullptr || ship < 0 || static_cast<std::size_t>(ship) >= f->ships.size()) {
+        return std::nullopt;
+    }
+    const Rect area = fleetPanel_.rect(kFleetShips);
+    const Rect text = fleetPanel_.layout().elements.empty() ? area : fleetPanel_.rect(kFleetText);
+    const Rect r{area.x + 6 + ship * kShipCell, area.y, kShipCell, 80};
+    if (r.x + r.w > text.x) {
+        return std::nullopt;
+    }
+    return r;
 }
 
 std::optional<Rect> GalaxyScreen::orderButton(std::uint32_t id) const {
@@ -561,7 +584,7 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
     // The ships, each with its picture, name and hull.
     const Rect area = fleetPanel_.rect(kFleetShips);
     const Rect text = fleetPanel_.layout().elements.empty() ? area : fleetPanel_.rect(kFleetText);
-    const int cell = 110;
+    const int cell = kShipCell;
     for (std::size_t i = 0; i < f->ships.size(); ++i) {
         const int x = area.x + 6 + static_cast<int>(i) * cell;
         if (x + cell > text.x) {
@@ -576,7 +599,7 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
         canvas.draw(pic, x + (cell - pic.width) / 2, area.y + 4);
         const int w = small.width(sc.name);
         canvas.text(small, sc.name, x + (cell - w) / 2, area.y + 58, kInfoColour);
-        const Rect hull{x + 15, area.y + 72, cell - 30, 4};
+        const Rect hull{x + 10, area.y + 72, cell - 20, 4};
         canvas.fill(hull, 0xff303848u);
         canvas.fill({hull.x, hull.y, sc.hull > 0 ? hull.w * f->ships[i].hull / sc.hull : 0, hull.h}, 0xff40e070u);
     }
@@ -602,6 +625,17 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
             canvas.text(small, lex[656], text.x + 6, y, kInfoColour);
         } else if (f->order == Fleet::Order::Attack) {
             canvas.text(small, lex[text::kAttackSystem], text.x + 6, y, kBadColour);
+        } else if (f->order == Fleet::Order::Raid) {
+            canvas.text(small, lex[661], text.x + 6, y, kBadColour);
+        } else if (f->order == Fleet::Order::Scrap) {
+            canvas.text(small, lex[662], text.x + 6, y, kBadColour);
+        }
+        y += small.height() + 4;
+        canvas.text(small, lex[f->avoid ? 652 : 658], text.x + 6, y, kNameColour);
+        if (redeploy_) {
+            y += small.height() + 4;
+            drawParagraph(canvas, small, "Click a ship to take it out, or one of your fleets on the left to join it.",
+                          {text.x + 6, y, text.w - 12, small.height() * 3 + 6}, kInfoColour);
         }
     }
     if (ordersOpen_) {
@@ -625,12 +659,27 @@ void GalaxyScreen::pointerPressed(Point p) {
         orders_.pointerPressed(p);
         return;
     }
-    // A fleet in the list on the left.
+    // A fleet in the list on the left: chosen, or joined to the chosen one.
     const auto here = fleetsHere();
     for (int i = 0; i < static_cast<int>(here.size()); ++i) {
         if (const auto r = fleetLine(i); r && r->contains(p.x, p.y)) {
-            chooseFleet(here[static_cast<std::size_t>(i)]);
+            const int other = here[static_cast<std::size_t>(i)];
+            if (redeploy_ && other != fleet_ && mergeFleets(game_, fleet_, other)) {
+                refreshFleet();
+            } else {
+                chooseFleet(other);
+            }
             return;
+        }
+    }
+    // Redeploying: a ship taken out of the fleet.
+    if (redeploy_) {
+        for (int i = 0; game_.fleet(fleet_) != nullptr && i < static_cast<int>(game_.fleet(fleet_)->ships.size()); ++i) {
+            if (const auto r = shipCell(i); r && r->contains(p.x, p.y)) {
+                splitShip(game_, fleet_, i);
+                refreshFleet();
+                return;
+            }
         }
     }
     // The list's arrows lie over the edge of the panel below the map.
@@ -681,16 +730,31 @@ void GalaxyScreen::pointerReleased(Point p) {
                 orderColonize(game_, fleet_);
             } else if (*order == kOrderAttack) {
                 orderAttack(game_, fleet_);
+            } else if (*order == kOrderRaid) {
+                orderRaid(game_, fleet_);
+            } else if (*order == kOrderScrap) {
+                orderScrap(game_, fleet_);
+            } else if (*order == kOrderAvoid || *order == kOrderEngage) {
+                orderAvoid(game_, fleet_, *order == kOrderAvoid);
             }
             ordersOpen_ = false;
+            refreshFleet();
         }
         return;
     }
     if (game_.fleet(fleet_) != nullptr) {
-        if (const auto b = fleetPanel_.pointerReleased(p); b && *b == kFleetOrders) {
+        const auto b = fleetPanel_.pointerReleased(p);
+        if (b && *b == kFleetOrders) {
             refreshFleet();
             ordersOpen_ = true;
             moving_ = false;
+            redeploy_ = false;
+            return;
+        }
+        if (b && *b == kFleetRedeploy) {
+            redeploy_ = !redeploy_;
+            moving_ = false;
+            refreshFleet();
             return;
         }
     }

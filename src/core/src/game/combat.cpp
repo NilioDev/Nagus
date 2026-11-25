@@ -117,9 +117,12 @@ std::vector<CombatUnit> combatUnits(const Game& game, Sector at) {
 }
 
 bool battleStarts(const Game& game, const std::vector<CombatUnit>& units) {
-    // A battle needs someone who can shoot at an enemy.
+    // A battle needs someone who can shoot at an enemy and wants to: fleets
+    // told to avoid battles do not start one.
     return std::any_of(units.begin(), units.end(), [&](const CombatUnit& u) {
-        return u.firepower > 0 && u.hull > 0 && std::any_of(units.begin(), units.end(), [&](const CombatUnit& v) {
+        const bool avoids = u.fleet >= 0 && static_cast<std::size_t>(u.fleet) < game.fleets.size() &&
+                            game.fleets[static_cast<std::size_t>(u.fleet)].avoid;
+        return u.firepower > 0 && u.hull > 0 && !avoids && std::any_of(units.begin(), units.end(), [&](const CombatUnit& v) {
                    return v.hull > 0 && hostile(game, u.owner, v.owner);
                });
     });

@@ -966,3 +966,50 @@ NGS_TEST("the fleet list on the map scrolls through many fleets") {
     click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kListUp)));
     NGS_CHECK(screen.firstFleetLine() == 0);
 }
+
+NGS_TEST("redeploying ships between fleets, and the avoid order, on the map") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    const EconomyData economy = loadEconomyData(*res);
+    GameSettings settings;
+    settings.empire = 1;
+    Game g = newGame(settings, loadGalaxyData(*res, assets.lexicon()), economy, 3);
+    const Sector home = g.galaxy.systems[static_cast<std::size_t>(g.galaxy.homes[1])].sector;
+    g.fleets.clear();
+    const int cls = economy.ships.size() > 22 ? 22 : 0;
+    Fleet& f = g.addFleet(1, home, cls);
+    f.ships.push_back(f.ships.front());
+    f.ships.push_back(f.ships.front());
+    const int id = f.id;
+    GalaxyScreen screen(assets, g);
+    screen.choose(home);
+    Canvas canvas;
+    screen.draw(canvas, 0);
+    click(screen, centre(*screen.fleetLine(0)));
+    NGS_CHECK(screen.chosenFleet() == id);
+    screen.draw(canvas, 0);
+    const Rect info = element(assets, "hmaingal.wdf", GalaxyScreen::kInfo);
+    const auto* redeploy = assets.layout("h_tfship.wdf").find(GalaxyScreen::kFleetRedeploy);
+    NGS_CHECK(redeploy != nullptr);
+    click(screen, {info.x + redeploy->rect.x + redeploy->rect.w / 2, info.y + redeploy->rect.y + redeploy->rect.h / 2});
+    NGS_CHECK(screen.redeploying());
+    // A ship taken out, then joined back.
+    click(screen, centre(*screen.shipCell(0)));
+    NGS_CHECK(g.fleets.size() == 2 && g.fleet(id)->ships.size() == 2);
+    screen.draw(canvas, 0);
+    click(screen, centre(*screen.fleetLine(1)));
+    NGS_CHECK(g.fleets.size() == 1 && g.fleet(id)->ships.size() == 3);
+    // Orders: avoid battles.
+    click(screen, {info.x + redeploy->rect.x + redeploy->rect.w / 2, info.y + redeploy->rect.y + redeploy->rect.h / 2});
+    NGS_CHECK(!screen.redeploying());
+    const auto* orders = assets.layout("h_tfship.wdf").find(GalaxyScreen::kFleetOrders);
+    click(screen, {info.x + orders->rect.x + orders->rect.w / 2, info.y + orders->rect.y + orders->rect.h / 2});
+    NGS_CHECK(screen.orderButton(GalaxyScreen::kOrderAvoid).has_value());
+    screen.draw(canvas, 0);
+    click(screen, centre(*screen.orderButton(GalaxyScreen::kOrderAvoid)));
+    NGS_CHECK(g.fleet(id)->avoid);
+}

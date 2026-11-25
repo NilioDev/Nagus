@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (2; version 1 files still load) | u32 |
+| Version (3; versions 1 and 2 still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -80,8 +80,9 @@ An intelligence report: turn, attacker, target (3 × i32), sabotage (u8),
 focus (u8), success (u8), value and system (2 × i32, system -1 for none).
 
 A fleet: number, owner (2 × i32), sector, under way (u8), destination
-(sector), order (u8: 0 none, 1 colonize, 2 attack system), and a list of ships: class, hull
-(2 × i32).
+(sector), order (u8: 0 none, 1 colonize, 2 attack system, and from version 3 also
+3 raid, 4 scrap), from version 3 whether it avoids battles (u8), and a list of
+ships: class, hull (2 × i32).
 
 ## Reading
 
