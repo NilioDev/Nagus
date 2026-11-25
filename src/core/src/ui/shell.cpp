@@ -43,7 +43,7 @@ constexpr int kClickSounds = 76;
 Shell::Shell(std::shared_ptr<Resources> resources, std::filesystem::path settingsFile)
     : assets_(resources), jukebox_(*resources), settingsFile_(std::move(settingsFile)) {
     settings_ = loadSettings(settingsFile_);
-    jukebox_.setVolumes(settings_.volume[0], settings_.volume[1], settings_.volume[2]);
+    jukebox_.setVolumes(settings_.heard(0), settings_.heard(1), settings_.heard(2));
     show(Showing::MainMenu);
 }
 
@@ -78,7 +78,11 @@ void Shell::show(Showing s) {
         fame_ = std::make_unique<FameScreen>(assets_, loadFame(fameFile()), fameRow_);
         fameRow_ = -1;
         break;
-    case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
+    case Showing::MainMenu: {
+        std::error_code ec;
+        mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr, std::filesystem::exists(autosaveFile(), ec));
+        break;
+    }
     case Showing::Galaxy:
         if (!galaxy_) {
             galaxy_ = std::make_unique<GalaxyScreen>(assets_, *game_);
@@ -148,6 +152,9 @@ void Shell::finishGame() {
         }
     }
     game_.reset();
+    // A game that has ended cannot be continued.
+    std::error_code gone;
+    std::filesystem::remove(autosaveFile(), gone);
     galaxy_.reset();
     if (script.empty()) {
         show(Showing::Fame);
@@ -200,6 +207,13 @@ void Shell::settle() {
         if (o == Outcome::Accept) {
             settings_ = options_->settings();
             saveSettings(settingsFile_, settings_);
+            // The game being played follows the switches too.
+            if (game_) {
+                game_->settings.automaticCombat = settings_.automaticCombat;
+                game_->settings.randomEvents = settings_.randomEvents;
+            }
+            show(Showing::MainMenu);
+        } else if (o == Outcome::Back) {
             show(Showing::MainMenu);
         }
         break;
@@ -208,6 +222,8 @@ void Shell::settle() {
             show(Showing::GameSetup);
         } else if (o == Outcome::Continue && game_) {
             show(Showing::Galaxy);
+        } else if (o == Outcome::Continue) {
+            loadFrom(-1);
         } else if (o == Outcome::Save && game_) {
             show(Showing::Save);
         } else if (o == Outcome::Load) {
@@ -252,6 +268,7 @@ void Shell::settle() {
             const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
             galaxy_.reset();
             game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), loadEconomyData(assets_.resources()), seed));
+            autosavedTurn_ = game_->turn;
             // The chosen empire's film.
             playFilm(std::string(1, "chfkr"[std::clamp(game_->player, 0, kEmpires - 1)]) + ".avi", "", Showing::Galaxy);
         } else if (o == Outcome::Back) {
@@ -330,6 +347,11 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
          showing_ == Showing::Diplomacy || showing_ == Showing::Intel)) {
         finishGame();
     }
+    // Saved at the end of each turn, once the turn's report shows.
+    if (game_ && settings_.autosave && showing_ == Showing::Galaxy && game_->ending == Ending::None &&
+        game_->turn != autosavedTurn_) {
+        autosave();
+    }
     updateSound();
     canvas.clear();
     screen().draw(canvas, ms);
@@ -387,11 +409,26 @@ void Shell::saveTo(int slot) {
     }
 }
 
+void Shell::autosave() {
+    const int player = game_->player;
+    SaveInfo info;
+    info.name = player >= 0 && static_cast<std::size_t>(player) < game_->raceNames.size()
+                    ? game_->raceNames[static_cast<std::size_t>(player)]
+                    : std::string();
+    info.turn = game_->turn;
+    info.description = assets_.lexicon()[kTurnText] + " " + std::to_string(game_->turn) + ", " + today();
+    (void)writeSaveFile(autosaveFile(), saveGame(*game_, info));
+    autosavedTurn_ = game_->turn;
+}
+
 void Shell::loadFrom(int slot) {
     try {
-        Game loaded = loadGame(readSaveFile(saveSlotFile(savesFolder(), slot)), loadEconomyData(assets_.resources()));
+        // Slot -1: the game saved at the end of the last turn.
+        const auto file = slot < 0 ? autosaveFile() : saveSlotFile(savesFolder(), slot);
+        Game loaded = loadGame(readSaveFile(file), loadEconomyData(assets_.resources()));
         galaxy_.reset();
         game_ = std::make_unique<Game>(std::move(loaded));
+        autosavedTurn_ = game_->turn;
         show(Showing::Galaxy);
     } catch (const std::exception&) {
         notice_ = "This saved game cannot be read. It may be damaged, or from another version of Nagus.";

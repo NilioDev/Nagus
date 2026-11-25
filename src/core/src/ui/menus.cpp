@@ -81,10 +81,10 @@ void drawPicture(Canvas& canvas, Assets& assets, const Panel& panel, std::uint32
 
 // --- Main menu --------------------------------------------------------------
 
-MainMenu::MainMenu(Assets& assets, bool gameRunning) : panel_(assets, "opening.wdf") {
+MainMenu::MainMenu(Assets& assets, bool gameRunning, bool canContinue) : panel_(assets, "opening.wdf") {
     // Only what Nagus can do yet can be chosen; the rest is drawn darker.
     panel_.setEnabled(kNewMultiPlayer, false);
-    panel_.setEnabled(kContinue, gameRunning);
+    panel_.setEnabled(kContinue, gameRunning || canContinue);
     panel_.setEnabled(kRetire, gameRunning);
     panel_.setEnabled(kSave, gameRunning);
 }

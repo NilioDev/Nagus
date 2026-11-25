@@ -540,9 +540,9 @@ NGS_TEST("the options: volumes, kept with the settings") {
         NGS_CHECK(shell.showing() == Shell::Showing::Options);
         OptionsScreen& o = *shell.optionsScreen();
         shell.draw(canvas, 0);
-        // Music down by a click, sound effects by the gamepad, speech set
-        // on its bar.
-        click(shell, centre(o.less(0)));
+        // Music and speech set on their bars, sound effects by the gamepad.
+        const Rect m = o.bar(0);
+        click(shell, {m.x + m.w * 6 / 10, m.centerY()});
         NGS_CHECK(o.settings().volume[0] == 60 && shell.jukebox().musicVolume() == 60);
         shell.command(Command::Down);
         shell.command(Command::Left);
@@ -550,12 +550,32 @@ NGS_TEST("the options: volumes, kept with the settings") {
         const Rect b = o.bar(2);
         click(shell, {b.x + b.w / 2, b.centerY()});
         NGS_CHECK(o.settings().volume[2] == 50);
-        click(shell, centre(o.accept()));
+        // The switches: tactical combat by a click, saving each turn by the
+        // gamepad; there are no tooltips.
+        NGS_CHECK(!o.button(OptionsScreen::kTooltips));
+        const bool automatic = o.settings().automaticCombat;
+        click(shell, centre(*o.button(OptionsScreen::kTactical)));
+        NGS_CHECK(o.settings().automaticCombat != automatic);
+        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes);
+        shell.command(Command::Down);
+        shell.command(Command::Down);
+        NGS_CHECK(o.chosenRow() == OptionsScreen::kVolumes + 2);
+        shell.command(Command::Right);
+        NGS_CHECK(!o.settings().autosave);
+        click(shell, centre(*o.button(OptionsScreen::kAccept)));
         NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+        // Cancel keeps what was there.
+        click(shell, centre(element(assets, "opening.wdf", MainMenu::kOptions)));
+        const Rect all = shell.optionsScreen()->bar(3);
+        click(shell, {all.x + 1, all.centerY()});
+        NGS_CHECK(shell.jukebox().musicVolume() == 0);
+        click(shell, centre(*shell.optionsScreen()->button(OptionsScreen::kCancel)));
+        NGS_CHECK(shell.showing() == Shell::Showing::MainMenu && shell.jukebox().musicVolume() == 60);
+        NGS_CHECK(shell.settings().volume[3] == 100 && !shell.settings().autosave);
     }
     // Kept for the next start.
     const GameSettings s = loadSettings(dir / "settings.txt");
-    NGS_CHECK(s.volume[0] == 60 && s.volume[1] == 70 && s.volume[2] == 50);
+    NGS_CHECK(s.volume[0] == 60 && s.volume[1] == 70 && s.volume[2] == 50 && !s.autosave);
     Shell again(res, dir / "settings.txt");
     NGS_CHECK(again.jukebox().musicVolume() == 60);
     NGS_CHECK(again.jukebox().speechVolume() == 50);
@@ -637,4 +657,38 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
     }
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy && game.turn == turn + 2);
     fs::remove(settings);
+}
+
+NGS_TEST("saving each turn, and Continue after a new start") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-autosave";
+    fs::remove_all(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Canvas canvas;
+    int turn = 0;
+    {
+        Shell shell(res, dir / "settings.txt");
+        click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+        click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+        shell.setSeed(6);
+        shell.command(Command::Start);
+        shell.draw(canvas, 0);
+        NGS_CHECK(!fs::exists(shell.autosaveFile())); // nothing to keep yet
+        Game& game = const_cast<Game&>(*shell.game());
+        game.settings.automaticCombat = true;
+        click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+        shell.draw(canvas, 0);
+        NGS_CHECK(fs::exists(shell.autosaveFile()));
+        turn = game.turn;
+    }
+    Shell again(res, dir / "settings.txt");
+    NGS_CHECK(again.game() == nullptr);
+    click(again, centre(element(assets, "opening.wdf", MainMenu::kContinue)));
+    NGS_CHECK(again.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(again.game() != nullptr && again.game()->turn == turn);
+    fs::remove_all(dir);
 }

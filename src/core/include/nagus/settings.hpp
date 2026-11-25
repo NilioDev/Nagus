@@ -24,8 +24,14 @@ struct GameSettings {
     bool automaticCombat = false;
     int victory = 0;        // domination, team play, vendetta
     int empire = 1;         // the player's empire (0 = Cardassian … 4 = Romulan)
-    // Volumes in percent: music, sound effects, speech (and films).
-    std::array<int, 3> volume{70, 80, 90};
+    // Volumes in percent: music, sound effects, speech (and films), and all
+    // of them together.
+    std::array<int, 4> volume{70, 80, 90, 100};
+    static constexpr std::size_t kMasterVolume = 3;
+    // The volume heard: one of the first three, times the volume of all.
+    int heard(std::size_t which) const { return volume[which] * volume[kMasterVolume] / 100; }
+    // Saves the game at the end of each turn, for Continue.
+    bool autosave = true;
 
     static constexpr int kShapes = 4;
     static constexpr int kSizes = 3;
