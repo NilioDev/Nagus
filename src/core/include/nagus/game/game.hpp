@@ -52,12 +52,37 @@ void explore(Game& game);
 bool orderMove(Game& game, int fleet, Sector to);
 // Tells a fleet to found a colony where it is (on the next turn).
 bool orderColonize(Game& game, int fleet);
+// Whether a fleet can attack the system where it is: an enemy colony, and
+// warships to bombard it or troops to invade it.
+bool canAttack(const Game& game, const Fleet& fleet);
+// Tells a fleet to attack the system where it is, each turn until it is
+// taken or the order is changed.
+bool orderAttack(Game& game, int fleet);
+
+// A battle in a sector (see combat.hpp).
+struct Battle {
+    Sector at;
+    std::vector<int> owners; // the sides
+    std::vector<int> ships;  // ships each side had
+    std::vector<int> lost;   // ships each side lost
+};
+
+// What happened when a fleet attacked a system.
+struct Assault {
+    int system = -1;
+    int attacker = -1;
+    int defender = -1;
+    int killed = 0; // millions of people
+    bool captured = false;
+};
 
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
     std::vector<std::string> events;     // for the player: what the colonies finished
     std::vector<std::string> researched; // the player's new technologies
     std::vector<std::string> colonized;  // systems the player colonized
+    std::vector<Battle> battles;         // those the player fought in
+    std::vector<Assault> assaults;       // on or by the player
 };
 TurnSummary endTurn(Game& game);
 
@@ -116,6 +141,8 @@ inline constexpr std::size_t kHullShields = 435; // "Hit Points / Shields"
 inline constexpr std::size_t kRangeNames[3] = {1147, 1156, 611}; // Short, Medium, Long
 inline constexpr std::size_t kShips = 1139;
 inline constexpr std::size_t kCrew = 197;
+inline constexpr std::size_t kAttackSystem = 651; // "ATTACK SYSTEM"
+inline constexpr std::size_t kCombatIn = 167;     // "Combat occurring in sector %1"
 } // namespace text
 
 } // namespace nagus

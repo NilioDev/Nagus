@@ -2,6 +2,7 @@
 #include "nagus/game/game.hpp"
 
 #include "nagus/game/ai.hpp"
+#include "nagus/game/combat.hpp"
 #include "nagus/game/research.hpp"
 
 #include <algorithm>
@@ -291,6 +292,17 @@ TurnSummary endTurn(Game& game) {
     }
     colonize(game, summary);
     moveFleets(game);
+    for (auto& b : fightBattles(game)) {
+        if (std::find(b.owners.begin(), b.owners.end(), game.player) != b.owners.end()) {
+            summary.battles.push_back(std::move(b));
+        }
+    }
+    for (const auto& a : attackSystems(game)) {
+        if (a.attacker == game.player || a.defender == game.player) {
+            summary.assaults.push_back(a);
+        }
+    }
+    repairShips(game);
     for (int e = 0; e < kEmpires; ++e) {
         auto& empire = game.empires[static_cast<std::size_t>(e)];
         const auto reached = researchTurn(empire, game.economy.techs);

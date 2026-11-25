@@ -266,12 +266,14 @@ std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech) {
             throw FormatError("bad ship table");
         }
         s.role = static_cast<ShipRole>(role);
-        rec.seek(at + 0x6c);
-        s.beamDamage = static_cast<int>(rec.u32());
+        rec.seek(at + 0x70);
         s.beamCount = static_cast<int>(rec.u32());
-        rec.seek(at + 0x80);
-        s.torpedoDamage = static_cast<int>(rec.u32());
+        rec.u32();
+        s.beamDamage = static_cast<int>(rec.u32());
+        rec.seek(at + 0x84);
         s.torpedoCount = static_cast<int>(rec.u32());
+        rec.u32();
+        s.torpedoDamage = static_cast<int>(rec.u32());
         rec.seek(at + 0x94);
         s.hull = static_cast<int>(rec.u32());
         s.shields = static_cast<int>(rec.u32());
@@ -288,7 +290,8 @@ std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech) {
         rec.u8();
         s.capacity = rec.u16();
         s.race = rec.u8();
-        if (s.hull < 0 || s.cost < 0 || s.beamCount < 0 || s.torpedoCount < 0) {
+        if (s.hull < 0 || s.shields < 0 || s.cost < 0 || s.beamCount < 0 || s.torpedoCount < 0 || s.beamDamage < 0 ||
+            s.torpedoDamage < 0) {
             throw FormatError("bad ship table");
         }
 

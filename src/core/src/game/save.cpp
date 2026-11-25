@@ -330,7 +330,7 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.destination = to;
         }
         const int order = r.u8();
-        if (order > static_cast<int>(Fleet::Order::Colonize)) {
+        if (order > static_cast<int>(Fleet::Order::Attack)) {
             throw FormatError("damaged saved game");
         }
         f.order = static_cast<Fleet::Order>(order);

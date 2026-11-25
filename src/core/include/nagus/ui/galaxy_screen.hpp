@@ -45,6 +45,7 @@ public:
     static constexpr std::uint32_t kFleetShips = 0x4bc;
     static constexpr std::uint32_t kFleetText = 0x4c0;
     static constexpr std::uint32_t kOrderColonize = 0x4b2;
+    static constexpr std::uint32_t kOrderAttack = 0x4ce;
     static constexpr int kFleetLine = 14; // height of a fleet's line in the list on the left
 
     GalaxyScreen(Assets& assets, Game& game);
@@ -60,7 +61,13 @@ public:
     // The player's colony in the chosen sector (an index into Game::colonies), or -1.
     int chosenColony() const;
     // What happened in the last turn, for the player.
-    const std::vector<std::string>& events() const { return events_; }
+    std::vector<std::string> events() const {
+        std::vector<std::string> out;
+        for (const auto& e : events_) {
+            out.push_back(e.first);
+        }
+        return out;
+    }
     bool wholeMap() const { return whole_; }
     // Where a sector's middle is on the screen, when it is in view.
     std::optional<Point> sectorCentre(Sector s) const;
@@ -84,6 +91,8 @@ private:
     int sectorSize() const;
     void keepInView();
     std::string sectorName(Sector s) const;
+    std::string battleText(const Battle& b) const;
+    std::string assaultText(const Assault& a) const;
     void drawSector(Canvas& canvas, int at);
     void drawList(Canvas& canvas);
     void drawSystem(Canvas& canvas, const StarSystem& s, std::uint64_t ms);
@@ -105,7 +114,7 @@ private:
     Point pointer_;
     std::vector<std::string> kindNames_;
     std::vector<std::string> animations_; // the names of the game's animations
-    std::vector<std::string> events_;
+    std::vector<std::pair<std::string, Pixel>> events_; // what happened last turn, and its colour
     Panel fleetPanel_;
     Panel orders_;
     int fleet_ = -1;      // the chosen fleet's id

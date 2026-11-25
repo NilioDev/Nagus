@@ -28,6 +28,9 @@ std::string format1(const std::string& pattern, const std::string& value) {
     if (at == std::string::npos) {
         at = out.find("%d");
     }
+    if (at == std::string::npos) {
+        at = out.find("%1");
+    }
     if (at != std::string::npos) {
         out.replace(at, 2, value);
     }
@@ -154,6 +157,32 @@ std::optional<Sector> GalaxyScreen::sectorAt(Point p) const {
         return std::nullopt;
     }
     return Sector{o.x + (p.x - left) / size, o.y + (p.y - top) / size};
+}
+
+std::string GalaxyScreen::battleText(const Battle& b) const {
+    int had = 0;
+    int lost = 0;
+    int enemyHad = 0;
+    int enemyLost = 0;
+    for (std::size_t i = 0; i < b.owners.size(); ++i) {
+        (b.owners[i] == game_.player ? had : enemyHad) += b.ships[i];
+        (b.owners[i] == game_.player ? lost : enemyLost) += b.lost[i];
+    }
+    return format1(assets_.lexicon()[text::kCombatIn], std::to_string(b.at.x + 1) + "." + std::to_string(b.at.y + 1)) + ", lost " + std::to_string(lost) +
+           " of " + std::to_string(had) + ", enemy lost " + std::to_string(enemyLost) + " of " + std::to_string(enemyHad);
+}
+
+std::string GalaxyScreen::assaultText(const Assault& a) const {
+    const std::string& where = game_.galaxy.systems[static_cast<std::size_t>(a.system)].name;
+    const int other = a.attacker == game_.player ? a.defender : a.attacker;
+    const std::string them = other >= 0 && static_cast<std::size_t>(other) < game_.raceNames.size()
+                                 ? game_.raceNames[static_cast<std::size_t>(other)]
+                                 : std::string();
+    if (a.captured) {
+        return a.attacker == game_.player ? where + " taken from the " + them : where + " lost to the " + them;
+    }
+    const std::string killed = std::to_string(a.killed) + " million killed";
+    return a.attacker == game_.player ? where + " attacked, " + killed : where + " attacked by the " + them + ", " + killed;
 }
 
 std::string GalaxyScreen::sectorName(Sector s) const {
@@ -357,11 +386,11 @@ void GalaxyScreen::drawList(Canvas& canvas) {
     const auto& empire = game_.empires[static_cast<std::size_t>(player)];
     canvas.text(small, assets_.lexicon()[text::kCredits] + ": " + std::to_string(empire.credits), list.x + 10, ly, kInfoColour);
     ly += small.height() * 2;
-    for (const auto& e : events_) {
+    for (const auto& [e, colour] : events_) {
         if (ly + small.height() > list.y + list.h) {
             break;
         }
-        drawParagraph(canvas, small, e, {list.x + 10, ly, list.w - 16, small.height() * 2 + 2}, kNameColour);
+        drawParagraph(canvas, small, e, {list.x + 10, ly, list.w - 16, small.height() * 2 + 2}, colour);
         ly += small.height() * (small.width(e) > list.w - 16 ? 2 : 1) + 3;
     }
 }
@@ -430,6 +459,7 @@ void GalaxyScreen::refreshFleet() {
     const bool mine = f != nullptr && f->owner == game_.player;
     fleetPanel_.setEnabled(kFleetOrders, mine);
     orders_.setEnabled(kOrderColonize, mine && canColonize(*f, game_.galaxy, game_.colonies, game_.economy));
+    orders_.setEnabled(kOrderAttack, mine && canAttack(game_, *f));
 }
 
 std::optional<Rect> GalaxyScreen::orderButton(std::uint32_t id) const {
@@ -553,6 +583,8 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
                         text.x + 6, y, kInfoColour);
         } else if (f->order == Fleet::Order::Colonize) {
             canvas.text(small, lex[656], text.x + 6, y, kInfoColour);
+        } else if (f->order == Fleet::Order::Attack) {
+            canvas.text(small, lex[text::kAttackSystem], text.x + 6, y, kBadColour);
         }
     }
     if (ordersOpen_) {
@@ -623,6 +655,8 @@ void GalaxyScreen::pointerReleased(Point p) {
         if (const auto order = orders_.pointerReleased(p)) {
             if (*order == kOrderColonize) {
                 orderColonize(game_, fleet_);
+            } else if (*order == kOrderAttack) {
+                orderAttack(game_, fleet_);
             }
             ordersOpen_ = false;
         }
@@ -642,12 +676,22 @@ void GalaxyScreen::pointerReleased(Point p) {
         keepInView();
     } else if (id && *id == kTurn) {
         const TurnSummary summary = endTurn(game_);
-        events_ = summary.events;
+        events_.clear();
+        // Battles first: they need the player's attention.
+        for (const auto& b : summary.battles) {
+            events_.emplace_back(battleText(b), kBadColour);
+        }
+        for (const auto& a : summary.assaults) {
+            events_.emplace_back(assaultText(a), kBadColour);
+        }
+        for (const auto& e : summary.events) {
+            events_.emplace_back(e, kNameColour);
+        }
         for (const auto& t : summary.researched) {
-            events_.push_back(assets_.lexicon()[text::kResearch] + ": " + t);
+            events_.emplace_back(assets_.lexicon()[text::kResearch] + ": " + t, kNameColour);
         }
         for (const auto& s : summary.colonized) {
-            events_.push_back(format1(assets_.lexicon()[text::kColonized], s));
+            events_.emplace_back(format1(assets_.lexicon()[text::kColonized], s), kNameColour);
         }
         if (game_.fleet(fleet_) == nullptr) {
             fleet_ = -1;
