@@ -108,6 +108,14 @@ int main(int argc, char** argv) {
                 shell.command(Command::Next);
                 shot(name);
             }
+            shell.pointerMoved({400, 300});
+            shell.command(Command::Back);
+            shot("marker.bmp");
+            if (const auto r = shell.markerButton(Shell::kMarkerResearch)) {
+                shell.pointerMoved({r->centerX(), r->centerY()});
+                shell.clickAtPointer();
+                shot("research.bmp");
+            }
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "%s\n", e.what());

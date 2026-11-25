@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/game.hpp"
 
+#include "nagus/game/research.hpp"
+
 #include <algorithm>
 #include <cctype>
 
@@ -71,6 +73,7 @@ GalaxyData loadGalaxyData(const Resources& resources, const Lexicon& lexicon) {
 
 EconomyData loadEconomyData(const Resources& resources) {
     EconomyData d;
+    d.techs = readTechTree(resources.file("techtree.tec"));
     d.buildings = readBuildings(resources.file("edifice.bst"));
     d.growth = readGrowth(resources.file("ppgrowth.bin"));
     d.habitats = readHabitats(resources.file("habit.bin"));
@@ -103,6 +106,16 @@ TurnSummary endTurn(Game& game) {
             const std::string& where = game.galaxy.systems[static_cast<std::size_t>(c.system)].name;
             for (const auto& f : r.finished) {
                 summary.events.push_back(where + ": " + f);
+            }
+        }
+    }
+    for (int e = 0; e < kEmpires; ++e) {
+        auto& empire = game.empires[static_cast<std::size_t>(e)];
+        const auto reached = researchTurn(empire, game.economy.techs);
+        empire.intelPoints = 0; // not used yet
+        if (e == game.player) {
+            for (const Tech* t : reached) {
+                summary.researched.push_back(t->name);
             }
         }
     }

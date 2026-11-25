@@ -9,6 +9,7 @@
 #include "nagus/settings.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/menus.hpp"
+#include "nagus/ui/research_screen.hpp"
 #include "nagus/ui/system_screen.hpp"
 
 #include <filesystem>
@@ -36,13 +37,26 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
     const Game* game() const { return game_.get(); }
     GalaxyScreen* galaxyScreen() { return galaxy_.get(); }
     SystemScreen* systemScreen() { return system_.get(); }
+    ResearchScreen* researchScreen() { return research_.get(); }
+
+    // The marker window: in the game, Back (right click, Esc, B) opens it
+    // where the pointer is; its buttons go to the game's screens.
+    static constexpr std::uint32_t kMarkerGalaxy = 0x1f41;
+    static constexpr std::uint32_t kMarkerSystem = 0x1f42;
+    static constexpr std::uint32_t kMarkerDiplomacy = 0x1f43;
+    static constexpr std::uint32_t kMarkerIntel = 0x1f44;
+    static constexpr std::uint32_t kMarkerResearch = 0x1f45;
+    static constexpr std::uint32_t kMarkerMenu = 0x1f46;
+    bool markerOpen() const { return marker_ != nullptr; }
+    // Where a button of the marker window is, while it is open.
+    std::optional<Rect> markerButton(std::uint32_t id) const;
     // The seed for the next new galaxy (random unless set, for tests).
     void setSeed(std::uint32_t seed) { seed_ = seed; }
 
@@ -60,6 +74,11 @@ private:
     std::unique_ptr<EmpireSelect> empires_;
     std::unique_ptr<GalaxyScreen> galaxy_; // kept while another screen of the game shows
     std::unique_ptr<SystemScreen> system_;
+    std::unique_ptr<ResearchScreen> research_;
+    std::unique_ptr<Panel> marker_;
+    void openMarker();
+    void markerChose(std::uint32_t id);
+    int playerColony() const;
     std::unique_ptr<Game> game_;
     std::optional<std::uint32_t> seed_;
     std::string notice_;

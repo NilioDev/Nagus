@@ -13,6 +13,7 @@ add_library(ngs_core STATIC
     src/data/animation.cpp
     src/game/economy.cpp
     src/game/galaxy.cpp
+    src/game/research.cpp
     src/game/game.cpp
     src/data/cursor.cpp
     src/game_files.cpp
@@ -22,6 +23,7 @@ add_library(ngs_core STATIC
     src/ui/screen.cpp
     src/ui/menus.cpp
     src/ui/galaxy_screen.cpp
+    src/ui/research_screen.cpp
     src/ui/shell.cpp
     src/ui/system_screen.cpp
 )

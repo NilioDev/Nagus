@@ -5,6 +5,7 @@
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/game/game.hpp"
+#include "nagus/game/research.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -164,4 +165,46 @@ NGS_TEST("the game's buildings: every empire's home starts out working") {
     for (const auto& c : g.colonies) {
         NGS_CHECK(c.population > 0);
     }
+}
+
+NGS_TEST("research shares add up to 100 and fields reach new levels") {
+    EmpireState e;
+    e.tech.fill(1);
+    auto sum = [&] {
+        int s = 0;
+        for (const int v : e.share) {
+            s += v;
+        }
+        return s;
+    };
+    NGS_CHECK(sum() == 100);
+    setShare(e, 0, 50);
+    NGS_CHECK(e.share[0] == 50 && sum() == 100);
+    e.locked[1] = true;
+    const int kept = e.share[1];
+    setShare(e, 2, 100);
+    NGS_CHECK(e.share[1] == kept && e.share[2] == 100 - kept && sum() == 100);
+    setShare(e, 2, 0);
+    NGS_CHECK(e.share[2] == 0 && e.share[1] == kept && sum() == 100);
+
+    std::vector<Tech> techs;
+    for (int f = 0; f < kTechFields; ++f) {
+        for (int level = 0; level <= kMaxTechLevel; ++level) {
+            techs.push_back({"T" + std::to_string(f) + "." + std::to_string(level), static_cast<TechField>(f), level,
+                             static_cast<std::uint32_t>(level * 100), 0});
+        }
+    }
+    EmpireState r;
+    r.tech.fill(1);
+    r.share = {100, 0, 0, 0, 0, 0};
+    r.researchPoints = 450 / kFieldBoost;
+    const auto reached = researchTurn(r, techs);
+    NGS_CHECK(reached.size() == 1 && reached[0]->name == "T0.2");
+    NGS_CHECK(r.tech[0] == 2 && r.progress[0] == 250 && r.researchPoints == 0);
+    r.researchPoints = 50 / kFieldBoost + 1;
+    NGS_CHECK(researchTurn(r, techs).size() == 1 && r.tech[0] == 3 && r.progress[0] < kFieldBoost);
+    // Sociology follows the average of the six fields.
+    r.tech = {7, 7, 7, 7, 7, 7, 0};
+    updateSociology(r);
+    NGS_CHECK(r.tech[static_cast<std::size_t>(TechField::Sociology)] == 7);
 }
