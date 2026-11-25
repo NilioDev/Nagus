@@ -38,3 +38,7 @@ build.
 
 An empire sees what is within two sectors of its colonies and within one
 sector of its fleets, plus their ships' scan.
+
+What an empire has once seen stays explored: the map shows stars, names
+and the empires' space only in explored sectors, and leaves the rest dark.
+Fleets of other empires show only while they are seen.

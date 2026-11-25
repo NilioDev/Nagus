@@ -152,6 +152,11 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.i32(e.intelPoints);
     }
 
+    w.u32(static_cast<std::uint32_t>(g.explored.size()));
+    for (const std::uint8_t b : g.explored) {
+        w.u8(b);
+    }
+
     w.i32(g.nextFleetId);
     w.u32(static_cast<std::uint32_t>(g.fleets.size()));
     for (const auto& f : g.fleets) {
@@ -302,6 +307,13 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         e.researchPoints = number(r, 0, kBig);
         e.intelPoints = number(r, 0, kBig);
     }
+
+    const std::uint32_t sectors = count(r, static_cast<std::uint32_t>(gal.width * gal.height));
+    const ByteView seen = r.bytes(sectors);
+    if (sectors != 0 && sectors != static_cast<std::uint32_t>(gal.width * gal.height)) {
+        throw FormatError("damaged saved game");
+    }
+    g.explored.assign(seen.begin(), seen.end());
 
     g.nextFleetId = number(r, 1, kBig);
     for (std::uint32_t i = 0, n = count(r, kMaxFleets); i < n; ++i) {

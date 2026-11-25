@@ -16,6 +16,7 @@ add_library(ngs_core STATIC
     src/game/galaxy.cpp
     src/game/research.cpp
     src/game/save.cpp
+    src/game/ai.cpp
     src/game/game.cpp
     src/data/cursor.cpp
     src/game_files.cpp

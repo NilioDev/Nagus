@@ -26,6 +26,8 @@ struct Game {
     std::array<EmpireState, kEmpires> empires{};
     std::vector<Fleet> fleets;
     int nextFleetId = 1;
+    // For each sector (y * width + x), a bit for each empire that has seen it.
+    std::vector<std::uint8_t> explored;
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
@@ -41,6 +43,10 @@ struct Game {
 // Whether an empire sees what is in a sector: near its colonies (two
 // sectors) and its fleets (one sector and their scan).
 bool visibleTo(const Game& game, int empire, Sector s);
+// Whether an empire has ever seen a sector.
+bool exploredBy(const Game& game, int empire, Sector s);
+// Marks what each empire sees now as explored.
+void explore(Game& game);
 
 // Sends a fleet towards a sector, if it is in range. Returns whether it goes.
 bool orderMove(Game& game, int fleet, Sector to);

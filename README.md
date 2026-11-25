@@ -31,8 +31,12 @@ and with gamepad, mouse, keyboard and touch controls.
 > main menu. Build ships at systems with a shipyard; choose a fleet in the
 > list on the left and click a sector on the map to send it there, and use
 > *Orders* → *Colonize* with a colony ship to found new colonies. *Save Game*
-> and *Load Game* in the main menu keep up to twelve games. Combat, the
-> other empires' moves, diplomacy and the rest of the game come next. Buttons that do not work yet are shown dimmed.
+> and *Load Game* in the main menu keep up to twelve games. The other four
+> empires are played by the computer: they build, settle new systems and
+> send out scouts and warships. The map shows only what your empire has
+> explored, with each empire's space in its colour. Combat, diplomacy and
+> the rest of the game come next. Buttons that do not work yet are shown
+> dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.

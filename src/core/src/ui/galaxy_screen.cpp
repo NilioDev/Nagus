@@ -184,10 +184,27 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
             }
         }
     }
-    // Stars and other objects, then the names of the stars.
+    // The empires' space: the sectors around the colonies the player knows of.
+    for (const auto& col : game_.colonies) {
+        const Sector at = g.systems[static_cast<std::size_t>(col.system)].sector;
+        if (!exploredBy(game_, game_.player, at)) {
+            continue;
+        }
+        const Pixel colour = col.owner >= 0 && col.owner < kEmpires ? kEmpireColours[col.owner] : kMinorColour;
+        for (int y = at.y - 1; y <= at.y + 1; ++y) {
+            for (int x = at.x - 1; x <= at.x + 1; ++x) {
+                const auto c = exploredBy(game_, game_.player, {x, y}) ? sectorCentre({x, y}) : std::nullopt;
+                if (c) {
+                    canvas.blend({c->x - size / 2 + 1, c->y - size / 2 + 1, size - 1, size - 1}, colour,
+                                 x == at.x && y == at.y ? 70 : 35);
+                }
+            }
+        }
+    }
+    // Stars and other objects the player has found, then the names of the stars.
     for (const auto& s : g.systems) {
         const auto c = sectorCentre(s.sector);
-        if (!c) {
+        if (!c || !exploredBy(game_, game_.player, s.sector)) {
             continue;
         }
         const std::string code = static_cast<std::size_t>(s.kind) < game_.kindCodes.size()
@@ -209,11 +226,14 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
     if (!whole_) {
         for (const auto& s : g.systems) {
             const auto c = sectorCentre(s.sector);
-            if (!c || !s.star) {
+            if (!c || !s.star || !exploredBy(game_, game_.player, s.sector)) {
                 continue;
             }
             Pixel colour = kNameColour;
-            if (s.race >= 0 && s.race < kEmpires) {
+            const Colony* col = game_.colonyAt(g.systemAt(s.sector));
+            if (col != nullptr && col->owner >= 0 && col->owner < kEmpires) {
+                colour = kEmpireColours[col->owner];
+            } else if (s.race >= 0 && s.race < kEmpires) {
                 colour = kEmpireColours[s.race];
             } else if (s.race >= kEmpires) {
                 colour = kMinorColour;
@@ -223,6 +243,15 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
         }
     }
     drawFleets(canvas);
+    // Space not explored yet is dark.
+    for (int y = 0; y < g.height; ++y) {
+        for (int x = 0; x < g.width; ++x) {
+            const auto c = exploredBy(game_, game_.player, {x, y}) ? std::nullopt : sectorCentre({x, y});
+            if (c) {
+                canvas.blend({c->x - size / 2 + 1, c->y - size / 2 + 1, size - 1, size - 1}, rgb(0, 0, 0), 150);
+            }
+        }
+    }
     if (const auto c = sectorCentre(chosen_)) {
         canvas.frame({c->x - size / 2, c->y - size / 2, size + 1, size + 1}, moving_ ? kMoveColour : kChosen);
     }
@@ -237,7 +266,7 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
                 kInfoColour, Align::Center);
 
     // Below the map: the chosen fleet, or the chosen sector and what is in it.
-    const int at = g.systemAt(chosen_);
+    const int at = exploredBy(game_, game_.player, chosen_) ? g.systemAt(chosen_) : -1;
     if (game_.fleet(fleet_) != nullptr) {
         drawFleetPanel(canvas);
     } else if (at >= 0 && !g.systems[static_cast<std::size_t>(at)].planets.empty()) {
