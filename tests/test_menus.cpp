@@ -64,7 +64,7 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     // A disabled button does nothing.
-    click(shell, centre(element(assets, "opening.wdf", MainMenu::kOptions)));
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewMultiPlayer)));
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
@@ -520,5 +520,44 @@ NGS_TEST("the end of a game: pictures, speech and the hall of fame") {
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kRetire)));
     NGS_CHECK(shell.showing() == Shell::Showing::Fame && shell.game() == nullptr);
     NGS_CHECK(shell.fameScreen()->entries().size() == 2);
+    fs::remove_all(dir);
+}
+
+NGS_TEST("the options: volumes, kept with the settings") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-options";
+    fs::remove_all(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Canvas canvas;
+    {
+        Shell shell(res, dir / "settings.txt");
+        click(shell, centre(element(assets, "opening.wdf", MainMenu::kOptions)));
+        NGS_CHECK(shell.showing() == Shell::Showing::Options);
+        OptionsScreen& o = *shell.optionsScreen();
+        shell.draw(canvas, 0);
+        // Music down by a click, sound effects by the gamepad, speech set
+        // on its bar.
+        click(shell, centre(o.less(0)));
+        NGS_CHECK(o.settings().volume[0] == 60 && shell.jukebox().musicVolume() == 60);
+        shell.command(Command::Down);
+        shell.command(Command::Left);
+        NGS_CHECK(o.chosenRow() == 1 && o.settings().volume[1] == 70 && shell.jukebox().effectsVolume() == 70);
+        const Rect b = o.bar(2);
+        click(shell, {b.x + b.w / 2, b.centerY()});
+        NGS_CHECK(o.settings().volume[2] == 50);
+        click(shell, centre(o.accept()));
+        NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+    }
+    // Kept for the next start.
+    const GameSettings s = loadSettings(dir / "settings.txt");
+    NGS_CHECK(s.volume[0] == 60 && s.volume[1] == 70 && s.volume[2] == 50);
+    Shell again(res, dir / "settings.txt");
+    NGS_CHECK(again.jukebox().musicVolume() == 60);
+    NGS_CHECK(again.jukebox().speechVolume() == 50);
+    NGS_CHECK(again.settings().volume[2] == 50);
     fs::remove_all(dir);
 }

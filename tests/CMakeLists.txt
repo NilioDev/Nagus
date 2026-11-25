@@ -10,6 +10,7 @@ add_executable(ngs_tests
     test_sound.cpp
     test_film.cpp
     test_victory.cpp
+    test_events.cpp
     test_fleets.cpp
     test_save.cpp
     test_galaxy.cpp

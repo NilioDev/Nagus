@@ -23,6 +23,9 @@ void GameSettings::clamp() {
     }
     victory = clampTo(victory, kVictories);
     empire = clampTo(empire, kEmpires);
+    for (int& v : volume) {
+        v = std::clamp(v, 0, 100);
+    }
 }
 
 GameSettings loadSettings(const std::filesystem::path& file) {
@@ -61,11 +64,16 @@ GameSettings loadSettings(const std::filesystem::path& file) {
     s.automaticCombat = combat != 0;
     get("victory", s.victory);
     get("empire", s.empire);
+    get("volume_music", s.volume[0]);
+    get("volume_sfx", s.volume[1]);
+    get("volume_voice", s.volume[2]);
     s.clamp();
     return s;
 }
 
 void saveSettings(const std::filesystem::path& file, const GameSettings& s) {
+    std::error_code made;
+    std::filesystem::create_directories(file.parent_path(), made);
     const auto part = std::filesystem::path(file).concat(".part");
     {
         std::ofstream out(part, std::ios::trunc);
@@ -79,7 +87,10 @@ void saveSettings(const std::filesystem::path& file, const GameSettings& s) {
         out << "random_events=" << (s.randomEvents ? 1 : 0) << '\n'
             << "automatic_combat=" << (s.automaticCombat ? 1 : 0) << '\n'
             << "victory=" << s.victory << '\n'
-            << "empire=" << s.empire << '\n';
+            << "empire=" << s.empire << '\n'
+            << "volume_music=" << s.volume[0] << '\n'
+            << "volume_sfx=" << s.volume[1] << '\n'
+            << "volume_voice=" << s.volume[2] << '\n';
         if (!out) {
             return;
         }

@@ -51,9 +51,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > conquest, by domination or (in team play) with allies, or in defeat; you
 > can also retire from the main menu. The original's end pictures and
 > speech then play, and the game goes into the hall of fame (main menu).
-> Not there yet: tactical combat (battles are resolved automatically),
-> multiplayer, the options screen and random events. Buttons that do not
-> work yet are shown dimmed.
+> *Options* in the main menu sets the volume of the music, sound effects and
+> speech. With random events on, plague, earthquakes, comets, terrorists,
+> immigrants and a ship virus strike now and then. Not there yet: tactical
+> combat (battles are resolved automatically) and multiplayer. Buttons that
+> do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.
@@ -141,6 +143,7 @@ itself. You can also give files when starting it:
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |
+| Change a volume (*Options*) | Click its bar or − / + | Arrow keys | D-pad |
 | Full screen on or off | | F11 or Alt+Enter | |
 
 Settings on the set-up screen change with each click on their button. The

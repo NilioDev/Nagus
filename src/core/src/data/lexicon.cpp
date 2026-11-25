@@ -36,4 +36,39 @@ const std::string& Lexicon::operator[](std::size_t index) const {
     return index < texts_.size() ? texts_[index] : none;
 }
 
+std::string fillText(std::string_view pattern, const std::vector<std::string>& values) {
+    std::string out;
+    std::size_t next = 0;
+    for (std::size_t i = 0; i < pattern.size(); ++i) {
+        if (pattern[i] != '%' || i + 1 >= pattern.size()) {
+            out += pattern[i];
+            continue;
+        }
+        std::size_t j = i + 1;
+        if (pattern[j] == '%') {
+            out += '%';
+            i = j;
+            continue;
+        }
+        if (pattern[j] == 's' || pattern[j] == 'd') {
+            ++j;
+        }
+        std::size_t which = next;
+        if (j < pattern.size() && pattern[j] >= '1' && pattern[j] <= '9') {
+            which = static_cast<std::size_t>(pattern[j] - '1');
+            ++j;
+        } else if (j == i + 1) {
+            out += '%'; // not a place
+            continue;
+        } else {
+            ++next;
+        }
+        if (which < values.size()) {
+            out += values[which];
+        }
+        i = j - 1;
+    }
+    return out;
+}
+
 } // namespace nagus

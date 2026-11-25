@@ -43,6 +43,7 @@ constexpr int kClickSounds = 76;
 Shell::Shell(std::shared_ptr<Resources> resources, std::filesystem::path settingsFile)
     : assets_(resources), jukebox_(*resources), settingsFile_(std::move(settingsFile)) {
     settings_ = loadSettings(settingsFile_);
+    jukebox_.setVolumes(settings_.volume[0], settings_.volume[1], settings_.volume[2]);
     show(Showing::MainMenu);
 }
 
@@ -64,7 +65,9 @@ void Shell::show(Showing s) {
         ending_.reset();
     }
     fame_.reset();
+    options_.reset();
     switch (s) {
+    case Showing::Options: options_ = std::make_unique<OptionsScreen>(assets_, jukebox_, settings_); break;
     case Showing::Film:
     case Showing::Ending: break;
     case Showing::Fame:
@@ -110,6 +113,7 @@ MenuScreen& Shell::screen() {
     case Showing::Film: return *film_;
     case Showing::Ending: return *ending_;
     case Showing::Fame: return *fame_;
+    case Showing::Options: return *options_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -187,6 +191,13 @@ void Shell::settle() {
             show(Showing::MainMenu);
         }
         break;
+    case Showing::Options:
+        if (o == Outcome::Accept) {
+            settings_ = options_->settings();
+            saveSettings(settingsFile_, settings_);
+            show(Showing::MainMenu);
+        }
+        break;
     case Showing::MainMenu:
         if (o == Outcome::NewGame) {
             show(Showing::GameSetup);
@@ -198,6 +209,8 @@ void Shell::settle() {
             show(Showing::Load);
         } else if (o == Outcome::Quit) {
             quit_ = true;
+        } else if (o == Outcome::Options) {
+            show(Showing::Options);
         } else if (o == Outcome::HallOfFame) {
             show(Showing::Fame);
         } else if (o == Outcome::Retire && game_) {

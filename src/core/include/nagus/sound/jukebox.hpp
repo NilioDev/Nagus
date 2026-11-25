@@ -31,15 +31,17 @@ public:
     int musicTrack() const { return track_; }
     // Plays a sound of sfx.snd once, over the music.
     void playEffect(int index);
-    // Plays a sound (such as a film's sound track or a speech) once.
-    void playSound(std::shared_ptr<const Pcm> sound);
+    // Plays a sound once: a speech or a film's sound track (at the speech
+    // volume) or a sound effect.
+    void playSound(std::shared_ptr<const Pcm> sound, bool speech = true);
     void stopSounds();
     bool soundsPlaying() const { return !voices_.empty(); }
 
     // Volumes, 0 to 100.
-    void setVolumes(int music, int effects);
+    void setVolumes(int music, int effects, int speech);
     int musicVolume() const { return musicVolume_; }
     int effectsVolume() const { return effectsVolume_; }
+    int speechVolume() const { return speechVolume_; }
 
     // Fills interleaved stereo frames.
     void mix(std::span<std::int16_t> out);
@@ -48,6 +50,7 @@ private:
     struct Voice {
         std::shared_ptr<const Pcm> pcm;
         double at = 0; // frames into it
+        bool speech = false;
     };
     void nextPiece();
     void add(std::vector<int>& acc, const Pcm& pcm, double& at, int volume, std::size_t frames) const;
@@ -61,6 +64,7 @@ private:
     std::vector<Voice> voices_;
     int musicVolume_ = 70;
     int effectsVolume_ = 80;
+    int speechVolume_ = 90;
 };
 
 } // namespace nagus

@@ -129,6 +129,15 @@ struct DiplomacyEvent {
     int b = -1;
 };
 
+// A random event, for the turn report: the lexicon text with its values
+// (see events.hpp).
+struct GameEvent {
+    std::size_t text = 0;
+    std::vector<std::string> values;
+    int empire = -1;
+    int system = -1;
+};
+
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
     std::vector<std::string> events;     // for the player: what the colonies finished
@@ -139,6 +148,7 @@ struct TurnSummary {
     std::vector<DiplomacyEvent> diplomacy;
     std::vector<IntelReport> intel;      // the player's operations, and those against them
     std::vector<int> fallen;             // empires that lost their last colony
+    std::vector<GameEvent> happenings;   // random events that struck the player
     Ending ending = Ending::None;
 };
 TurnSummary endTurn(Game& game);

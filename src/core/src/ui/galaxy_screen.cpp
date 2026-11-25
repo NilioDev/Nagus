@@ -680,6 +680,9 @@ void GalaxyScreen::pointerReleased(Point p) {
     } else if (id && *id == kTurn) {
         const TurnSummary summary = endTurn(game_);
         events_.clear();
+        for (const auto& h : summary.happenings) {
+            events_.emplace_back(fillText(assets_.lexicon()[h.text], h.values), h.text == 1021 ? kInfoColour : kBadColour);
+        }
         for (const int e : summary.fallen) {
             const std::string name = static_cast<std::size_t>(e) < game_.raceNames.size() ? game_.raceNames[static_cast<std::size_t>(e)] : "?";
             events_.emplace_back("The " + name + " have lost their last system", kBadColour);

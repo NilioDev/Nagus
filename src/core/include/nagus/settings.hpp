@@ -24,6 +24,8 @@ struct GameSettings {
     bool automaticCombat = false;
     int victory = 0;        // domination, team play, vendetta
     int empire = 1;         // the player's empire (0 = Cardassian … 4 = Romulan)
+    // Volumes in percent: music, sound effects, speech (and films).
+    std::array<int, 3> volume{70, 80, 90};
 
     static constexpr int kShapes = 4;
     static constexpr int kSizes = 3;

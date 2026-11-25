@@ -26,6 +26,10 @@ private:
     std::vector<std::string> texts_;
 };
 
+// Fills a text's places: "%1", "%s1", "%d1" take the first value, and so
+// on; a place without a number ("%s", "%d") takes the next one in turn.
+std::string fillText(std::string_view pattern, const std::vector<std::string>& values);
+
 // Numbers of the texts the engine uses (see docs/rules/texts.md for how each
 // was found).
 namespace text {
