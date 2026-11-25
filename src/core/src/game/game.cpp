@@ -3,6 +3,7 @@
 
 #include "nagus/game/ai.hpp"
 #include "nagus/game/combat.hpp"
+#include "nagus/game/diplomacy.hpp"
 #include "nagus/game/research.hpp"
 
 #include <algorithm>
@@ -292,12 +293,14 @@ TurnSummary endTurn(Game& game) {
     }
     colonize(game, summary);
     moveFleets(game);
-    for (auto& b : fightBattles(game)) {
+    const auto battles = fightBattles(game);
+    for (const auto& b : battles) {
         if (std::find(b.owners.begin(), b.owners.end(), game.player) != b.owners.end()) {
-            summary.battles.push_back(std::move(b));
+            summary.battles.push_back(b);
         }
     }
-    for (const auto& a : attackSystems(game)) {
+    const auto assaults = attackSystems(game);
+    for (const auto& a : assaults) {
         if (a.attacker == game.player || a.defender == game.player) {
             summary.assaults.push_back(a);
         }
@@ -314,6 +317,7 @@ TurnSummary endTurn(Game& game) {
         }
     }
     explore(game);
+    summary.diplomacy = diplomacyTurn(game, battles, assaults);
     game.turn += 1;
     return summary;
 }
@@ -357,6 +361,7 @@ Game newGame(const GameSettings& settings, const GalaxyData& data, const Economy
             }
         }
     }
+    startDiplomacy(g, data.races);
     explore(g);
     return g;
 }

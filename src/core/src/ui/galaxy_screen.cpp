@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/ui/galaxy_screen.hpp"
 
+#include "nagus/ui/diplomacy_screen.hpp"
+
 #include <algorithm>
 
 namespace nagus {
@@ -683,6 +685,9 @@ void GalaxyScreen::pointerReleased(Point p) {
         }
         for (const auto& a : summary.assaults) {
             events_.emplace_back(assaultText(a), kBadColour);
+        }
+        for (const auto& d : summary.diplomacy) {
+            events_.emplace_back(diplomacyText(assets_.lexicon(), game_, d), d.text == 278 ? kBadColour : kInfoColour);
         }
         for (const auto& e : summary.events) {
             events_.emplace_back(e, kNameColour);

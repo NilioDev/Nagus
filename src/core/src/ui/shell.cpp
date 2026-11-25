@@ -42,6 +42,7 @@ void Shell::show(Showing s) {
     empires_.reset();
     system_.reset();
     research_.reset();
+    diplomacy_.reset();
     loadSave_.reset();
     marker_.reset();
     switch (s) {
@@ -53,6 +54,7 @@ void Shell::show(Showing s) {
         break;
     case Showing::System: system_ = std::make_unique<SystemScreen>(assets_, *game_, playerColony()); break;
     case Showing::Research: research_ = std::make_unique<ResearchScreen>(assets_, *game_); break;
+    case Showing::Diplomacy: diplomacy_ = std::make_unique<DiplomacyScreen>(assets_, *game_); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
     case Showing::Save:
@@ -75,6 +77,7 @@ MenuScreen& Shell::screen() {
     case Showing::Galaxy: return *galaxy_;
     case Showing::System: return *system_;
     case Showing::Research: return *research_;
+    case Showing::Diplomacy: return *diplomacy_;
     case Showing::Save:
     case Showing::Load: return *loadSave_;
     case Showing::MainMenu: break;
@@ -139,6 +142,7 @@ void Shell::settle() {
         break;
     case Showing::System:
     case Showing::Research:
+    case Showing::Diplomacy:
         if (o == Outcome::Back) {
             openMarker();
         }
@@ -223,7 +227,6 @@ void Shell::openMarker() {
     h = std::max(h, r.h);
     // Centred on the pointer, inside the screen.
     marker_->setOrigin({std::clamp(pointer_.x - w / 2, 0, kScreenWidth - w), std::clamp(pointer_.y - h / 2, 0, kScreenHeight - h)});
-    marker_->setEnabled(kMarkerDiplomacy, false);
     marker_->setEnabled(kMarkerIntel, false);
     marker_->setEnabled(kMarkerSystem, playerColony() >= 0);
     marker_->pointerMoved(pointer_);
@@ -241,6 +244,7 @@ void Shell::markerChose(std::uint32_t id) {
     case kMarkerGalaxy: show(Showing::Galaxy); break;
     case kMarkerSystem: show(Showing::System); break;
     case kMarkerResearch: show(Showing::Research); break;
+    case kMarkerDiplomacy: show(Showing::Diplomacy); break;
     case kMarkerMenu: show(Showing::MainMenu); break;
     default: break;
     }

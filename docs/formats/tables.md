@@ -14,6 +14,9 @@ the empires everywhere in the tables), then the minor races.
 | --- | --- | --- |
 | 0 | 40 | Name |
 | 40 | 16 | Portrait picture |
+| 60 | 4 | Offset of its description in `racedesc.rst` (texts ended by a zero byte) |
+| 72 | 5 | Our reading: how the race starts out regarding each empire (100 for itself, 65 to 80 for others) |
+| 104 | 4 | Our reading: a float from 0.7 to 1.2, higher for warlike races (Klingons 1.2, Ferengi 0.8); Nagus uses it as aggression |
 
 ## Map objects (`objstruc.smt`)
 

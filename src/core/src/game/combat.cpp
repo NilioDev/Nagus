@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/combat.hpp"
 
+#include "nagus/game/diplomacy.hpp"
+
 #include <algorithm>
 #include <map>
 
@@ -84,7 +86,7 @@ struct Unit {
 
 } // namespace
 
-bool hostile(const Game&, int a, int b) { return a != b && a >= 0 && a < kEmpires && b >= 0 && b < kEmpires; }
+bool hostile(const Game& game, int a, int b) { return a != b && atWar(game, a, b); }
 
 int shipFirepower(const ShipClass& s, const EmpireState& empire) {
     const int raw = s.beamCount * s.beamDamage + s.torpedoCount * s.torpedoDamage;

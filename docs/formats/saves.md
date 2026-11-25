@@ -30,13 +30,25 @@ count and then its entries.
 | The player's empire | i32 |
 | Star kind codes | list of text |
 | Race names | list of text |
+| Races | list, see below |
 | Map width, height | 2 × i32 |
 | Home system of each empire (or -1) | 5 × i32 |
 | Star systems | list, see below |
 | Colonies | list, see below |
 | Each empire's state | 5 × see below |
+| Explored sectors: one byte for each sector (y × width + x), a bit for each empire, or none | list of u8 |
+| Relations, for each empire and race (empire × races + race) | list, see below |
+| Proposals waiting for the player | list, see below |
 | Next fleet number | i32 |
 | Fleets | list, see below |
+
+A race: name and picture (text), its first regard for each empire
+(5 × i32), aggression in percent (i32) and the offset of its description
+(u32).
+
+A relation: treaty (u8: 0 not met, 1 war, 2 neutral, 3 non-aggression,
+4 friendship, 5 affiliation, 6 alliance, 7 membership), regard and the turn
+it began (2 × i32). A proposal: from (i32), treaty (u8), turn (i32).
 
 A star system: sector, kind (i32), name (text), race (i32, -1 for none),
 has a star (u8), then a list of planets: name (text), type, atmosphere,
@@ -55,7 +67,7 @@ fields (6 × i32), locked shares (6 × u8), research and intelligence points
 (2 × i32).
 
 A fleet: number, owner (2 × i32), sector, under way (u8), destination
-(sector), order (u8: 0 none, 1 colonize), and a list of ships: class, hull
+(sector), order (u8: 0 none, 1 colonize, 2 attack system), and a list of ships: class, hull
 (2 × i32).
 
 ## Reading

@@ -6,8 +6,8 @@ automatically.
 
 ## Who fights
 
-Until diplomacy is made, the five empires are at war with each other and
-leave the minor races alone. After fleets move, every sector where ships or
+Races fight when they are at war (see [diplomacy](diplomacy.md)). After
+fleets move, every sector where ships or
 a colony's defences of enemies meet, and one of them can shoot, has a
 battle. Unarmed ships (colony ships, transports) can be shot but start no
 battle.

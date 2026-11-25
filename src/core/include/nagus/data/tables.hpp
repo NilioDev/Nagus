@@ -21,8 +21,16 @@ inline constexpr int kEmpires = 5;
 struct RaceInfo {
     std::string name;
     std::string picture;
+    // Our reading: how the race starts out thinking of each empire (100 for
+    // itself), and how warlike it is in percent (80 to 120).
+    std::array<int, 5> attitude{50, 50, 50, 50, 50};
+    int aggression = 100;
+    std::uint32_t description = 0; // offset of its text in racedesc.rst
 };
 std::vector<RaceInfo> readRaces(ByteView data);
+// The text at an offset in a file of texts each ended by a zero byte, or
+// nothing when the offset is outside the file.
+std::string textAt(ByteView data, std::uint32_t offset);
 
 // The kinds of objects on the galaxy map (objstruc.smt), with the share of
 // map objects that are of that kind. The code names the map pictures:
