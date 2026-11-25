@@ -25,12 +25,24 @@ struct Sector {
     bool operator==(const Sector&) const = default;
 };
 
+struct Planet {
+    std::string name;
+    int type = 0;       // see PlanetKinds: arctic, barren, desert, gas giant, ...
+    int atmosphere = 9; // 8-12: methane, none, oxygen rich, sulfuric, thin oxygen
+    int size = 0;       // 0 small, 1 medium, 2 large
+    int room = 0;       // the most people (in millions) the planet can hold
+    int variant = 0;    // picks one of several pictures for the same kind
+};
+
+inline constexpr int kGasGiant = 3;
+
 struct StarSystem {
     Sector sector;
     int kind = 0;  // index into the map object kinds (StarObjectKind)
     std::string name;
     int race = -1; // the race whose home this is: 0-4 an empire, 5 and up a minor race
     bool star = true; // a star with planets, not a nebula, black hole or the like
+    std::vector<Planet> planets;
 };
 
 struct Galaxy {
@@ -50,6 +62,10 @@ struct GalaxyData {
     std::vector<std::string> starNames;
     std::vector<RaceInfo> races;
     std::array<std::string, kEmpires> homeNames; // the empires' home systems
+    PlanetKinds planetKinds;
+    std::vector<Habitat> habitats;
+    std::vector<PlanetRoom> rooms;
+    std::vector<HomePlanet> homePlanets;
 };
 
 struct GalaxySetup {

@@ -119,4 +119,68 @@ std::vector<Tech> readTechTree(ByteView data) {
     return techs;
 }
 
+PlanetKinds readPlanetKinds(ByteView data) {
+    constexpr std::size_t kHeader = 0x82;
+    constexpr std::size_t kRecord = 50;
+    Reader r(data);
+    const std::size_t count = r.u16();
+    if (count != kPlanetTypes + kAtmospheres || data.size() < kHeader + count * kRecord) {
+        throw FormatError("bad planet type table");
+    }
+    PlanetKinds k;
+    for (int i = 0; i < kPlanetTypes; ++i) {
+        const std::uint32_t bits = r.u32();
+        float share = 0;
+        std::memcpy(&share, &bits, sizeof share);
+        if (!(share >= 0 && share <= 1)) {
+            throw FormatError("bad planet type table");
+        }
+        k.shares.push_back(share);
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, kHeader + i * kRecord);
+        k.names.push_back(rec.text(12));
+    }
+    return k;
+}
+
+std::vector<Habitat> readHabitats(ByteView data) {
+    const std::size_t count = records(data, 0, 8, "habitat table");
+    std::vector<Habitat> h(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, i * 8);
+        h[i].type = rec.u8();
+        h[i].atmosphere = rec.u8();
+        if (h[i].type >= kPlanetTypes || h[i].atmosphere < kPlanetTypes ||
+            h[i].atmosphere >= kPlanetTypes + kAtmospheres) {
+            throw FormatError("bad habitat table");
+        }
+        for (auto& v : h[i].values) {
+            v = rec.u8();
+        }
+    }
+    return h;
+}
+
+std::vector<PlanetRoom> readPlanetRoom(ByteView data) {
+    const std::size_t count = records(data, 0, 40, "planet room table");
+    std::vector<PlanetRoom> rooms(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, i * 40);
+        rooms[i].type = rec.u8();
+        rooms[i].size = rec.u8();
+        rec.u16();
+        if (rooms[i].type >= kPlanetTypes || rooms[i].size > 2) {
+            throw FormatError("bad planet room table");
+        }
+        for (auto& v : rooms[i].population) {
+            v = rec.u32();
+            if (v > 100000) {
+                throw FormatError("bad planet room table");
+            }
+        }
+    }
+    return rooms;
+}
+
 } // namespace nagus

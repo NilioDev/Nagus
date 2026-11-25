@@ -105,3 +105,41 @@ NGS_TEST("the same seed makes the same galaxy") {
         }
     }
 }
+
+NGS_TEST("stars have planets, and the empires their own home systems") {
+    GalaxyData data = sampleData();
+    data.planetKinds.shares = {0.1f, 0.2f, 0.1f, 0.2f, 0.1f, 0.1f, 0.1f, 0.1f};
+    for (int t = 0; t < kPlanetTypes; ++t) {
+        data.habitats.push_back({t, 8 + t % kAtmospheres, {}});
+        for (int size = 0; size < 3; ++size) {
+            if (t != kGasGiant) {
+                PlanetRoom r{t, size, {}};
+                r.population.fill(static_cast<std::uint32_t>(10 + size * 5));
+                data.rooms.push_back(r);
+            }
+        }
+    }
+    data.homePlanets = {{"Mercury", "Federation", 0, 0}, {"Earth", "Federation", 0, 0}, {"Jupiter", "Federation", 10, 0}};
+    GalaxySetup setup;
+    setup.seed = 99;
+    const Galaxy g = makeGalaxy(setup, data);
+    for (const auto& s : g.systems) {
+        NGS_CHECK(s.star ? !s.planets.empty() && s.planets.size() <= 8 : s.planets.empty());
+        for (const auto& p : s.planets) {
+            NGS_CHECK(!p.name.empty() && p.type >= 0 && p.type < kPlanetTypes);
+            NGS_CHECK(p.atmosphere >= 8 && p.atmosphere < 8 + kAtmospheres);
+            NGS_CHECK((p.type == kGasGiant) == (p.room == 0));
+        }
+        if (s.race >= kEmpires) {
+            bool livable = false;
+            for (const auto& p : s.planets) {
+                livable = livable || p.room > 0;
+            }
+            NGS_CHECK(livable);
+        }
+    }
+    const auto& sol = g.systems[static_cast<std::size_t>(g.homes[1])];
+    NGS_CHECK(sol.planets.size() == 3 && sol.planets[1].name == "Earth" && sol.planets[1].type == 6);
+    NGS_CHECK(sol.planets[2].type == kGasGiant && sol.planets[2].room == 0);
+    NGS_CHECK(g.systems[static_cast<std::size_t>(g.homes[0])].planets.front().name == "Cardassia I");
+}

@@ -6,6 +6,7 @@
 
 #include "nagus/util/bytes.hpp"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -43,6 +44,37 @@ struct HomePlanet {
     std::uint32_t star = 0; // not yet understood: the same for a whole system
 };
 std::vector<HomePlanet> readHomePlanets(ByteView data);
+
+// Planet types and atmospheres (environ.est): eight types (arctic, barren,
+// desert, gas giant, jungle, oceanic, terran, volcanic) with the share of
+// planets of each type, then five atmospheres (methane, none, oxygen rich,
+// sulfuric, thin oxygen). Atmospheres are numbered on from the types: 8-12.
+inline constexpr int kPlanetTypes = 8;
+inline constexpr int kAtmospheres = 5;
+struct PlanetKinds {
+    std::vector<std::string> names; // 13: the types, then the atmospheres
+    std::vector<float> shares;      // 8, one per type
+};
+PlanetKinds readPlanetKinds(ByteView data);
+
+// Which atmospheres each planet type can have (habit.bin), with six numbers
+// per pair that are not understood yet.
+struct Habitat {
+    int type = 0;
+    int atmosphere = 0; // 8-12
+    std::array<std::uint8_t, 6> values{};
+};
+std::vector<Habitat> readHabitats(ByteView data);
+
+// Room for population on a planet by type and size (planspac.bin): nine
+// steps for each pair (not yet known what picks the step). Gas giants have
+// none.
+struct PlanetRoom {
+    int type = 0;
+    int size = 0; // 0 small, 1 medium, 2 large
+    std::array<std::uint32_t, 9> population{};
+};
+std::vector<PlanetRoom> readPlanetRoom(ByteView data);
 
 // The technologies (techtree.tec), in fields of levels 0 to 10.
 enum class TechField : std::uint8_t { Biotech, Computers, Construction, Energy, Propulsion, Weapons, Sociology };

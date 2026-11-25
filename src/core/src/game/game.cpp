@@ -10,6 +10,10 @@ GalaxyData loadGalaxyData(const Resources& resources, const Lexicon& lexicon) {
     d.kinds = readStarObjectKinds(resources.file("objstruc.smt"));
     d.starNames = readStarNames(resources.file("starname.bin"));
     d.races = readRaces(resources.file("race.rst"));
+    d.planetKinds = readPlanetKinds(resources.file("environ.est"));
+    d.habitats = readHabitats(resources.file("habit.bin"));
+    d.rooms = readPlanetRoom(resources.file("planspac.bin"));
+    d.homePlanets = readHomePlanets(resources.file("meplanet.bin"));
     for (int e = 0; e < kEmpires; ++e) {
         d.homeNames[static_cast<std::size_t>(e)] = lexicon[text::kHomeSystems[e]];
     }

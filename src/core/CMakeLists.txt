@@ -10,6 +10,7 @@ add_library(ngs_core STATIC
     src/data/font.cpp
     src/data/lexicon.cpp
     src/data/tables.cpp
+    src/data/animation.cpp
     src/game/galaxy.cpp
     src/game/game.cpp
     src/data/cursor.cpp
