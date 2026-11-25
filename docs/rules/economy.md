@@ -66,3 +66,27 @@ does not have yet: one shipyard to a system, structures for the home system
 only there, and those that need a planet type only where there is one. Not
 offered yet: structures of minor races, those for special planets (such as
 dilithium) and those for conquered systems. The queue holds five items.
+
+## Trade routes
+
+Our own numbers, after the original's help texts: an empire may trade with
+a race it has a friendship, affiliation or alliance with. Each of its
+colonies may have one trade route for each full 100 million people (at
+least one), plus what its structures add (bonus *Trade routes*). A route
+goes from the colony to a colony of another empire or to a minor race's
+home. Each turn it pays (the people at both ends) / 20 credits, raised by
+the colony's *% income on trade route* structures, to the empire that set
+it up, and the same to the partner when that is an empire. A minor race's
+people count as half the room of its home.
+
+A route ends when the treaty falls below friendship (war, for one) or one
+end changes hands; when a colony has too many routes for its people, the
+newest go. Computer players fill their free routes with the partners that
+pay most.
+
+In *Economic* mode, choosing one of the player's colonies shows its routes
+under the fleets in the list on the left: a click on *Trade Routes* and then
+on a system on the map sets one up, and a click on a route ends it. The
+*Trade routes* layer draws the routes the player knows: their own in green,
+the others' in yellow.
+

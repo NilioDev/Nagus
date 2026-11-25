@@ -25,6 +25,7 @@ add_library(ngs_core STATIC
     src/game/diplomacy.cpp
     src/game/game.cpp
     src/game/events.cpp
+    src/game/trade.cpp
     src/game/victory.cpp
     src/data/cursor.cpp
     src/data/tips.cpp

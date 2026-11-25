@@ -14,6 +14,7 @@ add_executable(ngs_tests
     test_victory.cpp
     test_events.cpp
     test_fleets.cpp
+    test_trade.cpp
     test_save.cpp
     test_galaxy.cpp
     test_import.cpp

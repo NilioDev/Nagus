@@ -3,6 +3,7 @@
 
 #include "nagus/game/combat.hpp"
 #include "nagus/game/tactical.hpp"
+#include "nagus/game/trade.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
 #include "nagus/ui/intel_screen.hpp"
 
@@ -86,7 +87,7 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
       panel_(assets, std::string(1, prefix_) + "maingal.wdf"), info_(assets, std::string(1, prefix_) + "_starmp.wdf"),
       system_(assets, std::string(1, prefix_) + "_sysmap.wdf"), animations_(assets.resources().names(".ani")),
       fleetPanel_(assets, std::string(1, prefix_) + "_tfship.wdf"), orders_(assets, std::string(1, prefix_) + "_tford.wdf"),
-      overlay_(assets, std::string(1, prefix_) + "_ovrlay.wdf") {
+      overlay_(assets, std::string(1, prefix_) + "_ovrlay.wdf"), routes_(assets, std::string(1, prefix_) + "inf_tr.wdf") {
     // Each mode's layers to begin with.
     auto bits = [](std::initializer_list<Layer> ls) {
         std::uint32_t b = 0;
@@ -95,11 +96,10 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
         }
         return b;
     };
-    layers_ = {bits({Layer::Names, Layer::Territory, Layer::Building, Layer::Population}),
+    layers_ = {bits({Layer::Names, Layer::Territory, Layer::Building, Layer::Population, Layer::TradeRoutes}),
                bits({Layer::Names, Layer::Territory, Layer::Ranges, Layer::Paths, Layer::Defences}),
                bits({Layer::Names, Layer::Territory, Layer::Paths})};
-    // There are no trade routes or sector bonuses yet.
-    overlay_.setEnabled(kLayerButtons[static_cast<int>(Layer::TradeRoutes)], false);
+    // There are no sector bonuses yet.
     overlay_.setEnabled(kLayerButtons[static_cast<int>(Layer::Bonuses)], false);
     const Rect ob = panel_.rect(kOverlay);
     overlay_.setOrigin({ob.x, ob.y - overlay_.layout().rect.h - 4});
@@ -219,6 +219,7 @@ void GalaxyScreen::choose(Sector s) {
             listFirst_ = 0;
         }
         chosen_ = s;
+        choosingPartner_ = false;
         keepInView();
         scrollFleets(0);
     }
@@ -375,6 +376,26 @@ void GalaxyScreen::drawLayers(Canvas& canvas) {
             }
         }
     }
+    // Known trade routes: the player's in green, the others' in yellow, as
+    // dotted lines between the systems.
+    if (shows(Layer::TradeRoutes)) {
+        for (const auto& r : game_.tradeRoutes) {
+            const Sector a = g.systems[static_cast<std::size_t>(r.from)].sector;
+            const Sector b = g.systems[static_cast<std::size_t>(r.to)].sector;
+            const Colony* from = game_.colonyAt(r.from);
+            const bool mine = (from != nullptr && from->owner == game_.player) || tradePartner(game_, r.to) == game_.player;
+            const auto ca = sectorCentre(a);
+            const auto cb = sectorCentre(b);
+            if (!ca || !cb || (!mine && (!exploredBy(game_, game_.player, a) || !exploredBy(game_, game_.player, b)))) {
+                continue;
+            }
+            const int steps = std::max({1, std::abs(cb->x - ca->x), std::abs(cb->y - ca->y)});
+            for (int i = 0; i <= steps; i += 4) {
+                canvas.fill({ca->x + (cb->x - ca->x) * i / steps - 1, ca->y + (cb->y - ca->y) * i / steps - 1, 2, 2},
+                            mine ? 0xff40e070u : 0xffe0e040u);
+            }
+        }
+    }
     if (whole_) {
         return;
     }
@@ -503,6 +524,31 @@ void GalaxyScreen::drawList(Canvas& canvas) {
         canvas.text(small, name, r->x + 4, r->y + 2, f->owner >= 0 && f->owner < kEmpires ? kEmpireColours[f->owner] : kMinorColour);
     }
     int ly = list.y + 30 + std::min(static_cast<int>(here.size()), kFleetLines) * kFleetLine + (here.empty() ? 0 : small.height());
+    // The chosen colony's trade routes (economic mode).
+    if (const auto header = routeHeader()) {
+        const LayoutElement& e = *routes_.layout().find(kTradeRoutes);
+        canvas.draw(assets_.image(choosingPartner_ && !e.downImage.empty() ? e.downImage : e.upImage), header->x, header->y);
+        if (choosingPartner_) {
+            canvas.frame({header->x - 1, header->y - 1, header->w + 2, header->h + 2}, kMoveColour);
+        }
+        const auto routes = routesHere();
+        const Colony& c = game_.colonies[static_cast<std::size_t>(chosenColony())];
+        for (int i = 0; i < static_cast<int>(routes.size()); ++i) {
+            if (const auto r = routeLine(i)) {
+                const TradeRoute& tr = routes[static_cast<std::size_t>(i)];
+                const int partner = tradePartner(game_, tr.to);
+                canvas.text(small, g.systems[static_cast<std::size_t>(tr.to)].name, r->x + 4, r->y + 2,
+                            partner >= 0 && partner < kEmpires ? kEmpireColours[partner] : kMinorColour);
+                const std::string income = "+" + std::to_string(routeIncome(game_, tr));
+                canvas.text(small, income, r->x + r->w - small.width(income) - 4, r->y + 2, kInfoColour);
+                ly = r->y + r->h;
+            }
+        }
+        ly = std::max(ly, header->y + header->h + 4);
+        const std::string count = "Free routes: " + std::to_string(std::max(0, routeLimit(game_, c) - static_cast<int>(routes.size())));
+        canvas.text(small, choosingPartner_ ? "Click a system to trade with" : count, list.x + 10, ly + 2, kNameColour);
+        ly += small.height() * 2 + 4;
+    }
     for (const auto& c : game_.colonies) {
         if (c.owner == game_.player && ly + small.height() <= list.y + list.h) {
             canvas.text(small, g.systems[static_cast<std::size_t>(c.system)].name, list.x + 10, ly, kEmpireColours[player]);
@@ -566,6 +612,44 @@ std::vector<int> GalaxyScreen::fleetsHere() const {
         }
     }
     return ids;
+}
+
+std::vector<TradeRoute> GalaxyScreen::routesHere() const {
+    std::vector<TradeRoute> out;
+    if (mode_ != Mode::Economy || chosenColony() < 0) {
+        return out;
+    }
+    const int system = game_.galaxy.systemAt(chosen_);
+    for (const auto& r : game_.tradeRoutes) {
+        if (r.from == system) {
+            out.push_back(r);
+        }
+    }
+    return out;
+}
+
+std::optional<Rect> GalaxyScreen::routeHeader() const {
+    if (mode_ != Mode::Economy || chosenColony() < 0 || routes_.layout().find(kTradeRoutes) == nullptr) {
+        return std::nullopt;
+    }
+    const Rect list = panel_.rect(kList);
+    const int fleets = std::min(static_cast<int>(fleetsHere().size()), kFleetLines);
+    const int y = list.y + 30 + fleets * kFleetLine + (fleets > 0 ? 8 : 0);
+    const Rect own = routes_.layout().find(kTradeRoutes)->rect;
+    return Rect{list.x + (list.w - own.w) / 2, y, own.w, own.h};
+}
+
+std::optional<Rect> GalaxyScreen::routeLine(int i) const {
+    const auto header = routeHeader();
+    const Rect list = panel_.rect(kList);
+    if (!header || i < 0 || i >= static_cast<int>(routesHere().size())) {
+        return std::nullopt;
+    }
+    const Rect r{list.x + 6, header->y + header->h + 4 + i * kFleetLine, list.w - 12, kFleetLine};
+    if (r.y + r.h > list.y + list.h) {
+        return std::nullopt;
+    }
+    return r;
 }
 
 std::optional<Rect> GalaxyScreen::fleetLine(int i) const {
@@ -669,6 +753,10 @@ std::optional<Rect> GalaxyScreen::layerButton(Layer l) const {
 }
 
 bool GalaxyScreen::cancel() {
+    if (choosingPartner_) {
+        choosingPartner_ = false;
+        return true;
+    }
     if (overlayOpen_) {
         overlayOpen_ = false;
         refreshModes();
@@ -865,6 +953,27 @@ void GalaxyScreen::pointerPressed(Point p) {
             overlay_.pointerPressed(p);
             return;
         }
+    }
+    // The chosen colony's trade routes: the header, or a route to end.
+    if (const auto header = routeHeader(); header && header->contains(p.x, p.y)) {
+        choosingPartner_ = !choosingPartner_;
+        return;
+    }
+    const auto routes = routesHere();
+    for (int i = 0; i < static_cast<int>(routes.size()); ++i) {
+        if (const auto r = routeLine(i); r && r->contains(p.x, p.y)) {
+            removeRoute(game_, routes[static_cast<std::size_t>(i)].from, routes[static_cast<std::size_t>(i)].to);
+            return;
+        }
+    }
+    // Choosing a trade partner: a system on the map.
+    if (const auto s = sectorAt(p); choosingPartner_ && s) {
+        const int to = game_.galaxy.systemAt(*s);
+        if (to >= 0) {
+            addRoute(game_, game_.player, game_.galaxy.systemAt(chosen_), to);
+        }
+        choosingPartner_ = false;
+        return;
     }
     // A fleet in the list on the left: chosen, or joined to the chosen one.
     const auto here = fleetsHere();
