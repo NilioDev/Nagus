@@ -132,22 +132,10 @@ const Model* CombatScreen::model(std::size_t unit) {
     for (char& c : name) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
-    auto it = models_.find(name);
-    if (it == models_.end()) {
-        std::optional<Model> m;
-        if (assets_.resources().has(name + ".hob") && !assets_.image(name + ".gif").empty()) {
-            try {
-                m = readModel(assets_.resources().file(name + ".hob"));
-            } catch (const FormatError&) {
-                m.reset();
-            }
-        }
-        if (m && m->empty()) {
-            m.reset();
-        }
-        it = models_.emplace(name, std::move(m)).first;
+    if (assets_.image(name + ".gif").empty()) {
+        return nullptr;
     }
-    return it->second ? &*it->second : nullptr;
+    return assets_.model(name + ".hob");
 }
 
 bool CombatScreen::hasModel(std::size_t unit) { return model(unit) != nullptr; }

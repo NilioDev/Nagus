@@ -36,4 +36,8 @@ and *Object Database* buttons (and *Management* to go back):
   classes, with descriptions from `edifdesc.bst` and `shipdesc.sst` and a
   page of statistics (such as hull, shields, weapons, build cost and the
   research levels needed). Entries the player can already build are shown bright.
+- A ship class shows as its 3D model (see [models](../formats/models.md)),
+  turning; the four arrow buttons turn it the other way or end over end,
+  and the same button again stops it. The list's own arrows page through
+  it.
 - Up and Down (or a click near the ends of a list) move through a list.
