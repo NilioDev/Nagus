@@ -43,7 +43,7 @@ std::string capitalised(std::string s) {
 }
 
 // The lexicon's short name for hailing; the maneuver's own is long.
-constexpr std::size_t kHail = 429;
+constexpr std::size_t kHailText = 429;
 
 Pixel ownerColour(int owner) { return owner >= 0 && owner < kEmpires ? kEmpireColours[owner] : kMinorColour; }
 
@@ -60,8 +60,15 @@ void beam(Canvas& canvas, Point a, Point b, Pixel colour) {
 CombatScreen::CombatScreen(Assets& assets, const Game& game, Sector at)
     : assets_(assets), game_(game), battle_(game, at),
       panel_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "tactscn.wdf"),
-      question_(assets, "tactical.wdf") {
-    question_.setOrigin({kView.x + (kView.w - 144) / 2, kView.y + (kView.h - 96) / 2});
+      question_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "fiskdlg.wdf"),
+      util_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "butil.wdf"),
+      views_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "b_views.wdf") {
+    const Rect q = question_.layout().rect;
+    question_.setOrigin({kView.x + (kView.w - q.w) / 2, kView.y + (kView.h - q.h) / 2});
+    const Rect u = panel_.rect(kUtilArea);
+    util_.setOrigin({u.x, u.y});
+    const Rect v = panel_.rect(kViewsArea);
+    views_.setOrigin({v.x, v.y});
     // Each side's ships in a grid: the player's on the left, the others'
     // on the right.
     const auto& units = battle_.units();
@@ -151,8 +158,14 @@ Rect CombatScreen::maneuverRect(Maneuver m) const {
 }
 
 std::optional<Rect> CombatScreen::button(std::uint32_t id) const {
-    if (id == kAutomatic || id == kManual) {
+    if (id == kAutomatic || id == kManual || id == kHail) {
         return phase_ == Phase::Choose ? std::optional<Rect>(question_.rect(id)) : std::nullopt;
+    }
+    if (id >= kCameraUp && id <= kAuto) {
+        return phase_ != Phase::Choose && view_ == View::Visual && util_.usable(id) ? std::optional<Rect>(util_.rect(id)) : std::nullopt;
+    }
+    if (id >= kTopView && id <= kShipView) {
+        return phase_ != Phase::Choose && view_ == View::Visual && viewsOpen_ ? std::optional<Rect>(views_.rect(id)) : std::nullopt;
     }
     if (!panel_.usable(id)) {
         return std::nullopt;
@@ -166,7 +179,7 @@ Rect CombatScreen::unitRect(std::size_t unit) const {
 }
 
 Point CombatScreen::buttonCentre(std::uint32_t id) const {
-    const Rect r = id == kAutomatic || id == kManual ? question_.rect(id) : panel_.rect(id);
+    const Rect r = id == kAutomatic || id == kManual || id == kHail ? question_.rect(id) : panel_.rect(id);
     return {r.centerX(), r.centerY()};
 }
 
@@ -180,6 +193,160 @@ void CombatScreen::refresh() {
     panel_.setVisible(kTactical, true);
     panel_.setOn(kVisual, view_ == View::Visual);
     panel_.setOn(kTactical, view_ == View::Tactical);
+    util_.setEnabled(kAuto, phase_ == Phase::Orders);
+    util_.setOn(kViews, viewsOpen_);
+    util_.setOn(kStatus, hud_);
+    const std::pair<std::uint32_t, CameraView> views[] = {{kTopView, CameraView::Top},
+                                                          {kChaseView, CameraView::Chase},
+                                                          {kFrontView, CameraView::Front},
+                                                          {kEnemyView, CameraView::Enemy},
+                                                          {kShipView, CameraView::Ship}};
+    for (const auto& [id, v] : views) {
+        views_.setOn(id, cameraView_ == v);
+    }
+}
+
+void CombatScreen::fightToEnd(bool hail) {
+    // Hailing: the player's ships hail in this round; if not everyone
+    // does, the computer fights the rest for them.
+    if (hail && !battle_.over()) {
+        battle_.fight(game_, Maneuver::Hail);
+    }
+    if (!battle_.over()) {
+        battle_.fightToEnd(game_);
+    }
+    newShots_ = true;
+    phase_ = Phase::Over;
+    refresh();
+}
+
+bool CombatScreen::cameraButton(std::uint32_t id) {
+    constexpr float kTurnStep = 0.3f;
+    constexpr float kTiltStep = 0.15f;
+    switch (id) {
+    case kCameraLeft: turn_ -= kTurnStep; break;
+    case kCameraRight: turn_ += kTurnStep; break;
+    case kCameraUp: tilt_ = std::min(1.0f, tilt_ + kTiltStep); break;
+    case kCameraDown: tilt_ = std::max(-0.6f, tilt_ - kTiltStep); break;
+    case kZoomIn: zoom_ = std::max(0.4f, zoom_ * 0.8f); break;
+    case kZoomOut: zoom_ = std::min(2.5f, zoom_ * 1.25f); break;
+    case kPanorama:
+        cameraView_ = CameraView::Panorama;
+        turn_ = 0;
+        tilt_ = 0;
+        zoom_ = 1;
+        break;
+    case kViews: viewsOpen_ = !viewsOpen_; break;
+    case kStatus: hud_ = !hud_; break;
+    case kAuto:
+        if (phase_ == Phase::Orders) {
+            fightToEnd(false);
+        }
+        break;
+    case kTopView: cameraView_ = CameraView::Top; break;
+    case kChaseView: cameraView_ = CameraView::Chase; break;
+    case kFrontView: cameraView_ = CameraView::Front; break;
+    case kEnemyView: cameraView_ = CameraView::Enemy; break;
+    case kShipView: cameraView_ = CameraView::Ship; break;
+    default: return false;
+    }
+    if (id >= kTopView && id <= kShipView) {
+        viewsOpen_ = false;
+        turn_ = 0;
+        tilt_ = 0;
+        zoom_ = 1;
+    }
+    refresh();
+    return true;
+}
+
+Camera CombatScreen::camera(std::uint64_t ms) const {
+    const auto& units = battle_.units();
+    // Where the player's ships and the others' are, and one of the
+    // player's ships and its target.
+    Vec3 mine{};
+    Vec3 theirs{};
+    int nMine = 0;
+    int nTheirs = 0;
+    int ship = -1;
+    for (std::size_t i = 0; i < units.size() && i < spots_.size(); ++i) {
+        if (units[i].hull <= 0) {
+            continue;
+        }
+        const bool own = units[i].owner == game_.player;
+        Vec3& sum = own ? mine : theirs;
+        sum = {sum.x + spots_[i].x, sum.y + spots_[i].y, sum.z + spots_[i].z};
+        (own ? nMine : nTheirs) += 1;
+        if (own && ship < 0 && (units[i].ship >= 0 || units[i].station >= 0)) {
+            ship = static_cast<int>(i);
+        }
+    }
+    const auto average = [](Vec3 v, int n, float fallback) {
+        return n > 0 ? Vec3{v.x / static_cast<float>(n), v.y / static_cast<float>(n), v.z / static_cast<float>(n)} : Vec3{fallback, 0, 0};
+    };
+    mine = average(mine, nMine, -300.0f);
+    theirs = average(theirs, nTheirs, 300.0f);
+    const Vec3 own = ship >= 0 ? spots_[static_cast<std::size_t>(ship)] : mine;
+    float reach = 0;
+    for (const Vec3& p : spots_) {
+        reach = std::max({reach, std::fabs(p.x), std::fabs(p.z)});
+    }
+    const float distance = 500.0f + reach * 1.3f;
+    // From the player's side towards the others', flat.
+    float ax = theirs.x - mine.x;
+    float az = theirs.z - mine.z;
+    const float len = std::max(1.0f, std::sqrt(ax * ax + az * az));
+    ax /= len;
+    az /= len;
+    Camera c;
+    c.focal = static_cast<float>(kView.w);
+    switch (cameraView_) {
+    case CameraView::Panorama: {
+        // Swinging slowly to and fro above the player's side.
+        const float swing = 0.35f * static_cast<float>(std::sin(static_cast<double>(ms % 62832u) / 10000.0));
+        c.eye = {distance * std::sin(swing), distance * 0.45f, -distance * std::cos(swing)};
+        c.target = {0, -40, 0};
+        break;
+    }
+    case CameraView::Top:
+        c.eye = {0, distance * 1.3f, -distance * 0.08f};
+        c.target = {0, 0, 0};
+        break;
+    case CameraView::Chase:
+        c.eye = {own.x - ax * 420.0f, own.y + 160.0f, own.z - az * 420.0f};
+        c.target = theirs;
+        break;
+    case CameraView::Front:
+        c.eye = {mine.x + ax * 650.0f, mine.y + 200.0f, mine.z + az * 650.0f};
+        c.target = mine;
+        break;
+    case CameraView::Enemy:
+        c.eye = {theirs.x + ax * 650.0f, theirs.y + 220.0f, theirs.z + az * 650.0f};
+        c.target = mine;
+        break;
+    case CameraView::Ship:
+        c.eye = {own.x + ax * 90.0f, own.y + 60.0f, own.z + az * 90.0f};
+        c.target = theirs;
+        break;
+    }
+    // The player's turn, height and distance, about what the camera looks at.
+    float ox = c.eye.x - c.target.x;
+    float oy = c.eye.y - c.target.y;
+    float oz = c.eye.z - c.target.z;
+    const float ct = std::cos(turn_);
+    const float st = std::sin(turn_);
+    const float rx = ox * ct - oz * st;
+    oz = ox * st + oz * ct;
+    ox = rx;
+    const float flat = std::sqrt(ox * ox + oz * oz);
+    const float r = std::sqrt(flat * flat + oy * oy);
+    const float pitch = std::clamp(std::atan2(oy, std::max(1.0f, flat)) + tilt_, -1.2f, 1.45f);
+    const float scale = flat > 0 ? r * std::cos(pitch) / flat : 0.0f;
+    c.eye = {c.target.x + ox * scale * zoom_, c.target.y + r * std::sin(pitch) * zoom_, c.target.z + oz * scale * zoom_};
+    if (flat <= 0) {
+        c.eye.z -= 1.0f;
+    }
+    return c;
 }
 
 std::string CombatScreen::resultText() const {
@@ -213,7 +380,7 @@ std::string CombatScreen::resultText() const {
 }
 
 std::string CombatScreen::maneuverText(Maneuver m) const {
-    return capitalised(assets_.lexicon()[m == Maneuver::Hail ? kHail : maneuverName(m)]);
+    return capitalised(assets_.lexicon()[m == Maneuver::Hail ? kHailText : maneuverName(m)]);
 }
 
 const Image& CombatScreen::mirrored(const std::string& name) {
@@ -307,9 +474,28 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
     canvas.text(font, lex[kTurnWord] + " " + std::to_string(std::min(battle_.round() + (phase_ == Phase::Over ? 0 : 1), kTacticalRounds)) + "/" +
                           std::to_string(kTacticalRounds),
                 {645, 535, 145, 24}, 0xff000000u, Align::Center);
+    if (view_ == View::Visual && phase_ != Phase::Choose) {
+        util_.draw(canvas);
+        if (viewsOpen_) {
+            views_.draw(canvas);
+        }
+    }
     if (phase_ == Phase::Choose) {
         canvas.blend(kView, 0xff000000u, 120);
         question_.draw(canvas);
+        // Where, and who meets whom.
+        std::string text = fillText(lex[kCombatIn], {std::to_string(battle_.at().x + 1) + "." + std::to_string(battle_.at().y + 1)});
+        for (const int side : battle_.sides()) {
+            int ships = 0;
+            for (const auto& u : battle_.units()) {
+                ships += u.owner == side && (u.ship >= 0 || u.station >= 0) ? 1 : 0;
+            }
+            const std::string name = side >= 0 && static_cast<std::size_t>(side) < game_.raceNames.size()
+                                         ? game_.raceNames[static_cast<std::size_t>(side)]
+                                         : "?";
+            text += "\n" + name + ": " + std::to_string(ships) + (ships == 1 ? " ship" : " ships");
+        }
+        drawParagraph(canvas, font, text, question_.rect(kQuestionText), kInfoColour);
     }
 }
 
@@ -382,18 +568,7 @@ void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::
 
 void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& small) {
     const auto& units = battle_.units();
-    // The camera swings slowly to and fro above the player's side.
-    const float swing = 0.35f * static_cast<float>(std::sin(static_cast<double>(ms % 62832u) / 10000.0));
-    float reach = 0;
-    for (const Vec3& p : spots_) {
-        reach = std::max({reach, std::fabs(p.x), std::fabs(p.z)});
-    }
-    const float distance = 500.0f + reach * 1.3f;
-    Camera camera;
-    camera.eye = {distance * std::sin(swing), distance * 0.45f, -distance * std::cos(swing)};
-    camera.target = {0, -40, 0};
-    camera.focal = static_cast<float>(kView.w);
-    Scene scene(canvas, kView, camera);
+    Scene scene(canvas, kView, camera(ms));
     const bool firing = ms - shotsAt_ < kShotTime;
     const float fade = firing ? 1.0f - static_cast<float>(ms - shotsAt_) / static_cast<float>(kShotTime) : 0.0f;
     for (std::size_t i = 0; i < units.size(); ++i) {
@@ -405,6 +580,7 @@ void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& smal
                            : u.station >= 0 ? 200.0f
                                             : 55.0f + 4.0f * std::sqrt(static_cast<float>(std::max(0, u.maxHull)));
         const auto p = scene.project(spots_[i]);
+        shown_[i] = {};
         if (p) {
             const int r = std::max(8, static_cast<int>(size * scene.scale(p->depth) * 0.6f));
             shown_[i] = {static_cast<int>(p->x) - 2 * r, static_cast<int>(p->y) - r, 4 * r, 2 * r};
@@ -439,7 +615,7 @@ void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& smal
             scene.glow(spots_[shot.to], 26.0f, 0xffffd080u, 0.8f * fade);
         }
     }
-    for (std::size_t i = 0; i < units.size(); ++i) {
+    for (std::size_t i = 0; i < units.size() && hud_; ++i) {
         if (units[i].hull > 0 || (units[i].ship < 0 && units[i].station < 0)) {
             drawLabel(canvas, i, shown_[i], ms, small);
         }
@@ -447,28 +623,64 @@ void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& smal
 }
 
 void CombatScreen::pointerMoved(Point p) {
+    if (drag_) {
+        // Dragging across the 3D view turns and tilts the camera.
+        turn_ += static_cast<float>(p.x - drag_->x) * 0.01f;
+        tilt_ = std::clamp(tilt_ + static_cast<float>(p.y - drag_->y) * 0.005f, -0.6f, 1.0f);
+        drag_ = p;
+    }
     pointer_ = p;
-    (phase_ == Phase::Choose ? question_ : panel_).pointerMoved(p);
+    if (phase_ == Phase::Choose) {
+        question_.pointerMoved(p);
+        return;
+    }
+    panel_.pointerMoved(p);
+    if (view_ == View::Visual) {
+        util_.pointerMoved(p);
+        views_.pointerMoved(p);
+    }
 }
 
 void CombatScreen::pointerPressed(Point p) {
     pointer_ = p;
-    (phase_ == Phase::Choose ? question_ : panel_).pointerPressed(p);
+    if (phase_ == Phase::Choose) {
+        question_.pointerPressed(p);
+        return;
+    }
+    panel_.pointerPressed(p);
+    if (view_ == View::Visual) {
+        util_.pointerPressed(p);
+        if (viewsOpen_) {
+            views_.pointerPressed(p);
+        }
+        const bool onViews = viewsOpen_ && views_.layout().rect.w > 0 &&
+                             Rect{views_.origin().x, views_.origin().y, views_.layout().rect.w, views_.layout().rect.h}.contains(p.x, p.y);
+        if (kView.contains(p.x, p.y) && !onViews) {
+            drag_ = p;
+        }
+    }
 }
 
 void CombatScreen::pointerReleased(Point p) {
     pointer_ = p;
+    drag_.reset();
     if (phase_ == Phase::Choose) {
         const auto id = question_.pointerReleased(p);
-        if (id && *id == kAutomatic) {
-            battle_.fightToEnd(game_);
-            newShots_ = true;
-            phase_ = Phase::Over;
+        if (id && (*id == kAutomatic || *id == kHail)) {
+            fightToEnd(*id == kHail);
         } else if (id && *id == kManual) {
             phase_ = Phase::Orders;
         }
         refresh();
         return;
+    }
+    if (view_ == View::Visual) {
+        const auto viewId = viewsOpen_ ? views_.pointerReleased(p) : std::nullopt;
+        const auto utilId = util_.pointerReleased(p);
+        if ((viewId && cameraButton(*viewId)) || (utilId && cameraButton(*utilId))) {
+            assets_.clicked();
+            return;
+        }
     }
     const auto id = panel_.pointerReleased(p);
     if (id && *id == kTurn) {
@@ -504,8 +716,7 @@ std::optional<Point> CombatScreen::command(Command c) {
     switch (phase_) {
     case Phase::Choose:
         if (c == Command::Up || c == Command::Down || c == Command::Left || c == Command::Right) {
-            const bool manual = question_.rect(kManual).contains(pointer_.x, pointer_.y);
-            return buttonCentre(manual == (c == Command::Up || c == Command::Left) ? kAutomatic : kManual);
+            return question_.step(c, pointer_);
         }
         return std::nullopt;
     case Phase::Orders: {
