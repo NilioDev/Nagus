@@ -20,8 +20,10 @@ constexpr Pixel kChosen = 0xffffffffu;
 constexpr Pixel kBadColour = 0xffff4040u;
 constexpr Pixel kHullEmpty = 0xff303848u;
 constexpr Pixel kHullFull = 0xff40e070u;
-// How long the fire of a round shows, in milliseconds.
-constexpr std::uint64_t kShotTime = 900;
+// How long each shot's fire shows, and the time between shots, on the tape
+// of a round (milliseconds).
+constexpr std::int64_t kShotTime = 700;
+constexpr std::int64_t kShotGap = 220;
 // Lexicon numbers.
 constexpr std::size_t kCombatIn = 167;  // "Combat occurring in sector %1"
 constexpr std::size_t kTurnWord = 1370; // "Turn"
@@ -62,13 +64,16 @@ CombatScreen::CombatScreen(Assets& assets, const Game& game, Sector at)
       panel_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "tactscn.wdf"),
       question_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "fiskdlg.wdf"),
       util_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "butil.wdf"),
-      views_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "b_views.wdf") {
+      views_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "b_views.wdf"),
+      vcr_(assets, std::string(1, kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]) + "bvcr.wdf") {
     const Rect q = question_.layout().rect;
     question_.setOrigin({kView.x + (kView.w - q.w) / 2, kView.y + (kView.h - q.h) / 2});
     const Rect u = panel_.rect(kUtilArea);
     util_.setOrigin({u.x, u.y});
     const Rect v = panel_.rect(kViewsArea);
     views_.setOrigin({v.x, v.y});
+    const Rect t = util_.rect(kVcrArea);
+    vcr_.setOrigin({t.x, t.y});
     // Each side's ships in a grid: the player's on the left, the others'
     // on the right.
     const auto& units = battle_.units();
@@ -152,6 +157,9 @@ std::optional<Rect> CombatScreen::button(std::uint32_t id) const {
     if (id >= kCameraUp && id <= kAuto) {
         return phase_ != Phase::Choose && view_ == View::Visual && util_.usable(id) ? std::optional<Rect>(util_.rect(id)) : std::nullopt;
     }
+    if (id >= kTapeStart && id <= kTapeEnd) {
+        return phase_ != Phase::Choose && view_ == View::Visual && vcr_.usable(id) ? std::optional<Rect>(vcr_.rect(id)) : std::nullopt;
+    }
     if (id >= kTopView && id <= kShipView) {
         return phase_ != Phase::Choose && view_ == View::Visual && viewsOpen_ ? std::optional<Rect>(views_.rect(id)) : std::nullopt;
     }
@@ -192,6 +200,15 @@ void CombatScreen::refresh() {
     for (const auto& [id, v] : views) {
         views_.setOn(id, cameraView_ == v);
     }
+    // The tape: Stop and Play share a place, so only one shows.
+    const bool tape = tapeLength() > 0;
+    for (std::uint32_t id = kTapeStart; id <= kTapeEnd; ++id) {
+        vcr_.setEnabled(id, tape);
+    }
+    vcr_.setVisible(kStop, tapeRate_ != 0);
+    vcr_.setVisible(kPlay, tapeRate_ == 0);
+    vcr_.setOn(kRewind, tapeRate_ < 0);
+    vcr_.setOn(kForward, tapeRate_ > 1);
 }
 
 void CombatScreen::fightToEnd(bool hail) {
@@ -203,7 +220,7 @@ void CombatScreen::fightToEnd(bool hail) {
     if (!battle_.over()) {
         battle_.fightToEnd(game_);
     }
-    newShots_ = true;
+    newRound();
     phase_ = Phase::Over;
     refresh();
 }
@@ -225,6 +242,23 @@ bool CombatScreen::cameraButton(std::uint32_t id) {
         zoom_ = 1;
         break;
     case kViews: viewsOpen_ = !viewsOpen_; break;
+    case kTapeStart:
+        tapeMs_ = 0;
+        tapeRate_ = 0;
+        break;
+    case kRewind: tapeRate_ = tapeRate_ < 0 ? 0 : -3; break;
+    case kStop: tapeRate_ = 0; break;
+    case kPlay:
+        if (tapeMs_ >= tapeLength()) {
+            tapeMs_ = 0;
+        }
+        tapeRate_ = 1;
+        break;
+    case kForward: tapeRate_ = tapeRate_ > 1 ? 1 : 3; break;
+    case kTapeEnd:
+        tapeMs_ = tapeLength();
+        tapeRate_ = 0;
+        break;
     case kStatus: hud_ = !hud_; break;
     case kAuto:
         if (phase_ == Phase::Orders) {
@@ -391,18 +425,69 @@ void CombatScreen::fightRound() {
         return;
     }
     battle_.fight(game_, chosen_);
-    newShots_ = true;
+    newRound();
     if (battle_.over()) {
         phase_ = Phase::Over;
     }
     refresh();
 }
 
-void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
-    if (newShots_) {
-        shotsAt_ = ms;
-        newShots_ = false;
+void CombatScreen::newRound() {
+    // The tape starts when the round first shows.
+    lastMs_.reset();
+    tapeMs_ = 0;
+    tapeRate_ = 1;
+    refresh();
+}
+
+std::int64_t CombatScreen::tapeLength() const {
+    const auto n = static_cast<std::int64_t>(battle_.lastShots().size());
+    return n == 0 ? 0 : (n - 1) * kShotGap + kShotTime * 2;
+}
+
+std::int64_t CombatScreen::shotStart(std::size_t shot) { return static_cast<std::int64_t>(shot) * kShotGap; }
+
+std::int64_t CombatScreen::lastHit(std::size_t unit) const {
+    std::int64_t at = -1;
+    const auto& shots = battle_.lastShots();
+    for (std::size_t s = 0; s < shots.size(); ++s) {
+        if (shots[s].to == unit) {
+            at = shotStart(s) + kShotTime / 2;
+        }
     }
+    return at;
+}
+
+float CombatScreen::shotLight(std::size_t shot) const {
+    const std::int64_t since = tapeMs_ - shotStart(shot);
+    return since < 0 || since >= kShotTime ? 0.0f : 1.0f - static_cast<float>(since) / static_cast<float>(kShotTime);
+}
+
+bool CombatScreen::stillThere(std::size_t unit) const {
+    const std::int64_t hit = lastHit(unit);
+    return battle_.lastDamage()[unit] > 0 && hit >= 0 && tapeMs_ < hit;
+}
+
+void CombatScreen::runTape(std::uint64_t ms) {
+    if (lastMs_ && ms > *lastMs_) {
+        tapeMs_ += static_cast<std::int64_t>(std::min<std::uint64_t>(ms - *lastMs_, 250)) * tapeRate_;
+    }
+    lastMs_ = ms;
+    const std::int64_t end = tapeLength();
+    if (tapeMs_ >= end && tapeRate_ > 0) {
+        tapeMs_ = end;
+        tapeRate_ = 0;
+        refresh();
+    } else if (tapeMs_ <= 0 && tapeRate_ < 0) {
+        tapeMs_ = 0;
+        tapeRate_ = 0;
+        refresh();
+    }
+    tapeMs_ = std::clamp<std::int64_t>(tapeMs_, 0, end);
+}
+
+void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
+    runTape(ms);
     const int player = std::clamp(game_.player, 0, kEmpires - 1);
     const Font& small = assets_.font(std::string(kFaces[player]) + "9.fnt");
     const Font& font = assets_.font(std::string(kFaces[player]) + "15.fnt");
@@ -464,6 +549,16 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
                 {645, 535, 145, 24}, 0xff000000u, Align::Center);
     if (view_ == View::Visual && phase_ != Phase::Choose) {
         util_.draw(canvas);
+        vcr_.draw(canvas);
+        // How far the tape has run, under its buttons.
+        const Rect first = vcr_.rect(kTapeStart);
+        const Rect last = vcr_.rect(kTapeEnd);
+        const Rect bar{first.x, std::max(vcr_.rect(kPlay).y + vcr_.rect(kPlay).h, last.y + last.h) + 3, last.x + last.w - first.x, 3};
+        const std::int64_t length = tapeLength();
+        canvas.fill(bar, kHullEmpty);
+        if (length > 0) {
+            canvas.fill({bar.x, bar.y, static_cast<int>(bar.w * tapeMs_ / length), bar.h}, kHullFull);
+        }
         if (viewsOpen_) {
             views_.draw(canvas);
         }
@@ -487,7 +582,7 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
     }
 }
 
-void CombatScreen::drawTactical(Canvas& canvas, std::uint64_t ms, const Font& small) {
+void CombatScreen::drawTactical(Canvas& canvas, std::uint64_t /*ms*/, const Font& small) {
     const auto& units = battle_.units();
     for (std::size_t i = 0; i < units.size(); ++i) {
         const CombatUnit& u = units[i];
@@ -524,21 +619,23 @@ void CombatScreen::drawTactical(Canvas& canvas, std::uint64_t ms, const Font& sm
             canvas.fill({hull.x, hull.y, u.maxHull > 0 ? hull.w * u.hull / u.maxHull : 0, hull.h}, kHullFull);
         }
         const int hit = battle_.lastDamage()[i];
-        if (hit > 0 && ms - shotsAt_ < kShotTime * 2) {
+        const std::int64_t at = lastHit(i);
+        if (hit > 0 && at >= 0 && tapeMs_ >= at && tapeMs_ < tapeLength()) {
             canvas.text(small, "-" + std::to_string(hit), r.x + r.w - 24, r.y + 2, kBadColour);
         }
     }
-    // The fire of the last round, fading.
-    if (ms - shotsAt_ < kShotTime) {
-        for (const auto& s : battle_.lastShots()) {
-            const Rect a = places_[s.from];
-            const Rect b = places_[s.to];
-            beam(canvas, {a.centerX(), a.y + 25}, {b.centerX(), b.y + 25}, ownerColour(units[s.from].owner));
+    // The fire of the last round, shot by shot as the tape runs.
+    const auto& shots = battle_.lastShots();
+    for (std::size_t k = 0; k < shots.size(); ++k) {
+        if (shotLight(k) > 0) {
+            const Rect a = places_[shots[k].from];
+            const Rect b = places_[shots[k].to];
+            beam(canvas, {a.centerX(), a.y + 25}, {b.centerX(), b.y + 25}, ownerColour(units[shots[k].from].owner));
         }
     }
 }
 
-void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::uint64_t ms, const Font& small) {
+void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::uint64_t /*ms*/, const Font& small) {
     const CombatUnit& u = battle_.units()[i];
     const Pixel colour = ownerColour(u.owner);
     if (u.ship >= 0 || u.station >= 0) {
@@ -549,7 +646,8 @@ void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::
         canvas.fill({hull.x, hull.y, u.maxHull > 0 ? hull.w * u.hull / u.maxHull : 0, hull.h}, kHullFull);
     }
     const int hit = battle_.lastDamage()[i];
-    if (hit > 0 && ms - shotsAt_ < kShotTime * 2) {
+    const std::int64_t at = lastHit(i);
+    if (hit > 0 && at >= 0 && tapeMs_ >= at && tapeMs_ < tapeLength()) {
         canvas.text(small, "-" + std::to_string(hit), r.x + r.w - 24, r.y + 2, kBadColour);
     }
 }
@@ -557,8 +655,6 @@ void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::
 void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& small) {
     const auto& units = battle_.units();
     Scene scene(canvas, kView, camera(ms));
-    const bool firing = ms - shotsAt_ < kShotTime;
-    const float fade = firing ? 1.0f - static_cast<float>(ms - shotsAt_) / static_cast<float>(kShotTime) : 0.0f;
     for (std::size_t i = 0; i < units.size(); ++i) {
         const CombatUnit& u = units[i];
         const bool planet = u.ship < 0 && u.station < 0;
@@ -577,10 +673,12 @@ void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& smal
             scene.ball(spots_[i], size, 0xff305080u);
             continue;
         }
-        if (u.hull <= 0) {
-            // Just destroyed: a fireball, then nothing.
-            if (battle_.lastDamage()[i] > 0 && ms - shotsAt_ < kShotTime * 2) {
-                const float t = static_cast<float>(ms - shotsAt_) / static_cast<float>(kShotTime * 2);
+        if (u.hull <= 0 && !stillThere(i)) {
+            // Destroyed in this round: a fireball after its last hit, then
+            // nothing.
+            const std::int64_t since = tapeMs_ - lastHit(i);
+            if (battle_.lastDamage()[i] > 0 && lastHit(i) >= 0 && since < kShotTime * 2) {
+                const float t = static_cast<float>(since) / static_cast<float>(kShotTime * 2);
                 scene.glow(spots_[i], size * (0.5f + t), 0xffffb040u, 1.0f - t);
                 scene.glow(spots_[i], size * 0.4f * (1.0f - t), 0xffffffffu, 1.0f - t);
             }
@@ -596,15 +694,16 @@ void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& smal
             scene.ball(spots_[i], size * 0.4f, ownerColour(u.owner));
         }
     }
-    if (firing) {
-        for (const auto& shot : battle_.lastShots()) {
-            const Pixel colour = ownerColour(units[shot.from].owner);
-            scene.beam(spots_[shot.from], spots_[shot.to], colour, 2);
-            scene.glow(spots_[shot.to], 26.0f, 0xffffd080u, 0.8f * fade);
+    const auto& shots = battle_.lastShots();
+    for (std::size_t k = 0; k < shots.size(); ++k) {
+        const float light = shotLight(k);
+        if (light > 0) {
+            scene.beam(spots_[shots[k].from], spots_[shots[k].to], ownerColour(units[shots[k].from].owner), 2);
+            scene.glow(spots_[shots[k].to], 26.0f, 0xffffd080u, 0.8f * light);
         }
     }
     for (std::size_t i = 0; i < units.size() && hud_; ++i) {
-        if (units[i].hull > 0 || (units[i].ship < 0 && units[i].station < 0)) {
+        if (units[i].hull > 0 || (units[i].ship < 0 && units[i].station < 0) || stillThere(i)) {
             drawLabel(canvas, i, shown_[i], ms, small);
         }
     }
@@ -625,6 +724,7 @@ void CombatScreen::pointerMoved(Point p) {
     panel_.pointerMoved(p);
     if (view_ == View::Visual) {
         util_.pointerMoved(p);
+        vcr_.pointerMoved(p);
         views_.pointerMoved(p);
     }
 }
@@ -638,6 +738,7 @@ void CombatScreen::pointerPressed(Point p) {
     panel_.pointerPressed(p);
     if (view_ == View::Visual) {
         util_.pointerPressed(p);
+        vcr_.pointerPressed(p);
         if (viewsOpen_) {
             views_.pointerPressed(p);
         }
@@ -665,8 +766,10 @@ void CombatScreen::pointerReleased(Point p) {
     if (view_ == View::Visual) {
         const auto viewId = viewsOpen_ ? views_.pointerReleased(p) : std::nullopt;
         const auto utilId = util_.pointerReleased(p);
-        if ((viewId && cameraButton(*viewId)) || (utilId && cameraButton(*utilId))) {
+        const auto vcrId = vcr_.pointerReleased(p);
+        if ((viewId && cameraButton(*viewId)) || (utilId && cameraButton(*utilId)) || (vcrId && cameraButton(*vcrId))) {
             assets_.clicked();
+            refresh();
             return;
         }
     }

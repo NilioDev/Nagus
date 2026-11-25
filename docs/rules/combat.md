@@ -78,6 +78,14 @@ The views: *Top* (high above), *Chase* (behind one of the player's ships),
 (behind the enemy) and *Towards Target* (on one of the player's ships,
 looking at the enemy).
 
+Each round plays as a tape once it is fought: the shots one after the
+other (one every 220 ms, each beam fading over 700 ms), the damage
+showing as each ship takes its last hit, and a destroyed ship's fireball
+after it. The buttons under the camera panel (`<x>bvcr.wdf`) play the
+round again: to the start, rewind (three times as fast), stop or play
+(they share a place, only one shows), fast forward (three times) and to
+the end. A bar under them shows how far the tape has run.
+
 First the player chooses (`<x>fiskdlg.wdf`, which says where the battle
 is and how many ships each side has) to *Fight* (give orders), to let the
 battle be fought automatically (*Auto*: as below, the player's ships

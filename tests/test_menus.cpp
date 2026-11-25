@@ -807,6 +807,29 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
     shell.clickAtPointer();
     shell.draw(canvas, 100);
     NGS_CHECK(c.battle().round() == 1);
+    // The round plays as a tape, which the buttons below the camera panel
+    // play again, stop, wind and rewind.
+    NGS_CHECK(!c.battle().lastShots().empty() && c.tapeLength() > 0);
+    NGS_CHECK(c.tapeRate() == 1 && !c.button(CombatScreen::kPlay));
+    shell.draw(canvas, 300);
+    NGS_CHECK(c.tapeTime() == 200);
+    click(shell, centre(*c.button(CombatScreen::kStop)));
+    NGS_CHECK(c.tapeRate() == 0 && c.button(CombatScreen::kPlay));
+    click(shell, centre(*c.button(CombatScreen::kTapeEnd)));
+    NGS_CHECK(c.tapeTime() == c.tapeLength());
+    click(shell, centre(*c.button(CombatScreen::kRewind)));
+    NGS_CHECK(c.tapeRate() < 0);
+    shell.draw(canvas, 400);
+    NGS_CHECK(c.tapeTime() == c.tapeLength() - 300);
+    click(shell, centre(*c.button(CombatScreen::kTapeStart)));
+    NGS_CHECK(c.tapeTime() == 0 && c.tapeRate() == 0);
+    click(shell, centre(*c.button(CombatScreen::kPlay)));
+    click(shell, centre(*c.button(CombatScreen::kForward)));
+    NGS_CHECK(c.tapeRate() == 3);
+    for (std::uint64_t ms = 500; ms < 500 + 20000; ms += 200) {
+        shell.draw(canvas, ms);
+    }
+    NGS_CHECK(c.tapeTime() == c.tapeLength() && c.tapeRate() == 0);
     for (int i = 0; i < kTacticalRounds && c.phase() == CombatScreen::Phase::Orders; ++i) {
         click(shell, centre(*c.button(CombatScreen::kTurn)));
         shell.draw(canvas, 200);
