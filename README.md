@@ -53,9 +53,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > send out scouts and warships. The map shows only what your empire has
 > explored, with each empire's space in its colour. Empires at war fight
 > when their fleets meet. With tactical combat set to *Manual* in the game
-> set-up, your battles open the combat screen: let the battle be fought
-> automatically, or give your ships a maneuver each round (assault,
-> charge, circle, harry, flyby, strafe, evade, ram, retreat or hail);
+> set-up, your battles open the combat screen, which shows the battle in
+> 3D with the game's own ship models (or flat, from above): let the battle
+> be fought automatically, or give your ships a maneuver each round
+> (assault, charge, circle, harry, flyby, strafe, evade, ram, retreat or
+> hail);
 > *Orders* → *Attack
 > System* bombards an enemy colony, and troop transports invade it. On the
 > diplomacy screen (marker window) you meet the other races: propose
@@ -169,6 +171,7 @@ itself. You can also give files when starting it:
 | Choose a race on the diplomacy screen | Click it in the list at the bottom | Tab or Page Down / Page Up | RB / LB |
 | Next / previous page (intelligence screen) | Click *Management*, *Report* or *Empire Status* | Tab or Page Down / Page Up | RB / LB |
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
+| Switch the combat view between 3D and flat | Click *Playback* or *Tactical* | Tab or Page Down / Page Up | RB / LB |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |
 | Change a volume or switch an option (*Options*) | Click its bar or button | Arrow keys | D-pad |

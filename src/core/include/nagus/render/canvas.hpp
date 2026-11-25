@@ -24,6 +24,8 @@ public:
     int width() const { return image_.width; }
     int height() const { return image_.height; }
     const Image& image() const { return image_; }
+    // The pixels, for drawing that the calls below do not cover (3D).
+    Image& target() { return image_; }
 
     // Drawing outside the clip rectangle is left out (all of the canvas
     // unless set).

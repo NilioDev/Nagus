@@ -7,6 +7,7 @@ add_library(ngs_core STATIC
     src/data/cd_stream.cpp
     src/data/resources.cpp
     src/data/image.cpp
+    src/data/model.cpp
     src/data/layout.cpp
     src/data/font.cpp
     src/data/lexicon.cpp
@@ -32,6 +33,7 @@ add_library(ngs_core STATIC
     src/game_files.cpp
     src/settings.cpp
     src/render/canvas.cpp
+    src/render/scene.cpp
     src/net/connection.cpp
     src/net/session.cpp
     src/sound/pcm.cpp

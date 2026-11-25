@@ -86,11 +86,64 @@ CombatScreen::CombatScreen(Assets& assets, const Game& game, Sector at)
             places_[mine[n]] = {x, top + row * rowH, kCellW, 80};
         }
     }
+    // In 3D: each side in rows and columns on its half, the planet behind
+    // its owner's ships.
+    spots_.resize(units.size());
+    shown_.resize(units.size());
+    for (int half = 0; half < 2; ++half) {
+        const float side = half == 0 ? -1.0f : 1.0f;
+        std::vector<std::size_t> ships;
+        for (const std::size_t i : halves[half]) {
+            if (units[i].ship < 0 && units[i].station < 0) {
+                spots_[i] = {side * 520.0f, -260.0f, 420.0f};
+            } else {
+                ships.push_back(i);
+            }
+        }
+        const int perRow = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(ships.size())))));
+        for (std::size_t n = 0; n < ships.size(); ++n) {
+            const int col = static_cast<int>(n) / perRow;
+            const int row = static_cast<int>(n) % perRow;
+            const float across = (static_cast<float>(row) - static_cast<float>(perRow - 1) / 2.0f) * 230.0f;
+            spots_[ships[n]] = {side * (200.0f + static_cast<float>(col) * 230.0f), static_cast<float>((row + col) % 3 - 1) * 40.0f,
+                                across};
+        }
+    }
     if (battle_.over()) {
         phase_ = Phase::Over;
     }
     refresh();
 }
+
+const Model* CombatScreen::model(std::size_t unit) {
+    const auto& units = battle_.units();
+    if (unit >= units.size() || (units[unit].ship < 0 && units[unit].station < 0) || units[unit].shipClass < 0 ||
+        static_cast<std::size_t>(units[unit].shipClass) >= game_.economy.ships.size()) {
+        return nullptr;
+    }
+    std::string name = game_.economy.ships[static_cast<std::size_t>(units[unit].shipClass)].picture + "_a";
+    for (char& c : name) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    auto it = models_.find(name);
+    if (it == models_.end()) {
+        std::optional<Model> m;
+        if (assets_.resources().has(name + ".hob") && !assets_.image(name + ".gif").empty()) {
+            try {
+                m = readModel(assets_.resources().file(name + ".hob"));
+            } catch (const FormatError&) {
+                m.reset();
+            }
+        }
+        if (m && m->empty()) {
+            m.reset();
+        }
+        it = models_.emplace(name, std::move(m)).first;
+    }
+    return it->second ? &*it->second : nullptr;
+}
+
+bool CombatScreen::hasModel(std::size_t unit) { return model(unit) != nullptr; }
 
 Rect CombatScreen::maneuverRect(Maneuver m) const {
     const int i = static_cast<int>(m);
@@ -107,7 +160,10 @@ std::optional<Rect> CombatScreen::button(std::uint32_t id) const {
     return panel_.rect(id);
 }
 
-Rect CombatScreen::unitRect(std::size_t unit) const { return unit < places_.size() ? places_[unit] : Rect{}; }
+Rect CombatScreen::unitRect(std::size_t unit) const {
+    const auto& from = view_ == View::Visual ? shown_ : places_;
+    return unit < from.size() ? from[unit] : Rect{};
+}
 
 Point CombatScreen::buttonCentre(std::uint32_t id) const {
     const Rect r = id == kAutomatic || id == kManual ? question_.rect(id) : panel_.rect(id);
@@ -120,6 +176,10 @@ void CombatScreen::refresh() {
     }
     panel_.setVisible(kTurn, phase_ == Phase::Orders);
     panel_.setVisible(kFinish, phase_ == Phase::Over);
+    panel_.setVisible(kVisual, true);
+    panel_.setVisible(kTactical, true);
+    panel_.setOn(kVisual, view_ == View::Visual);
+    panel_.setOn(kTactical, view_ == View::Tactical);
 }
 
 std::string CombatScreen::resultText() const {
@@ -223,6 +283,37 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
         canvas.text(small, names, {kView.x + half * kView.w / 2 + 8, kView.y + 24, kView.w / 2 - 16, 14}, colour,
                     half == 0 ? Align::Left : Align::Right);
     }
+    if (view_ == View::Visual) {
+        drawVisual(canvas, ms, small);
+    } else {
+        drawTactical(canvas, ms, small);
+    }
+    // Below: the maneuvers, the chosen one's help and the round.
+    if (phase_ == Phase::Orders) {
+        canvas.text(small, lex[kOrdersWord], 58, 490, kInfoColour);
+        for (int m = 0; m < kManeuvers; ++m) {
+            const Maneuver man = static_cast<Maneuver>(m);
+            const Rect r = maneuverRect(man);
+            const bool on = man == chosen_;
+            if (on) {
+                canvas.fill(r, 0xff604010u);
+            }
+            canvas.text(small, maneuverText(man), r, on ? kChosen : (r.contains(pointer_.x, pointer_.y) ? kInfoColour : kNameColour), Align::Center);
+        }
+        drawParagraph(canvas, small, lex[maneuverHelp(chosen_)], {60, 548, 570, 42}, kInfoColour);
+    } else if (phase_ == Phase::Over) {
+        canvas.text(font, resultText(), {kView.x, kView.y + kView.h / 2 - 12, kView.w, 24}, kChosen, Align::Center);
+    }
+    canvas.text(font, lex[kTurnWord] + " " + std::to_string(std::min(battle_.round() + (phase_ == Phase::Over ? 0 : 1), kTacticalRounds)) + "/" +
+                          std::to_string(kTacticalRounds),
+                {645, 535, 145, 24}, 0xff000000u, Align::Center);
+    if (phase_ == Phase::Choose) {
+        canvas.blend(kView, 0xff000000u, 120);
+        question_.draw(canvas);
+    }
+}
+
+void CombatScreen::drawTactical(Canvas& canvas, std::uint64_t ms, const Font& small) {
     const auto& units = battle_.units();
     for (std::size_t i = 0; i < units.size(); ++i) {
         const CombatUnit& u = units[i];
@@ -271,28 +362,87 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
             beam(canvas, {a.centerX(), a.y + 25}, {b.centerX(), b.y + 25}, ownerColour(units[s.from].owner));
         }
     }
-    // Below: the maneuvers, the chosen one's help and the round.
-    if (phase_ == Phase::Orders) {
-        canvas.text(small, lex[kOrdersWord], 58, 490, kInfoColour);
-        for (int m = 0; m < kManeuvers; ++m) {
-            const Maneuver man = static_cast<Maneuver>(m);
-            const Rect r = maneuverRect(man);
-            const bool on = man == chosen_;
-            if (on) {
-                canvas.fill(r, 0xff604010u);
-            }
-            canvas.text(small, maneuverText(man), r, on ? kChosen : (r.contains(pointer_.x, pointer_.y) ? kInfoColour : kNameColour), Align::Center);
-        }
-        drawParagraph(canvas, small, lex[maneuverHelp(chosen_)], {60, 548, 570, 42}, kInfoColour);
-    } else if (phase_ == Phase::Over) {
-        canvas.text(font, resultText(), {kView.x, kView.y + kView.h / 2 - 12, kView.w, 24}, kChosen, Align::Center);
+}
+
+void CombatScreen::drawLabel(Canvas& canvas, std::size_t i, const Rect& r, std::uint64_t ms, const Font& small) {
+    const CombatUnit& u = battle_.units()[i];
+    const Pixel colour = ownerColour(u.owner);
+    if (u.ship >= 0 || u.station >= 0) {
+        const ShipClass& sc = game_.economy.ships[static_cast<std::size_t>(u.shipClass)];
+        canvas.text(small, sc.name, {r.x, r.y + r.h, r.w, 12}, colour, Align::Center);
+        const Rect hull{r.x + r.w / 2 - 35, r.y + r.h + 14, 70, 4};
+        canvas.fill(hull, kHullEmpty);
+        canvas.fill({hull.x, hull.y, u.maxHull > 0 ? hull.w * u.hull / u.maxHull : 0, hull.h}, kHullFull);
     }
-    canvas.text(font, lex[kTurnWord] + " " + std::to_string(std::min(battle_.round() + (phase_ == Phase::Over ? 0 : 1), kTacticalRounds)) + "/" +
-                          std::to_string(kTacticalRounds),
-                {645, 535, 145, 24}, 0xff000000u, Align::Center);
-    if (phase_ == Phase::Choose) {
-        canvas.blend(kView, 0xff000000u, 120);
-        question_.draw(canvas);
+    const int hit = battle_.lastDamage()[i];
+    if (hit > 0 && ms - shotsAt_ < kShotTime * 2) {
+        canvas.text(small, "-" + std::to_string(hit), r.x + r.w - 24, r.y + 2, kBadColour);
+    }
+}
+
+void CombatScreen::drawVisual(Canvas& canvas, std::uint64_t ms, const Font& small) {
+    const auto& units = battle_.units();
+    // The camera swings slowly to and fro above the player's side.
+    const float swing = 0.35f * static_cast<float>(std::sin(static_cast<double>(ms % 62832u) / 10000.0));
+    float reach = 0;
+    for (const Vec3& p : spots_) {
+        reach = std::max({reach, std::fabs(p.x), std::fabs(p.z)});
+    }
+    const float distance = 500.0f + reach * 1.3f;
+    Camera camera;
+    camera.eye = {distance * std::sin(swing), distance * 0.45f, -distance * std::cos(swing)};
+    camera.target = {0, -40, 0};
+    camera.focal = static_cast<float>(kView.w);
+    Scene scene(canvas, kView, camera);
+    const bool firing = ms - shotsAt_ < kShotTime;
+    const float fade = firing ? 1.0f - static_cast<float>(ms - shotsAt_) / static_cast<float>(kShotTime) : 0.0f;
+    for (std::size_t i = 0; i < units.size(); ++i) {
+        const CombatUnit& u = units[i];
+        const bool planet = u.ship < 0 && u.station < 0;
+        // Bigger ships for stronger hulls; the models' own sizes differ too
+        // much to use.
+        const float size = planet ? 200.0f
+                           : u.station >= 0 ? 200.0f
+                                            : 55.0f + 4.0f * std::sqrt(static_cast<float>(std::max(0, u.maxHull)));
+        const auto p = scene.project(spots_[i]);
+        if (p) {
+            const int r = std::max(8, static_cast<int>(size * scene.scale(p->depth) * 0.6f));
+            shown_[i] = {static_cast<int>(p->x) - 2 * r, static_cast<int>(p->y) - r, 4 * r, 2 * r};
+        }
+        if (planet) {
+            scene.ball(spots_[i], size, 0xff305080u);
+            continue;
+        }
+        if (u.hull <= 0) {
+            // Just destroyed: a fireball, then nothing.
+            if (battle_.lastDamage()[i] > 0 && ms - shotsAt_ < kShotTime * 2) {
+                const float t = static_cast<float>(ms - shotsAt_) / static_cast<float>(kShotTime * 2);
+                scene.glow(spots_[i], size * (0.5f + t), 0xffffb040u, 1.0f - t);
+                scene.glow(spots_[i], size * 0.4f * (1.0f - t), 0xffffffffu, 1.0f - t);
+            }
+            continue;
+        }
+        // The player's ships face right, the others' left.
+        const float yaw = u.owner == game_.player ? 1.5708f : -1.5708f;
+        if (const Model* m = model(i)) {
+            const ShipClass& sc = game_.economy.ships[static_cast<std::size_t>(u.shipClass)];
+            std::string tex = sc.picture + "_a.gif";
+            scene.model(*m, assets_.image(tex), spots_[i], yaw, size, battle_.gone(i) ? 0.35f : 1.0f);
+        } else {
+            scene.ball(spots_[i], size * 0.4f, ownerColour(u.owner));
+        }
+    }
+    if (firing) {
+        for (const auto& shot : battle_.lastShots()) {
+            const Pixel colour = ownerColour(units[shot.from].owner);
+            scene.beam(spots_[shot.from], spots_[shot.to], colour, 2);
+            scene.glow(spots_[shot.to], 26.0f, 0xffffd080u, 0.8f * fade);
+        }
+    }
+    for (std::size_t i = 0; i < units.size(); ++i) {
+        if (units[i].hull > 0 || (units[i].ship < 0 && units[i].station < 0)) {
+            drawLabel(canvas, i, shown_[i], ms, small);
+        }
     }
 }
 
@@ -329,6 +479,11 @@ void CombatScreen::pointerReleased(Point p) {
         outcome_ = Outcome::Accept;
         return;
     }
+    if (id && (*id == kVisual || *id == kTactical)) {
+        view_ = *id == kVisual ? View::Visual : View::Tactical;
+        refresh();
+        return;
+    }
     if (phase_ == Phase::Orders) {
         for (int m = 0; m < kManeuvers; ++m) {
             if (maneuverRect(static_cast<Maneuver>(m)).contains(p.x, p.y)) {
@@ -340,6 +495,12 @@ void CombatScreen::pointerReleased(Point p) {
 }
 
 std::optional<Point> CombatScreen::command(Command c) {
+    // The shoulder buttons switch between the 3D and the flat view.
+    if (c == Command::Next || c == Command::Previous) {
+        view_ = view_ == View::Visual ? View::Tactical : View::Visual;
+        refresh();
+        return std::nullopt;
+    }
     switch (phase_) {
     case Phase::Choose:
         if (c == Command::Up || c == Command::Down || c == Command::Left || c == Command::Right) {

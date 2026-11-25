@@ -2,11 +2,13 @@
 //
 // The tactical combat screen: the player chooses to let the battle be
 // fought automatically or to give orders, then gives their ships a
-// maneuver each round. The original shows the battle in 3D; we show the
-// sides facing each other from above, with their weapons' fire.
+// maneuver each round. The battle shows in 3D with the original's models
+// (Visual), or as the sides facing each other from above (Tactical).
 #pragma once
 
+#include "nagus/data/model.hpp"
 #include "nagus/game/tactical.hpp"
+#include "nagus/render/scene.hpp"
 #include "nagus/ui/menus.hpp"
 
 #include <map>
@@ -31,6 +33,7 @@ public:
     static constexpr Rect kView{185, 6, 611, 489};
 
     enum class Phase { Choose, Orders, Over };
+    enum class View { Visual, Tactical };
 
     CombatScreen(Assets& assets, const Game& game, Sector at);
 
@@ -43,11 +46,14 @@ public:
     Phase phase() const { return phase_; }
     const TacticalBattle& battle() const { return battle_; }
     Maneuver chosen() const { return chosen_; }
+    View view() const { return view_; }
+    // Whether a unit shows as a 3D model (the game has it).
+    bool hasModel(std::size_t unit);
     void choose(Maneuver m) { chosen_ = m; }
     // Where things are, for the pointer and tests.
     Rect maneuverRect(Maneuver m) const;
     std::optional<Rect> button(std::uint32_t id) const;
-    // A unit's place in the view.
+    // A unit's place in the view (in the Visual view, where it showed last).
     Rect unitRect(std::size_t unit) const;
     // The line shown when the battle is over.
     std::string resultText() const;
@@ -59,6 +65,11 @@ private:
     void refresh();
     Point buttonCentre(std::uint32_t id) const;
     const Image& mirrored(const std::string& name);
+    // The unit's model, or nothing when the game lacks it.
+    const Model* model(std::size_t unit);
+    void drawTactical(Canvas& canvas, std::uint64_t ms, const Font& small);
+    void drawVisual(Canvas& canvas, std::uint64_t ms, const Font& small);
+    void drawLabel(Canvas& canvas, std::size_t unit, const Rect& r, std::uint64_t ms, const Font& small);
 
     Assets& assets_;
     const Game& game_;
@@ -67,7 +78,11 @@ private:
     Panel question_;
     Phase phase_ = Phase::Choose;
     Maneuver chosen_ = Maneuver::Assault;
-    std::vector<Rect> places_; // for each unit
+    View view_ = View::Visual;
+    std::vector<Rect> places_; // for each unit, in the Tactical view
+    std::vector<Vec3> spots_;  // for each unit, in the Visual view
+    std::vector<Rect> shown_;  // where each showed last in the Visual view
+    std::map<std::string, std::optional<Model>> models_;
     bool newShots_ = false;
     std::uint64_t shotsAt_ = 0;
     Point pointer_{};

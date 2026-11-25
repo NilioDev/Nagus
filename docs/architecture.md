@@ -19,7 +19,11 @@ guess so far, `docs/rules` says so.
 - **Resources** (`data/resources.hpp`). Opens the main resource archive and
   lets the patch's loose files take the place of the archive's.
 - **Readers** (`data/*.hpp`). One per file format: pictures, screen layouts,
-  fonts, texts, pointers. Each checks every size and offset (`SECURITY.md`).
+  fonts, texts, pointers, 3D models. Each checks every size and offset
+  (`SECURITY.md`).
+- **3D** (`render/scene.hpp`). Draws models into part of the canvas in
+  software: a depth buffer, perspective-correct textures and one light. The
+  combat view uses it.
 - **Screens** (`ui/*.hpp`). A screen draws itself into an 800×600 `Canvas`
   (the original's screen size) and reacts to pointer presses and to
   `Command`s, which the app makes from keys and gamepad buttons. A `Panel`
