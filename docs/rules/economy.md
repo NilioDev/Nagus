@@ -9,7 +9,10 @@ approximation of the original's rules, to be refined as more is understood.
 A colony holds a whole star system. The room for people is the sum over its
 planets of the planet's room (from `planspac.bin`) times the race's liking
 for the planet (`habit.bin`, a number from 0 to 10 for each empire and one
-for minor races) divided by ten.
+for minor races) divided by ten. Only terraformed planets count: terran
+planets and all planets of the races' home systems are terraformed from the
+start, the others once colony ships have terraformed them (see
+[ships](ships.md#terraforming)).
 
 While people are fed and there is room, population grows each turn by the
 rate of its bracket in `ppgrowth.bin` (in ten-millionths), at least by one

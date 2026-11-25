@@ -178,6 +178,15 @@ bool canEnterWormhole(const Game& game, const Fleet& fleet);
 // Tells a fleet to go through the wormhole where it is, at the end of the
 // turn. Without an endpoint, the fleet is lost.
 bool orderWormhole(Game& game, int fleet);
+// The planet a fleet's colony ships would terraform where it is: the one
+// not yet terraformed that would hold the most of its owner's people, in a
+// system that is free or the owner's colony. -1 for none.
+int terraformTarget(const Game& game, const Fleet& fleet);
+// Tells a fleet to terraform that planet: each colony ship adds
+// kTerraformPerShip a turn until the planet's terraformCost is reached.
+bool orderTerraform(Game& game, int fleet);
+int terraformCost(const Planet& planet);
+inline constexpr int kTerraformPerShip = 20;
 // Whether the fleet is at one of its empire's colonies with a working
 // training facility, and a crew there can still learn.
 bool canTrain(const Game& game, const Fleet& fleet);

@@ -74,7 +74,9 @@ void drawPlanetStrip(Canvas& canvas, Assets& assets, const Game& game, const Sta
             canvas.fill({cx - 4, cy - 4, 8, 8}, kNameColour);
         }
         const int w = small.width(p.name);
-        canvas.text(small, p.name, cx - w / 2, strip.y + strip.h - small.height() - 1, kNameColour);
+        // Planets that hold nobody until terraformed are dimmed.
+        canvas.text(small, p.name, cx - w / 2, strip.y + strip.h - small.height() - 1,
+                    p.terraformed || p.room == 0 ? kNameColour : 0xff707888u);
     }
     canvas.clearClip();
 }
@@ -607,6 +609,7 @@ void GalaxyScreen::refreshFleet() {
     orders_.setEnabled(kOrderOutpost, mine && canBuildOutpost(game_, *f));
     orders_.setEnabled(kOrderStarbase, mine && canBuildStarbase(game_, *f));
     orders_.setEnabled(kOrderUpgrade, mine && canUpgradeStation(game_, *f));
+    orders_.setEnabled(kOrderTerraform, mine && terraformTarget(game_, *f) >= 0);
     fleetPanel_.setEnabled(kFleetCloak, mine && (f->cloaked || canCloak(game_, *f)));
     fleetPanel_.setOn(kFleetCloak, mine && f->cloaked);
     // Redeploying needs a second ship, in this fleet or another one here.
@@ -816,6 +819,10 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
             canvas.text(small, lex[657], text.x + 6, y, kInfoColour);
         } else if (f->order == Fleet::Order::Train) {
             canvas.text(small, lex[664], text.x + 6, y, kInfoColour);
+        } else if (const int planet = terraformTarget(game_, *f); f->order == Fleet::Order::Terraform && planet >= 0) {
+            const Planet& p = game_.galaxy.systems[static_cast<std::size_t>(game_.galaxy.systemAt(f->at))].planets[static_cast<std::size_t>(planet)];
+            canvas.text(small, lex[663] + "  " + p.name + "  " + std::to_string(std::min(100, f->progress * 100 / terraformCost(p))) + "%",
+                        text.x + 6, y, kInfoColour);
         } else if (f->order == Fleet::Order::BuildOutpost || f->order == Fleet::Order::BuildStarbase ||
                    f->order == Fleet::Order::Upgrade) {
             const int label = f->order == Fleet::Order::BuildOutpost ? 653 : f->order == Fleet::Order::BuildStarbase ? 654 : 665;
@@ -947,6 +954,8 @@ void GalaxyScreen::pointerReleased(Point p) {
                 orderBuildStation(game_, fleet_, Fleet::Order::BuildOutpost);
             } else if (*order == kOrderStarbase) {
                 orderBuildStation(game_, fleet_, Fleet::Order::BuildStarbase);
+            } else if (*order == kOrderTerraform) {
+                orderTerraform(game_, fleet_);
             } else if (*order == kOrderUpgrade) {
                 orderBuildStation(game_, fleet_, Fleet::Order::Upgrade);
             }

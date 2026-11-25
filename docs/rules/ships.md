@@ -30,7 +30,8 @@ three levels of propulsion. Fleets go in a straight line, one sector a step.
 ## Colonies
 
 A fleet with a colony ship in a sector with a star that has room for its
-people, and no colony or minor race, can be told to colonize. On the next
+people on a terraformed planet, and no colony or minor race, can be told to
+colonize. On the next
 turn the colony ship becomes a colony of ten million people for each point
 of its capacity, with a farm and a factory of the best kind the empire can
 build.
@@ -76,6 +77,23 @@ own reading of the original's help texts:
 
 Moving a fleet cancels its raid, scrap, intercept, training or station
 order.
+
+## Terraforming
+
+As the original's help texts say, at least one planet must be terran or
+terraformed before a colony can be founded, and only terraformed planets
+hold people (see [the economy](economy.md#population)). *Terraform* tells a
+fleet's colony ships to terraform a planet where it is: in a free system or
+one of its empire's colonies. Nagus picks the planet: the one not yet
+terraformed that would hold the most of the empire's people (never a gas
+giant). Our choice for how long it takes: each colony ship adds 20 points a
+turn until the planet's room (in millions, at least 20) is reached. The
+colony ships are not used up; a colony there gets the planet's room at
+once. The system screen shows the points a planet still needs, and the map
+dims its name.
+
+Computer players' colony ships terraform a free system they reached when
+it has no planet ready yet, and then colonize it.
 
 ## Stations
 

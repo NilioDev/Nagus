@@ -302,6 +302,10 @@ void SystemScreen::drawSummary(Canvas& canvas, std::uint64_t ms) {
         if (p.room > 0) {
             kind += "   " + lex[text::kMaxPop] + " " + std::to_string(p.room);
         }
+        if (p.room > 0 && !p.terraformed && p.type != kGasGiant) {
+            // Holds nobody until terraformed: the work it takes.
+            kind += "   " + lex[1257] + " " + std::to_string(terraformCost(p));
+        }
         canvas.text(small, kind, middle.x + 120, y + lineH / 2 + 2, kDim);
         y += lineH;
     }

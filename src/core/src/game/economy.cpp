@@ -42,10 +42,22 @@ bool available(const Building& b, const EmpireState& empire, int race) {
 
 } // namespace
 
+int planetRoom(const Planet& p, int race, const EconomyData& data) {
+    return p.room * habitability(data, p.type, p.atmosphere, race) / 10;
+}
+
 int systemRoom(const StarSystem& s, int race, const EconomyData& data) {
     int room = 0;
     for (const auto& p : s.planets) {
-        room += p.room * habitability(data, p.type, p.atmosphere, race) / 10;
+        room += p.terraformed ? planetRoom(p, race, data) : 0;
+    }
+    return room;
+}
+
+int systemRoomTerraformed(const StarSystem& s, int race, const EconomyData& data) {
+    int room = 0;
+    for (const auto& p : s.planets) {
+        room += planetRoom(p, race, data);
     }
     return room;
 }

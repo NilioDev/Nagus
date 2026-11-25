@@ -50,6 +50,7 @@ public:
     static constexpr std::uint32_t kOrderScrap = 0x4cb;
     static constexpr std::uint32_t kOrderAvoid = 0x4b5;
     static constexpr std::uint32_t kOrderEngage = 0x4b6;
+    static constexpr std::uint32_t kOrderTerraform = 0x4b1;
     static constexpr std::uint32_t kOrderOutpost = 0x4c4;
     static constexpr std::uint32_t kOrderStarbase = 0x4c5; // in the outpost button's place
     static constexpr std::uint32_t kOrderTrain = 0x4c7;
