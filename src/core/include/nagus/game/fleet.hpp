@@ -13,6 +13,9 @@
 
 namespace nagus {
 
+// Millions of people for each point of a colony ship's capacity (our choice).
+inline constexpr int kColonistsPerCapacity = 10;
+
 struct Ship {
     int shipClass = -1; // index into EconomyData::ships
     int hull = 0;       // what is left of its hull

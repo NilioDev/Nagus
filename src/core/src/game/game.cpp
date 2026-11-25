@@ -127,6 +127,27 @@ Fleet& Game::addFleet(int owner, Sector at, int shipClass) {
     return fleets.back();
 }
 
+bool visibleTo(const Game& game, int empire, Sector s) {
+    if (distanceFromColonies(s, empire, game.colonies, game.galaxy) <= 2) {
+        return true;
+    }
+    for (const auto& f : game.fleets) {
+        if (f.owner != empire) {
+            continue;
+        }
+        int scan = 0;
+        for (const auto& ship : f.ships) {
+            if (ship.shipClass >= 0 && static_cast<std::size_t>(ship.shipClass) < game.economy.ships.size()) {
+                scan = std::max(scan, game.economy.ships[static_cast<std::size_t>(ship.shipClass)].scan);
+            }
+        }
+        if (distance(f.at, s) <= 1 + scan) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool orderMove(Game& game, int id, Sector to) {
     Fleet* f = game.fleet(id);
     if (f == nullptr || !game.galaxy.inside(to) || f->owner < 0 || f->owner >= kEmpires) {

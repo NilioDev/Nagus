@@ -14,7 +14,6 @@ namespace {
 // colony ship, outpost, starbase, special, transport.
 constexpr int kRoleSpeed[kShipRoles] = {3, 2, 2, 2, 1, 1, 0, 0, 2, 1};
 constexpr int kRangeSectors[3] = {3, 6, 10}; // short, medium, long
-constexpr int kColonistsPerCapacity = 10;   // millions for each of a colony ship's capacity
 
 const ShipClass* classOf(const Ship& s, const EconomyData& data) {
     return s.shipClass >= 0 && static_cast<std::size_t>(s.shipClass) < data.ships.size()

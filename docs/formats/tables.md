@@ -83,3 +83,32 @@ Twenty-one 40-byte records, one per planet type and size (gas giants have
 none): type (8 bits), size (8 bits, small, medium, large), 16 bits not
 understood, then nine 32-bit numbers of people (in millions). What picks
 one of the nine is not known yet; Nagus picks one at random.
+
+## Ship classes (`shiplist.sst`, `shiptech.sst`)
+
+`shiplist.sst` holds 288-byte records, one per ship class:
+
+| Offset | Size | What |
+| --- | --- | --- |
+| 0 | 40 | Name |
+| 40 | 20 | Class name |
+| 84 | 4 | Offset of its description in `shipdesc.sst` |
+| 88 | 8 | Picture name: `i_<name>30.tga`, `60`, `120`, `170` |
+| 102 | 2 | Index |
+| 104 | 2 | Role: scout, destroyer, cruiser, strike cruiser, command, colony ship, outpost, starbase, special, transport |
+| 108 | 4 | Beam strength (our reading) |
+| 112 | 4 | Beam count (our reading) |
+| 128 | 4 | Torpedo strength (our reading) |
+| 132 | 4 | Torpedo count (our reading) |
+| 148 | 4 | Hull |
+| 152 | 4 | Shields |
+| 160 | 4 | Build cost |
+| 260 | 8 | Range as a double: 0 short, 1 medium, 2 long |
+| 276 | 1 | Scan |
+| 278 | 2 | Capacity: colonists or troops |
+| 280 | 1 | Race (0-4 the empires, then minor races; 36 monsters) |
+
+`shiptech.sst` holds a 16-byte record for each: the race (32 bits), the
+index and the index of the class it improves on (16 bits each, `0xffff` for
+none), and the levels of biotech, computers, construction, energy,
+propulsion and weapons it needs (a byte each).

@@ -38,6 +38,10 @@ struct Game {
     Fleet& addFleet(int owner, Sector at, int shipClass);
 };
 
+// Whether an empire sees what is in a sector: near its colonies (two
+// sectors) and its fleets (one sector and their scan).
+bool visibleTo(const Game& game, int empire, Sector s);
+
 // Sends a fleet towards a sector, if it is in range. Returns whether it goes.
 bool orderMove(Game& game, int fleet, Sector to);
 // Tells a fleet to found a colony where it is (on the next turn).
@@ -99,6 +103,13 @@ inline constexpr std::size_t kCurrentStructures = 209;
 inline constexpr std::size_t kEmpty = 276;        // "empty"
 inline constexpr std::size_t kUpgradeTo = 1400;   // "Upgrade to %s"
 inline constexpr std::size_t kGrowthRate = 425;
+inline constexpr std::size_t kColonized = 1043; // "System %s colonized"
+inline constexpr std::size_t kGalSpeed = 405;   // "Gal. Speed"
+inline constexpr std::size_t kGalRange = 404;   // "Gal. Range"
+inline constexpr std::size_t kHullShields = 435; // "Hit Points / Shields"
+inline constexpr std::size_t kRangeNames[3] = {1147, 1156, 611}; // Short, Medium, Long
+inline constexpr std::size_t kShips = 1139;
+inline constexpr std::size_t kCrew = 197;
 } // namespace text
 
 } // namespace nagus

@@ -246,7 +246,9 @@ void Shell::command(Command c) {
         return;
     }
     if (showing_ == Showing::Galaxy && c == Command::Back) {
-        openMarker();
+        if (!galaxy_->cancel()) {
+            openMarker();
+        }
         return;
     }
     if (const auto jump = screen().command(c)) {

@@ -12,6 +12,7 @@
 #include "nagus/ui/shell.hpp"
 
 #include <cstdio>
+#include <optional>
 #include <fstream>
 
 using namespace nagus;
@@ -104,7 +105,7 @@ int main(int argc, char** argv) {
         shell.clickAtPointer();
         if (shell.systemScreen() != nullptr) {
             shot("system-summary.bmp");
-            for (const char* name : {"system-labor.bmp", "system-energy.bmp", "system-build.bmp", "system-structures.bmp"}) {
+            for (const char* name : {"system-labor.bmp", "system-energy.bmp", "system-build.bmp", "system-ships.bmp", "system-structures.bmp"}) {
                 shell.command(Command::Next);
                 shot(name);
             }
@@ -115,6 +116,27 @@ int main(int argc, char** argv) {
                 shell.pointerMoved({r->centerX(), r->centerY()});
                 shell.clickAtPointer();
                 shot("research.bmp");
+            }
+            // Back on the map: the first fleet chosen, and on its way.
+            shell.command(Command::Back);
+            if (const auto r = shell.markerButton(Shell::kMarkerGalaxy)) {
+                shell.pointerMoved({r->centerX(), r->centerY()});
+                shell.clickAtPointer();
+            }
+            if (GalaxyScreen* g = shell.galaxyScreen(); g != nullptr && g->fleetLine(0)) {
+                const Rect line = *g->fleetLine(0);
+                shell.pointerMoved({line.centerX(), line.centerY()});
+                shell.clickAtPointer();
+                std::optional<Point> c;
+                for (const Sector d : {Sector{3, 1}, Sector{-3, 1}, Sector{3, -1}, Sector{-3, -1}}) {
+                    c = c ? c : g->sectorCentre({g->chosen().x + d.x, g->chosen().y + d.y});
+                }
+                if (c) {
+                    shell.pointerMoved(*c);
+                    shot("fleet-moving.bmp");
+                    shell.clickAtPointer();
+                }
+                shot("fleet-sent.bmp");
             }
         }
     } catch (const std::exception& e) {
