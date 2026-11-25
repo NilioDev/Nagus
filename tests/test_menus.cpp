@@ -229,6 +229,27 @@ NGS_TEST("the home system's screen: people at work, the build queue and the next
     NGS_CHECK(colony.queue.size() == 1);
     shell.draw(canvas, 0);
 
+    // Structures: a click on one asks how many of its kind to scrap.
+    click(shell, centre(element(assets, "hsolars.wdf", SystemScreen::kStructures)));
+    NGS_CHECK(screen.tab() == SystemScreen::Tab::Structures);
+    const std::size_t structures = colony.structures.size();
+    NGS_CHECK(structures > 0 && screen.structureRect(0).has_value());
+    const int kind = colony.structures[0].building;
+    click(shell, centre(*screen.structureRect(0)));
+    NGS_CHECK(screen.scrapOpen() && screen.scrapCount() == 1);
+    shell.draw(canvas, 0);
+    click(shell, centre(*screen.scrapButton(SystemScreen::kScrapUp))); // no more than there are
+    const auto sameKind = static_cast<int>(std::count_if(colony.structures.begin(), colony.structures.end(),
+                                                         [&](const Structure& st) { return st.building == kind; }));
+    NGS_CHECK(screen.scrapCount() == std::min(2, sameKind));
+    click(shell, centre(*screen.scrapButton(SystemScreen::kScrapDown)));
+    shell.command(Command::Back); // cancels
+    NGS_CHECK(!screen.scrapOpen() && colony.structures.size() == structures);
+    click(shell, centre(*screen.structureRect(0)));
+    click(shell, centre(*screen.scrapButton(SystemScreen::kScrapApply)));
+    NGS_CHECK(!screen.scrapOpen() && colony.structures.size() == structures - 1);
+    shell.draw(canvas, 0);
+
     // The marker window leads to research, where a click on More gives
     // biotech a larger share.
     shell.command(Command::Back);

@@ -78,6 +78,19 @@ int bestFacility(Output o, const EmpireState& empire, int race, const EconomyDat
 
 int facilityLimit(const Colony& c) { return std::max(1, c.maxPopulation / kPeoplePerFacility); }
 
+int scrapStructures(Colony& c, int building, int count) {
+    int gone = 0;
+    // The last ones first, so those switched on longest stay.
+    for (auto it = c.structures.end(); it != c.structures.begin() && gone < count;) {
+        --it;
+        if (it->building == building) {
+            it = c.structures.erase(it);
+            ++gone;
+        }
+    }
+    return gone;
+}
+
 ColonyOutput colonyOutput(const Colony& c, const EconomyData& data) {
     ColonyOutput out;
     std::array<int, kOutputs> percent{};

@@ -102,8 +102,11 @@ SystemScreen::SystemScreen(Assets& assets, Game& game, int colony)
       panel_(assets, std::string(1, prefix_) + "solars.wdf"), labor_(assets, std::string(1, prefix_) + "labor.wdf"),
       build_(assets, std::string(1, prefix_) + "solbld.wdf"), structures_(assets, std::string(1, prefix_) + "solcur.wdf"),
       energy_(assets, std::string(1, prefix_) + "senergy.wdf"), strip_(assets, std::string(1, prefix_) + "_sysmap.wdf"),
-      animations_(assets.resources().names(".ani")) {
+      scrap_(assets, std::string(1, prefix_) + "numdlg.wdf"), animations_(assets.resources().names(".ani")) {
     const Rect middle = panel_.rect(kMiddle);
+    // The scrap dialog in the middle of the centre window.
+    const Rect sl = scrap_.layout().rect;
+    scrap_.setOrigin({middle.x + (middle.w - sl.w) / 2, middle.y + (middle.h - sl.h) / 2});
     for (Panel* p : {&labor_, &build_, &structures_, &energy_}) {
         p->setOrigin({middle.x, middle.y});
     }
@@ -208,6 +211,14 @@ void SystemScreen::draw(Canvas& canvas, std::uint64_t ms) {
     case Tab::BuildList:
     case Tab::Shipbuilding: drawBuildList(canvas); break;
     case Tab::Structures: drawStructures(canvas); break;
+    }
+    if (scrapOpen()) {
+        // How many of this kind to scrap.
+        const Building& b = game_.economy.buildings[static_cast<std::size_t>(scrapBuilding_)];
+        scrap_.draw(canvas);
+        canvas.text(font(15), lex[662], scrap_.rect(kScrapTitle), kText, Align::Center); // "SCRAP"
+        drawParagraph(canvas, font(15), withText(lex[962], b.plural.empty() ? b.name : b.plural), scrap_.rect(kScrapText), kText);
+        canvas.text(font(15), std::to_string(scrapCount_), scrap_.rect(kScrapCount), kText, Align::Center);
     }
     strip_.draw(canvas);
     canvas.text(font(9), s.name, strip_.rect(GalaxyScreen::kInfoName), kText, Align::Center);
@@ -503,6 +514,10 @@ void SystemScreen::drawEnergy(Canvas& canvas) {
 
 void SystemScreen::pointerMoved(Point p) {
     pointer_ = p;
+    if (scrapOpen()) {
+        scrap_.pointerMoved(p);
+        return;
+    }
     panel_.pointerMoved(p);
     if (Panel* s = sub()) {
         s->pointerMoved(p);
@@ -511,6 +526,10 @@ void SystemScreen::pointerMoved(Point p) {
 
 void SystemScreen::pointerPressed(Point p) {
     pointer_ = p;
+    if (scrapOpen()) {
+        scrap_.pointerPressed(p);
+        return;
+    }
     if (tab_ == Tab::BuildList || tab_ == Tab::Shipbuilding) {
         for (int i = 0; i < static_cast<int>(options_.size()); ++i) {
             if (const auto r = optionRect(i); r && r->contains(p.x, p.y)) {
@@ -551,6 +570,22 @@ void SystemScreen::pointerPressed(Point p) {
 
 void SystemScreen::pointerReleased(Point p) {
     pointer_ = p;
+    if (scrapOpen()) {
+        if (const auto id = scrap_.pointerReleased(p)) {
+            scrapClicked(*id);
+        }
+        return;
+    }
+    if (tab_ == Tab::Structures) {
+        for (int k = 0; k < 6; ++k) {
+            if (const auto r = structureRect(k); r && r->contains(p.x, p.y)) {
+                assets_.clicked();
+                scrapBuilding_ = col().structures[static_cast<std::size_t>(structurePage_ * 6 + k)].building;
+                scrapCount_ = 1;
+                return;
+            }
+        }
+    }
     if (const auto id = panel_.pointerReleased(p)) {
         clicked(*id);
     }
@@ -611,7 +646,50 @@ void SystemScreen::clicked(std::uint32_t id) {
     refresh();
 }
 
+std::optional<Rect> SystemScreen::structureRect(int place) const {
+    const auto i = static_cast<std::size_t>(structurePage_ * 6 + place);
+    if (tab_ != Tab::Structures || place < 0 || place >= 6 || i >= col().structures.size()) {
+        return std::nullopt;
+    }
+    return structures_.rect(kStructurePlaces[place][0]);
+}
+
+std::optional<Rect> SystemScreen::scrapButton(std::uint32_t id) const {
+    return scrapOpen() && scrap_.usable(id) ? std::optional<Rect>(scrap_.rect(id)) : std::nullopt;
+}
+
+int SystemScreen::scrapMost() const {
+    int n = 0;
+    for (const auto& st : col().structures) {
+        n += st.building == scrapBuilding_ ? 1 : 0;
+    }
+    return n;
+}
+
+void SystemScreen::scrapClicked(std::uint32_t id) {
+    switch (id) {
+    case kScrapUp: scrapCount_ = std::min(scrapMost(), scrapCount_ + 1); break;
+    case kScrapDown: scrapCount_ = std::max(1, scrapCount_ - 1); break;
+    case kScrapApply:
+        scrapStructures(col(), scrapBuilding_, scrapCount_);
+        scrapBuilding_ = -1;
+        structurePage_ = 0;
+        refresh();
+        break;
+    case kScrapCancel: scrapBuilding_ = -1; break;
+    default: break;
+    }
+}
+
 std::optional<Point> SystemScreen::command(Command c) {
+    if (scrapOpen()) {
+        // Back cancels; the arrows reach the dialog's buttons.
+        if (c == Command::Back) {
+            scrapClicked(kScrapCancel);
+            return std::nullopt;
+        }
+        return scrap_.step(c, pointer_);
+    }
     if (c == Command::Back) {
         outcome_ = Outcome::Back;
         return std::nullopt;
