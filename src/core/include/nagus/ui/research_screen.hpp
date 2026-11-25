@@ -64,10 +64,20 @@ public:
     static constexpr std::uint32_t kObjTextDown = 0xcef;
     static constexpr std::uint32_t kObjList = 0xcf0;
     static constexpr std::uint32_t kObjPicture = 0xcf8;
+    // In the ship panel: scroll the list, turn the ship.
+    static constexpr std::uint32_t kObjListUp = 0xcf1;
+    static constexpr std::uint32_t kObjListDown = 0xcf2;
+    static constexpr std::uint32_t kTurnUp = 0xcf3;
+    static constexpr std::uint32_t kTurnDown = 0xcf4;
+    static constexpr std::uint32_t kTurnLeft = 0xcf5;
+    static constexpr std::uint32_t kTurnRight = 0xcf6;
     static constexpr int kListLine = 15;
     static constexpr int kListHeading = 24;
 
     enum class Page { Management, Fields, Objects };
+    // How the ship in the object database turns: not, about the vertical,
+    // or end over end.
+    enum class Spin { None, Left, Right, Up, Down };
 
     ResearchScreen(Assets& assets, Game& game);
 
@@ -94,6 +104,10 @@ public:
     std::string entryTitle() const;
     std::string entryText() const;
     bool statistics() const { return statistics_; }
+    Spin spin() const { return spin_; }
+    // Whether the chosen ship class shows as a turning 3D model.
+    bool shipModelShown() const { return modelShown_; }
+    int listFirst() const { return listFirst_; }
     // Where an element of the object database's ship or building panel is.
     Rect objectRect(std::uint32_t id) const { return objectPanel().rect(id); }
     // The buildings and ship classes in an object category.
@@ -120,12 +134,17 @@ private:
     int listFirst_ = 0;
     int textFirst_ = 0;
     bool statistics_ = false;
+    Spin spin_ = Spin::Right;
+    float yaw_ = 0.6f;
+    float pitch_ = 0.3f;
+    std::uint64_t lastMs_ = 0;
+    bool modelShown_ = false;
 
     Panel& objectPanel() { return category_ == kCategories - 1 ? objShips_ : objBuildings_; }
     const Panel& objectPanel() const { return category_ == kCategories - 1 ? objShips_ : objBuildings_; }
     Rect listRect() const;
     int listLines() const;
-    void drawDatabase(Canvas& canvas, const Font& f15, const Font& f20);
+    void drawDatabase(Canvas& canvas, const Font& f15, const Font& f20, std::uint64_t ms);
     void refreshDatabase();
 };
 

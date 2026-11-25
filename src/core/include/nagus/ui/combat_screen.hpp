@@ -127,7 +127,6 @@ private:
     std::vector<Rect> places_; // for each unit, in the Tactical view
     std::vector<Vec3> spots_;  // for each unit, in the Visual view
     std::vector<Rect> shown_;  // where each showed last in the Visual view
-    std::map<std::string, std::optional<Model>> models_;
     bool newShots_ = false;
     std::uint64_t shotsAt_ = 0;
     Point pointer_{};

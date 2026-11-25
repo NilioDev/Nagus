@@ -1200,6 +1200,20 @@ NGS_TEST("the research screen's databases: technologies, buildings and ships") {
     click(screen, centre(screen.objectRect(ResearchScreen::kObjStatistics)));
     NGS_CHECK(screen.statistics() && screen.entryText().starts_with("Hull "));
     screen.draw(canvas, 0);
+    // The ship turns as a 3D model; its buttons turn it another way or stop it.
+    NGS_CHECK(screen.shipModelShown() && screen.spin() == ResearchScreen::Spin::Right);
+    click(screen, centre(screen.objectRect(ResearchScreen::kTurnUp)));
+    NGS_CHECK(screen.spin() == ResearchScreen::Spin::Up);
+    click(screen, centre(screen.objectRect(ResearchScreen::kTurnUp)));
+    NGS_CHECK(screen.spin() == ResearchScreen::Spin::None);
+    screen.draw(canvas, 100);
+    // The list's arrows page through it.
+    if (screen.entries() > 12) {
+        click(screen, centre(screen.objectRect(ResearchScreen::kObjListDown)));
+        NGS_CHECK(screen.listFirst() > 0);
+        click(screen, centre(screen.objectRect(ResearchScreen::kObjListUp)));
+        NGS_CHECK(screen.listFirst() == 0);
+    }
     // Every building is in one of the five other kinds, and has a text.
     std::size_t listed = 0;
     for (int c = 0; c + 1 < ResearchScreen::kCategories; ++c) {

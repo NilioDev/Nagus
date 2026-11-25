@@ -48,6 +48,26 @@ const Image& Assets::image(const std::string& name) {
     return it->second;
 }
 
+const Model* Assets::model(const std::string& name) {
+    const std::string key = lower(name);
+    auto it = models_.find(key);
+    if (it == models_.end()) {
+        std::optional<Model> m;
+        if (resources_->has(key)) {
+            try {
+                m = readModel(resources_->file(key));
+            } catch (const FormatError&) {
+                m.reset();
+            }
+        }
+        if (m && m->empty()) {
+            m.reset();
+        }
+        it = models_.emplace(key, std::move(m)).first;
+    }
+    return it->second ? &*it->second : nullptr;
+}
+
 const Font& Assets::font(const std::string& name) {
     const std::string key = lower(name);
     auto it = fonts_.find(key);

@@ -34,9 +34,10 @@ public:
     // How many pixels a length shows as at a depth.
     float scale(float depth) const { return camera_.focal / depth; }
 
-    // A model turned by `yaw` about the vertical (its front, +z, towards +x
-    // at a quarter turn), scaled and moved; `light` 0..1 dims it.
-    void model(const Model& m, const Image& texture, Vec3 at, float yaw, float size, float light = 1.0f);
+    // A model tipped by `pitch` (its front, +z, up at a quarter turn), then
+    // turned by `yaw` about the vertical (its front towards +x at a quarter
+    // turn), scaled and moved; `light` 0..1 dims it.
+    void model(const Model& m, const Image& texture, Vec3 at, float yaw, float size, float light = 1.0f, float pitch = 0.0f);
     // A ball, lit from the side of the light.
     void ball(Vec3 at, float radius, Pixel colour);
     // A line of light between two points, `width` pixels wide.

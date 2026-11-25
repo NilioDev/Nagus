@@ -37,7 +37,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > on the map shows last turn's events, your
 > treaties and a list of your systems (click one to open it). On the research screen you share your research between
 > the six fields and see how far each has come; its *Field Database* and
-> *Object Database* describe every technology, building and ship class. The marker window (right
+> *Object Database* describe every technology, building and ship class
+> (ships as turning 3D models). The marker window (right
 > click, Esc or B) takes you between the map, your systems, research and the
 > main menu. Build ships at systems with a shipyard; choose a fleet in the
 > list on the left and click a sector on the map to send it there, and use

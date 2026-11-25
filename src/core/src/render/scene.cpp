@@ -22,6 +22,8 @@ Vec3 normalised(Vec3 a) {
 }
 // Turns about the vertical: +z towards +x at a quarter turn.
 Vec3 turned(Vec3 p, float c, float s) { return {p.x * c + p.z * s, p.y, p.z * c - p.x * s}; }
+// Tips about the side axis: +z towards +y at a quarter turn.
+Vec3 tipped(Vec3 p, float c, float s) { return {p.x, p.y * c + p.z * s, p.z * c - p.y * s}; }
 
 int channel(Pixel p, int shift) { return static_cast<int>((p >> shift) & 255u); }
 
@@ -61,17 +63,19 @@ std::optional<Scene::Projected> Scene::project(Vec3 p) const {
                      static_cast<float>(view_.y) + static_cast<float>(view_.h) / 2 - v.y * s, v.z};
 }
 
-void Scene::model(const Model& m, const Image& texture, Vec3 at, float yaw, float size, float light) {
+void Scene::model(const Model& m, const Image& texture, Vec3 at, float yaw, float size, float light, float pitch) {
     if (m.radius <= 0 || texture.empty()) {
         return;
     }
     const float k = size / m.radius;
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
+    const float pc = std::cos(pitch);
+    const float ps = std::sin(pitch);
     std::vector<Vec3> world(m.vertices.size());
     std::vector<std::optional<Projected>> shown(m.vertices.size());
     for (std::size_t i = 0; i < m.vertices.size(); ++i) {
-        world[i] = turned(m.vertices[i], c, s) * k + at;
+        world[i] = turned(tipped(m.vertices[i], pc, ps), c, s) * k + at;
         shown[i] = project(world[i]);
     }
     std::vector<Point2> pts;
@@ -90,7 +94,7 @@ void Scene::model(const Model& m, const Image& texture, Vec3 at, float yaw, floa
             continue;
         }
         // Lit on the side the camera sees.
-        Vec3 n = normalised(turned(f.normal, c, s));
+        Vec3 n = normalised(turned(tipped(f.normal, pc, ps), c, s));
         if (dot(n, camera_.eye - world[static_cast<std::size_t>(f.corners[0].vertex)]) < 0) {
             n = n * -1.0f;
         }

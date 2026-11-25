@@ -10,6 +10,7 @@
 #include "nagus/data/image.hpp"
 #include "nagus/data/layout.hpp"
 #include "nagus/data/lexicon.hpp"
+#include "nagus/data/model.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/data/tips.hpp"
 
@@ -33,6 +34,9 @@ public:
     const Cursor& cursor(const std::string& name);
     // An animation by name; a missing or damaged one has no frames.
     const Animation& animation(const std::string& name);
+    // A 3D model by name (such as "hh1_a.hob"); nothing when the game lacks
+    // it or it is damaged or empty.
+    const Model* model(const std::string& name);
     const Lexicon& lexicon() const { return lexicon_; }
     // The texts of a file of NUL-separated texts (such as racedesc.rst).
     const std::vector<std::string>& texts(const std::string& name);
@@ -66,6 +70,7 @@ private:
     std::map<std::string, Layout> layouts_;
     std::map<std::string, Cursor> cursors_;
     std::map<std::string, Animation> animations_;
+    std::map<std::string, std::optional<Model>> models_;
     std::map<std::string, std::vector<std::string>> texts_;
     std::uint64_t clicks_ = 0;
     std::optional<Tips> tips_;

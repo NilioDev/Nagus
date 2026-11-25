@@ -2,6 +2,7 @@
 #include "nagus/ui/research_screen.hpp"
 
 #include "nagus/game/research.hpp"
+#include "nagus/render/scene.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -118,10 +119,6 @@ ResearchScreen::ResearchScreen(Assets& assets, Game& game)
     if (const auto* inner = objects_.layout().find(kObjArea)) {
         objShips_.setOrigin({area.x + inner->rect.x, area.y + inner->rect.y});
         objBuildings_.setOrigin({area.x + inner->rect.x, area.y + inner->rect.y});
-    }
-    // The ship picture does not turn.
-    for (const std::uint32_t id : {0xcf3u, 0xcf4u, 0xcf5u, 0xcf6u, 0xcf1u, 0xcf2u}) {
-        objShips_.setEnabled(id, false);
     }
     panel_.setEnabled(kSummary, false);
     showPage(Page::Management);
@@ -297,7 +294,7 @@ void ResearchScreen::refresh() {
     }
 }
 
-void ResearchScreen::draw(Canvas& canvas, std::uint64_t) {
+void ResearchScreen::draw(Canvas& canvas, std::uint64_t ms) {
     panel_.draw(canvas);
     if (page_ == Page::Management) {
         fields_.draw(canvas);
@@ -327,7 +324,7 @@ void ResearchScreen::draw(Canvas& canvas, std::uint64_t) {
     }
 
     if (page_ != Page::Management) {
-        drawDatabase(canvas, f15, f20);
+        drawDatabase(canvas, f15, f20, ms);
         return;
     }
     // On the right: a block for each field.
@@ -359,7 +356,7 @@ void ResearchScreen::draw(Canvas& canvas, std::uint64_t) {
     }
 }
 
-void ResearchScreen::drawDatabase(Canvas& canvas, const Font& f15, const Font& f20) {
+void ResearchScreen::drawDatabase(Canvas& canvas, const Font& f15, const Font& f20, std::uint64_t ms) {
     const EmpireState& e = game_.empires[static_cast<std::size_t>(std::clamp(game_.player, 0, kEmpires - 1))];
     Rect picture;
     Rect title;
@@ -379,13 +376,39 @@ void ResearchScreen::drawDatabase(Canvas& canvas, const Font& f15, const Font& f
         title = inner.rect(kObjTitle);
         body = inner.rect(kObjText);
         const auto items = categoryItems(category_);
+        modelShown_ = false;
         if (entry_ >= 0 && static_cast<std::size_t>(entry_) < items.size()) {
             const auto i = static_cast<std::size_t>(items[static_cast<std::size_t>(entry_)]);
-            const std::string name = category_ == kCategories - 1 ? "i_" + game_.economy.ships[i].picture + "170.tga"
-                                                                  : game_.economy.buildings[i].picture + "_b.tga";
-            const Image& pic = assets_.image(name);
-            canvas.draw(pic, picture.x + (picture.w - pic.width) / 2, picture.y + (picture.h - pic.height) / 2);
+            const bool ship = category_ == kCategories - 1;
+            // A ship turns as a 3D model where the game has one.
+            std::string model = ship ? game_.economy.ships[i].picture + "_a" : "";
+            for (char& ch : model) {
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            }
+            const Model* m = ship ? assets_.model(model + ".hob") : nullptr;
+            const Image& texture = ship ? assets_.image(model + ".gif") : assets_.image("");
+            if (m != nullptr && !texture.empty()) {
+                const float step = static_cast<float>(std::min<std::uint64_t>(ms - std::min(ms, lastMs_), 200)) / 1000.0f;
+                switch (spin_) {
+                case Spin::Left: yaw_ -= step; break;
+                case Spin::Right: yaw_ += step; break;
+                case Spin::Up: pitch_ -= step; break;
+                case Spin::Down: pitch_ += step; break;
+                case Spin::None: break;
+                }
+                Camera cam;
+                cam.eye = {0, 0, -330};
+                cam.focal = 1.35f * static_cast<float>(std::min(picture.w, picture.h));
+                Scene scene(canvas, picture, cam);
+                scene.model(*m, texture, {0, 0, 0}, yaw_, 115.0f, 1.0f, pitch_);
+                modelShown_ = true;
+            } else {
+                const std::string name = ship ? "i_" + game_.economy.ships[i].picture + "170.tga" : game_.economy.buildings[i].picture + "_b.tga";
+                const Image& pic = assets_.image(name);
+                canvas.draw(pic, picture.x + (picture.w - pic.width) / 2, picture.y + (picture.h - pic.height) / 2);
+            }
         }
+        lastMs_ = ms;
     }
     // The list: what the empire has (or can build) bright, the rest dim.
     const auto items = categoryItems(category_);
@@ -530,6 +553,18 @@ void ResearchScreen::pointerReleased(Point p) {
             }
             textFirst_ += *inner == kObjTextDown ? 3 : *inner == kObjTextUp ? -3 : 0;
             textFirst_ = std::max(0, textFirst_);
+            if (*inner == kObjListUp || *inner == kObjListDown) {
+                const int page = std::max(1, listLines() - 1);
+                listFirst_ = std::clamp(listFirst_ + (*inner == kObjListDown ? page : -page), 0, std::max(0, entries() - listLines()));
+            }
+            // A turn button starts the ship turning that way, or stops it.
+            const std::pair<std::uint32_t, Spin> turns[] = {
+                {kTurnUp, Spin::Up}, {kTurnDown, Spin::Down}, {kTurnLeft, Spin::Left}, {kTurnRight, Spin::Right}};
+            for (const auto& [button, way] : turns) {
+                if (*inner == button) {
+                    spin_ = spin_ == way ? Spin::None : way;
+                }
+            }
         }
         refreshDatabase();
         return;
