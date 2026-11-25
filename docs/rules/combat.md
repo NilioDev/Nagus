@@ -68,9 +68,22 @@ models' own sizes differ too much to use), stations are larger. *Playback*
 and *Tactical* (or the shoulder buttons) switch between this view and a
 flat one, the sides in rows seen from above.
 
-First the player chooses (`tactical.wdf`) to let the battle be fought
-*Automatically* (as below, the player's ships choosing as the computer
-would) or to give orders *Manually*. Each round, the player gives all
+In the 3D view the camera panel on the left (`<x>butil.wdf`) turns the
+camera left and right, raises and lowers it, zooms in and out, puts it back
+(*Reset*), opens the list of views (`<x>b_views.wdf`), hides or shows the
+names and hull bars (*Status*), and hands the rest of the battle to the
+computer (*Auto*). Dragging across the view turns and tilts the camera too.
+The views: *Top* (high above), *Chase* (behind one of the player's ships),
+*Reverse* (before the player's ships, looking back at them), *From Target*
+(behind the enemy) and *Towards Target* (on one of the player's ships,
+looking at the enemy).
+
+First the player chooses (`<x>fiskdlg.wdf`, which says where the battle
+is and how many ships each side has) to *Fight* (give orders), to let the
+battle be fought automatically (*Auto*: as below, the player's ships
+choosing as the computer would) or to *Hail*: the player's ships open
+hailing frequencies in the first round, and if that does not end the
+battle, the computer fights the rest of it for them. Each round, the player gives all
 their ships one maneuver and presses *Turn*. The maneuvers and what they are
 good against are the original's (their names and help come from the
 lexicon); the numbers are ours:

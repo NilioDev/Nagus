@@ -736,6 +736,7 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
     // and the shoulder buttons switch back.
     NGS_CHECK(c.view() == CombatScreen::View::Visual);
     NGS_CHECK(c.hasModel(0));
+    NGS_CHECK(!c.maneuverText(Maneuver::Hail).empty() && c.maneuverText(Maneuver::Hail).size() < 20);
     shell.draw(canvas, 50);
     for (std::size_t i = 0; i < c.battle().units().size(); ++i) {
         const Rect r = c.unitRect(i);
@@ -745,6 +746,35 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
     NGS_CHECK(c.view() == CombatScreen::View::Tactical);
     shell.command(Command::Next);
     NGS_CHECK(c.view() == CombatScreen::View::Visual);
+    // The camera panel: turn, zoom, the list of views, the status labels.
+    click(shell, centre(*c.button(CombatScreen::kCameraLeft)));
+    NGS_CHECK(c.cameraTurn() < 0);
+    click(shell, centre(*c.button(CombatScreen::kZoomIn)));
+    NGS_CHECK(c.cameraZoom() < 1);
+    NGS_CHECK(!c.button(CombatScreen::kChaseView));
+    click(shell, centre(*c.button(CombatScreen::kViews)));
+    NGS_CHECK(c.viewsOpen());
+    for (const std::uint32_t v : {CombatScreen::kTopView, CombatScreen::kChaseView, CombatScreen::kFrontView, CombatScreen::kEnemyView,
+                                  CombatScreen::kShipView}) {
+        if (!c.viewsOpen()) {
+            click(shell, centre(*c.button(CombatScreen::kViews)));
+        }
+        click(shell, centre(*c.button(v)));
+        NGS_CHECK(!c.viewsOpen() && c.cameraZoom() == 1.0f);
+        shell.draw(canvas, 60);
+    }
+    NGS_CHECK(c.cameraView() == CombatScreen::CameraView::Ship);
+    click(shell, centre(*c.button(CombatScreen::kPanorama)));
+    NGS_CHECK(c.cameraView() == CombatScreen::CameraView::Panorama && c.cameraTurn() == 0.0f);
+    click(shell, centre(*c.button(CombatScreen::kStatus)));
+    NGS_CHECK(!c.statusShown());
+    click(shell, centre(*c.button(CombatScreen::kStatus)));
+    // Dragging across the view turns the camera.
+    shell.pointerMoved({400, 200});
+    shell.pointerPressed({400, 200});
+    shell.pointerMoved({450, 200});
+    shell.pointerReleased({450, 200});
+    NGS_CHECK(c.cameraTurn() > 0.4f);
     // The gamepad chooses the maneuver and waits on Turn.
     shell.command(Command::Right);
     NGS_CHECK(c.chosen() == Maneuver::Charge);
@@ -776,6 +806,18 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
         shell.command(Command::Start);
     }
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy && game.turn == turn + 2);
+
+    // And then hailing: the battle ends at once, or is fought for the player.
+    game.addFleet(3, home, warship);
+    game.addFleet(game.player, home, warship);
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    if (shell.showing() == Shell::Showing::Combat) {
+        NGS_CHECK(shell.combatScreen()->button(CombatScreen::kHail).has_value());
+        click(shell, centre(*shell.combatScreen()->button(CombatScreen::kHail)));
+        NGS_CHECK(shell.combatScreen()->phase() == CombatScreen::Phase::Over);
+        shell.command(Command::Start);
+    }
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy && game.turn == turn + 3);
     fs::remove(settings);
 }
 
