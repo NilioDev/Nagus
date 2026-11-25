@@ -21,6 +21,7 @@
 #include "nagus/ui/multiplayer_screen.hpp"
 #include "nagus/ui/options_screen.hpp"
 #include "nagus/ui/research_screen.hpp"
+#include "nagus/ui/summary_screen.hpp"
 #include "nagus/ui/system_screen.hpp"
 
 #include <deque>
@@ -54,7 +55,7 @@ public:
     std::optional<std::uint32_t> tooltipShown() const { return tipShown_; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame, Options, Combat, Multiplayer };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame, Options, Combat, Multiplayer, Summary };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -64,6 +65,7 @@ public:
     ResearchScreen* researchScreen() { return research_.get(); }
     DiplomacyScreen* diplomacyScreen() { return diplomacy_.get(); }
     IntelScreen* intelScreen() { return intel_.get(); }
+    SummaryScreen* summaryScreen() { return summary_.get(); }
     LoadSaveScreen* loadSaveScreen() { return loadSave_.get(); }
     FilmScreen* filmScreen() { return film_.get(); }
     EndingScreen* endingScreen() { return ending_.get(); }
@@ -140,6 +142,7 @@ private:
     std::unique_ptr<ResearchScreen> research_;
     std::unique_ptr<DiplomacyScreen> diplomacy_;
     std::unique_ptr<IntelScreen> intel_;
+    std::unique_ptr<SummaryScreen> summary_;
     std::unique_ptr<LoadSaveScreen> loadSave_;
     std::unique_ptr<Panel> marker_;
     std::unique_ptr<FilmScreen> film_;

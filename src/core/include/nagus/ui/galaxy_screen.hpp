@@ -61,6 +61,7 @@ public:
     // The player's colony in the chosen sector (an index into Game::colonies), or -1.
     int chosenColony() const;
     // What happened in the last turn, for the player.
+    const std::vector<std::pair<std::string, Pixel>>& eventLines() const { return events_; }
     std::vector<std::string> events() const {
         std::vector<std::string> out;
         for (const auto& e : events_) {

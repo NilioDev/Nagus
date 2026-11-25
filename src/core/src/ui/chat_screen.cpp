@@ -12,44 +12,6 @@ constexpr Pixel kEmpireColours[kEmpires] = {0xffe0c040u, 0xff60a0ffu, 0xffffa040
 constexpr Pixel kText = 0xffffcc66u;
 constexpr const char* kFont = "human15.fnt";
 
-// Breaks a line into lines no wider than the box, between words (or inside
-// a word too long for a line).
-std::vector<std::string> wrap(const Font& font, const std::string& text, int width) {
-    std::vector<std::string> out;
-    std::string line;
-    std::size_t i = 0;
-    while (i < text.size()) {
-        std::size_t end = text.find(' ', i);
-        if (end == std::string::npos) {
-            end = text.size();
-        }
-        std::string word = text.substr(i, end - i);
-        i = end + 1;
-        const std::string candidate = line.empty() ? word : line + " " + word;
-        if (font.width(candidate) <= width) {
-            line = candidate;
-            continue;
-        }
-        if (!line.empty()) {
-            out.push_back(line);
-        }
-        line.clear();
-        while (font.width(word) > width && word.size() > 1) {
-            std::size_t n = word.size() - 1;
-            while (n > 1 && font.width(word.substr(0, n)) > width) {
-                --n;
-            }
-            out.push_back(word.substr(0, n));
-            word.erase(0, n);
-        }
-        line = word;
-    }
-    if (!line.empty() || out.empty()) {
-        out.push_back(line);
-    }
-    return out;
-}
-
 } // namespace
 
 ChatWindow::ChatWindow(Assets& assets, int player, const std::array<bool, kEmpires>& humans,
@@ -93,7 +55,7 @@ void ChatWindow::draw(Canvas& canvas, const std::deque<ChatLine>& log) {
     }
     // The line being typed, with a cursor.
     const Rect in = panel_.rect(kLine);
-    const auto typed = wrap(font, line_ + "_", in.w - 8);
+    const auto typed = wrapText(font, line_ + "_", in.w - 8);
     const int lineHeight = font.height() + 2;
     const int fitIn = std::max(1, (in.h - 4) / lineHeight);
     for (std::size_t i = typed.size() > static_cast<std::size_t>(fitIn) ? typed.size() - static_cast<std::size_t>(fitIn) : 0, y = 0;
@@ -109,7 +71,7 @@ void ChatWindow::draw(Canvas& canvas, const std::deque<ChatLine>& log) {
     const Rect box = panel_.rect(kLog);
     for (const auto& l : log) {
         const Pixel c = l.empire >= 0 && l.empire < kEmpires ? kEmpireColours[l.empire] : kText;
-        for (auto& w : wrap(font, l.name + ": " + l.text, box.w - 8)) {
+        for (auto& w : wrapText(font, l.name + ": " + l.text, box.w - 8)) {
             lines.push_back({std::move(w), c});
         }
     }

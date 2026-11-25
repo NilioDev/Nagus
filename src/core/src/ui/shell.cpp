@@ -56,6 +56,7 @@ void Shell::show(Showing s) {
     research_.reset();
     diplomacy_.reset();
     intel_.reset();
+    summary_.reset();
     loadSave_.reset();
     marker_.reset();
     if (s != Showing::Film) {
@@ -93,6 +94,7 @@ void Shell::show(Showing s) {
     case Showing::Research: research_ = std::make_unique<ResearchScreen>(assets_, *game_); break;
     case Showing::Diplomacy: diplomacy_ = std::make_unique<DiplomacyScreen>(assets_, *game_); break;
     case Showing::Intel: intel_ = std::make_unique<IntelScreen>(assets_, *game_); break;
+    case Showing::Summary: summary_ = std::make_unique<SummaryScreen>(assets_, *game_, galaxy_->eventLines()); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect:
         empires_ = std::make_unique<EmpireSelect>(assets_, settings_);
@@ -138,6 +140,7 @@ MenuScreen& Shell::screen() {
     case Showing::Research: return *research_;
     case Showing::Diplomacy: return *diplomacy_;
     case Showing::Intel: return *intel_;
+    case Showing::Summary: return *summary_;
     case Showing::Save:
     case Showing::Load: return *loadSave_;
     case Showing::Film: return *film_;
@@ -342,6 +345,8 @@ void Shell::settle() {
     case Showing::Galaxy:
         if (o == Outcome::Open && galaxy_->chosenColony() >= 0) {
             show(Showing::System);
+        } else if (o == Outcome::Summary) {
+            show(Showing::Summary);
         } else if (o == Outcome::Combat) {
             fought_.clear();
             nextBattle_ = 0;
@@ -399,6 +404,16 @@ void Shell::settle() {
     case Showing::Intel:
         if (o == Outcome::Back) {
             openMarker();
+        }
+        break;
+    case Showing::Summary:
+        if (o == Outcome::Open && summary_->chosenColony() >= 0 &&
+            static_cast<std::size_t>(summary_->chosenColony()) < game_->colonies.size()) {
+            const Colony& c = game_->colonies[static_cast<std::size_t>(summary_->chosenColony())];
+            galaxy_->choose(game_->galaxy.systems[static_cast<std::size_t>(c.system)].sector);
+            show(Showing::System);
+        } else if (o == Outcome::Back) {
+            show(Showing::Galaxy);
         }
         break;
     }
@@ -642,7 +657,7 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     // A game that has ended goes to its end.
     if (game_ && game_->ending != Ending::None && marker_ == nullptr &&
         (showing_ == Showing::Galaxy || showing_ == Showing::System || showing_ == Showing::Research ||
-         showing_ == Showing::Diplomacy || showing_ == Showing::Intel)) {
+         showing_ == Showing::Diplomacy || showing_ == Showing::Intel || showing_ == Showing::Summary)) {
         finishGame();
     }
     now_ = ms;
@@ -654,6 +669,10 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     }
     updateSound();
     canvas.clear();
+    if (showing_ == Showing::Summary && galaxy_) {
+        // The summary lies over the map.
+        galaxy_->draw(canvas, ms);
+    }
     screen().draw(canvas, ms);
     if ((showing_ == Showing::Film && film_->done()) || (showing_ == Showing::Ending && ending_->done())) {
         settle();
@@ -865,7 +884,7 @@ void Shell::pointerMoved(Point p) {
 bool Shell::blocked() const {
     // While the other players give their orders, the game waits.
     return waitingTurn_ && (showing_ == Showing::Galaxy || showing_ == Showing::System || showing_ == Showing::Research ||
-                            showing_ == Showing::Diplomacy || showing_ == Showing::Intel);
+                            showing_ == Showing::Diplomacy || showing_ == Showing::Intel || showing_ == Showing::Summary);
 }
 
 void Shell::pointerPressed(Point p) {

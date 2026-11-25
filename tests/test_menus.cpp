@@ -122,6 +122,59 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     fs::remove(settings);
 }
 
+NGS_TEST("the empire summary: last turn's events, treaties and the systems") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-summary-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(5);
+    shell.command(Command::Start);
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    // A few turns, for something to report and races to meet.
+    for (int t = 0; t < 4; ++t) {
+        click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    }
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kSummary)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Summary);
+    SummaryScreen& s = *shell.summaryScreen();
+    NGS_CHECK(s.page() == SummaryScreen::Page::Events);
+    NGS_CHECK(s.rows().size() >= shell.galaxyScreen()->events().size());
+    shell.draw(canvas, 0);
+    shell.command(Command::Next);
+    NGS_CHECK(s.page() == SummaryScreen::Page::Relations);
+    for (const auto& r : s.rows()) {
+        NGS_CHECK(!r.cells[0].empty() && !r.cells[1].empty());
+    }
+    click(shell, centre(s.rect(SummaryScreen::kSystems)));
+    NGS_CHECK(s.page() == SummaryScreen::Page::Systems);
+    std::size_t mine = 0;
+    for (const auto& c : shell.game()->colonies) {
+        mine += c.owner == shell.game()->player ? 1u : 0u;
+    }
+    NGS_CHECK(s.rows().size() == mine && mine >= 1);
+    shell.draw(canvas, 0);
+    // A system opens on the system screen.
+    const int colony = s.rows()[0].colony;
+    click(shell, centre(*s.rowRect(0)));
+    NGS_CHECK(shell.showing() == Shell::Showing::System);
+    NGS_CHECK(shell.systemScreen()->colony() == colony);
+    // Close goes back to the map.
+    shell.command(Command::Back);
+    click(shell, centre(*shell.markerButton(Shell::kMarkerGalaxy)));
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kSummary)));
+    click(shell, centre(shell.summaryScreen()->rect(SummaryScreen::kClose)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    fs::remove(settings);
+}
+
 NGS_TEST("the home system's screen: people at work, the build queue and the next turn") {
     const auto lib = gameLibrary();
     if (!lib) {

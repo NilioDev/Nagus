@@ -25,7 +25,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > factories, power plants, research and intelligence, switch structures on
 > and off, choose what to build and buy it with credits. *Turn* ends the
 > turn: colonies grow, make food, industry, research and credits, and finish
-> what they build. On the research screen you share your research between
+> what they build. *Summary* on the map shows last turn's events, your
+> treaties and a list of your systems (click one to open it). On the research screen you share your research between
 > the six fields and see how far each has come. The marker window (right
 > click, Esc or B) takes you between the map, your systems, research and the
 > main menu. Build ships at systems with a shipyard; choose a fleet in the
@@ -144,6 +145,7 @@ itself. You can also give files when starting it:
 | Next / previous tab (system screen) | | Tab or Page Down / Page Up | RB / LB |
 | Choose from the build list, then build it | Click a line, then click it again | Arrow keys on the list, Enter | D-pad on the list, A |
 | Take an item out of the build queue | Click it | | A on it |
+| Empire summary: events, treaties, your systems | Click *Summary* on the map | Tab or Page Down / Page Up between the lists | A on *Summary*, RB / LB |
 | Marker window: go to the map, your systems, diplomacy, intelligence, research or the main menu | Right click | Esc | B |
 | Choose a fleet in the chosen sector | Click it in the list on the left | | A on it |
 | Send the chosen fleet | Click a sector on the map (its own sector stops it) | | D-pad to the sector, A |
