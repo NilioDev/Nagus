@@ -251,6 +251,8 @@ std::vector<Building> readBuildings(ByteView data) {
         b.workers = rec.u16();
         rec.seek(at + 0x86);
         b.amount = rec.u16();
+        rec.seek(at + 0xac);
+        b.description = rec.u32();
     }
     return list;
 }
@@ -281,6 +283,8 @@ std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech) {
         ShipClass& s = ships[i];
         s.name = rec.text(40);
         s.className = rec.text(20);
+        rec.seek(at + 0x54);
+        s.description = rec.u32();
         rec.seek(at + 0x58);
         s.picture = rec.text(8);
         rec.seek(at + 0x68);

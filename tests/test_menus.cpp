@@ -1098,3 +1098,56 @@ NGS_TEST("setting up and ending a trade route on the map") {
     click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kMilitary)));
     NGS_CHECK(!screen.routeHeader());
 }
+
+NGS_TEST("the research screen's databases: technologies, buildings and ships") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    const EconomyData economy = loadEconomyData(*res);
+    GameSettings settings;
+    settings.empire = 1;
+    Game g = newGame(settings, loadGalaxyData(*res, assets.lexicon()), economy, 3);
+    ResearchScreen screen(assets, g);
+    Canvas canvas;
+    screen.draw(canvas, 0);
+    NGS_CHECK(screen.page() == ResearchScreen::Page::Management);
+
+    // The technology field database: each level of a field, with its text.
+    click(screen, centre(element(assets, "htech.wdf", ResearchScreen::kFieldDatabase)));
+    NGS_CHECK(screen.page() == ResearchScreen::Page::Fields && screen.chosenField() == 0 && screen.entries() == 11);
+    click(screen, centre(*screen.entryRect(2)));
+    NGS_CHECK(screen.chosenEntry() == 2 && screen.entryTitle() == "Bionics");
+    NGS_CHECK(screen.entryText().starts_with("BIONICS:"));
+    screen.draw(canvas, 0);
+    screen.command(Command::Next);
+    NGS_CHECK(screen.chosenField() == 1 && screen.chosenEntry() == 0);
+
+    // The object database: the Federation's buildings by kind, and ships.
+    click(screen, centre(element(assets, "htech.wdf", ResearchScreen::kObjectDatabase)));
+    NGS_CHECK(screen.page() == ResearchScreen::Page::Objects && screen.entries() > 5);
+    screen.command(Command::Previous);
+    NGS_CHECK(screen.chosenCategory() == ResearchScreen::kCategories - 1);
+    for (const int ship : screen.categoryItems(screen.chosenCategory())) {
+        NGS_CHECK(economy.ships[static_cast<std::size_t>(ship)].race == 1);
+    }
+    screen.command(Command::Down);
+    screen.command(Command::Down);
+    NGS_CHECK(screen.entryTitle().starts_with("Colony Ship") && screen.entryText().starts_with("Edward-class"));
+    screen.draw(canvas, 0);
+    click(screen, centre(screen.objectRect(ResearchScreen::kObjStatistics)));
+    NGS_CHECK(screen.statistics() && screen.entryText().starts_with("Hull "));
+    screen.draw(canvas, 0);
+    // Every building is in one of the five other kinds, and has a text.
+    std::size_t listed = 0;
+    for (int c = 0; c + 1 < ResearchScreen::kCategories; ++c) {
+        listed += screen.categoryItems(c).size();
+    }
+    NGS_CHECK(listed > 50);
+    NGS_CHECK(!textAt(res->file("edifdesc.bst"), economy.buildings[0].description).empty());
+    // Back to the shares.
+    click(screen, centre(element(assets, "htech.wdf", ResearchScreen::kManagement)));
+    NGS_CHECK(screen.page() == ResearchScreen::Page::Management);
+}

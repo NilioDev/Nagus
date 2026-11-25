@@ -120,3 +120,26 @@ one of the nine is not known yet; Nagus picks one at random.
 index and the index of the class it improves on (16 bits each, `0xffff` for
 none), and the levels of biotech, computers, construction, energy,
 propulsion and weapons it needs (a byte each).
+
+## Buildings (`edifice.bst`, `edifdesc.bst`)
+
+`edifice.bst` starts with a count (32 bits) and a header of 740 bytes, then
+holds 176-byte records, one per building:
+
+| Offset | Size | What |
+| --- | --- | --- |
+| 0 | 40 | Name |
+| 40 | 40 | Plural name |
+| 80 | 2 | Index |
+| 82 | 2 | Index of the building it upgrades (`0x7fff` for none) |
+| 88 | 8 | Picture name: `<name>.tga`, `<name>_b.tga` |
+| 101 | 1 | Research field it needs |
+| 102 | 1 | Level of that field |
+| 112 | 6 | System kind, planet type, bonus, class (facility, upgrade, structure), style, output |
+| 120 | 8 | Build cost and energy (32 bits each) |
+| 128 | 2 | Workers |
+| 134 | 2 | Amount |
+| 172 | 4 | Offset of its description in `edifdesc.bst` |
+
+The descriptions in `edifdesc.bst` and `shipdesc.sst` are zero-ended texts
+at those offsets; the encyclopedia on the research screen shows them.

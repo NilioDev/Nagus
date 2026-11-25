@@ -2,7 +2,9 @@
 //
 // The research screen: for each of the six fields its level, what it is
 // working towards, the share of research it gets (with a lock that keeps a
-// share when others change) and how far it has come.
+// share when others change) and how far it has come. Its two databases (the
+// original's encyclopedia) describe each technology level, and each
+// building and ship class of the player's empire.
 #pragma once
 
 #include "nagus/game/game.hpp"
@@ -41,6 +43,31 @@ public:
     static constexpr std::uint32_t kStep = 14;
     static constexpr std::uint32_t kFieldLevel[kResearchFields] = {0xc71, 0xc72, 0xc73, 0xc74, 0xc75, 0xcda};
     static constexpr int kShareStep = 5;
+    // The technology field database (<x>techf.wdf).
+    static constexpr std::uint32_t kDbFields[kResearchFields] = {0xc80, 0xc81, 0xc82, 0xc83, 0xc84, 0xc85};
+    static constexpr std::uint32_t kDbTitle = 0xc86;
+    static constexpr std::uint32_t kDbText = 0xc87;
+    static constexpr std::uint32_t kDbTextUp = 0xc88;
+    static constexpr std::uint32_t kDbTextDown = 0xc89;
+    static constexpr std::uint32_t kDbList = 0xc8a;
+    static constexpr std::uint32_t kDbPicture = 0xc8f;
+    // The object database (<x>techo.wdf, with <x>techosh.wdf for ships and
+    // <x>techost.wdf for buildings in its area).
+    static constexpr int kCategories = 6; // research, development, food, energy, defence, ships
+    static constexpr std::uint32_t kObjCategories[kCategories] = {0xce4, 0xce5, 0xce6, 0xce7, 0xce8, 0xce9};
+    static constexpr std::uint32_t kObjArea = 0xcf8;
+    static constexpr std::uint32_t kObjTitle = 0xcea;
+    static constexpr std::uint32_t kObjDescription = 0xceb;
+    static constexpr std::uint32_t kObjStatistics = 0xcec;
+    static constexpr std::uint32_t kObjText = 0xced;
+    static constexpr std::uint32_t kObjTextUp = 0xcee;
+    static constexpr std::uint32_t kObjTextDown = 0xcef;
+    static constexpr std::uint32_t kObjList = 0xcf0;
+    static constexpr std::uint32_t kObjPicture = 0xcf8;
+    static constexpr int kListLine = 15;
+    static constexpr int kListHeading = 24;
+
+    enum class Page { Management, Fields, Objects };
 
     ResearchScreen(Assets& assets, Game& game);
 
@@ -53,6 +80,25 @@ public:
     // Where an element of a field's block is on the screen.
     Rect fieldRect(int field, std::uint32_t element) const;
 
+    Page page() const { return page_; }
+    void showPage(Page p);
+    // The databases: the chosen field or category, the entries of its list
+    // (technologies, buildings or ship classes) and the chosen one.
+    int chosenField() const { return dbField_; }
+    int chosenCategory() const { return category_; }
+    int entries() const;
+    int chosenEntry() const { return entry_; }
+    std::optional<Rect> entryRect(int i) const;
+    // The chosen entry's name and text (its description, or with
+    // statistics on, its numbers).
+    std::string entryTitle() const;
+    std::string entryText() const;
+    bool statistics() const { return statistics_; }
+    // Where an element of the object database's ship or building panel is.
+    Rect objectRect(std::uint32_t id) const { return objectPanel().rect(id); }
+    // The buildings and ship classes in an object category.
+    std::vector<int> categoryItems(int category) const;
+
 private:
     EmpireState& empire();
     void refresh();
@@ -62,7 +108,25 @@ private:
     Game& game_;
     Panel panel_;
     Panel fields_;
+    Panel fieldDb_;
+    Panel objects_;
+    Panel objShips_;
+    Panel objBuildings_;
     Point pointer_;
+    Page page_ = Page::Management;
+    int dbField_ = 0;
+    int category_ = 0;
+    int entry_ = 0;
+    int listFirst_ = 0;
+    int textFirst_ = 0;
+    bool statistics_ = false;
+
+    Panel& objectPanel() { return category_ == kCategories - 1 ? objShips_ : objBuildings_; }
+    const Panel& objectPanel() const { return category_ == kCategories - 1 ? objShips_ : objBuildings_; }
+    Rect listRect() const;
+    int listLines() const;
+    void drawDatabase(Canvas& canvas, const Font& f15, const Font& f20);
+    void refreshDatabase();
 };
 
 } // namespace nagus
