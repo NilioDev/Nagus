@@ -830,6 +830,38 @@ NGS_TEST("a multiplayer game: hosting, joining, empires and a turn together") {
     NGS_CHECK(pump([&] { return !host.waitingForPlayers() && !guest.waitingForPlayers(); }));
     NGS_CHECK(host.game()->turn == turn + 1 && guest.game()->turn == turn + 1);
 
+    // Chat: the guest types a line and sends it; the host sees it at the
+    // top, opens the chat from it and answers.
+    guest.command(Command::Chat);
+    NGS_CHECK(guest.chatWindow() != nullptr);
+    NGS_CHECK(guest.wantsText());
+    guest.typed("Hello there");
+    guest.typed("\n");
+    NGS_CHECK(guest.chatWindow()->line().empty());
+    NGS_CHECK(pump([&] { return host.chatLog().size() == 1; }));
+    NGS_CHECK(host.chatLog()[0].text == "Hello there" && host.chatLog()[0].empire == guest.game()->player);
+    NGS_CHECK(pump([&] { return guest.chatLog().size() == 1; })); // back through the host
+    host.draw(canvas, ms);
+    click(host, {400, 20});
+    NGS_CHECK(host.chatWindow() != nullptr);
+    host.typed("Hi");
+    click(host, centre(host.chatWindow()->rect(ChatWindow::kSend)));
+    NGS_CHECK(pump([&] { return guest.chatLog().size() == 2; }));
+    NGS_CHECK(guest.chatLog()[1].text == "Hi" && guest.chatLog()[1].empire == 1);
+    // Ignored: the host no longer hears the guest.
+    int place = 0;
+    while (host.chatWindow()->empireAt(place) != guest.game()->player) {
+        ++place;
+    }
+    click(host, centre(host.chatWindow()->rect(ChatWindow::kIgnore[place])));
+    guest.typed("Can you hear me?\n");
+    NGS_CHECK(pump([&] { return guest.chatLog().size() == 3; }));
+    host.draw(canvas, ms);
+    NGS_CHECK(host.chatLog().size() == 2);
+    click(host, centre(host.chatWindow()->rect(ChatWindow::kClose)));
+    guest.command(Command::Back);
+    NGS_CHECK(host.chatWindow() == nullptr && guest.chatWindow() == nullptr);
+
     // The host leaves: the guest's game cannot go on.
     host.command(Command::Back);
     click(host, centre(*host.markerButton(Shell::kMarkerMenu)));

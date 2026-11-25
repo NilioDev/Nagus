@@ -21,7 +21,8 @@
 
 namespace nagus {
 
-enum class Command { Up, Down, Left, Right, Back, Start, Next, Previous };
+// Chat opens the chat window in a multiplayer game.
+enum class Command { Up, Down, Left, Right, Back, Start, Next, Previous, Chat };
 
 struct Point {
     int x = 0;

@@ -102,6 +102,19 @@ std::string cleanName(std::string_view name) {
     return out;
 }
 
+std::string cleanChat(std::string_view text) {
+    std::string out;
+    for (const char c : text) {
+        if (c >= 32 && c < 127 && out.size() < kMaxChat) {
+            out += c;
+        }
+    }
+    while (!out.empty() && out.back() == ' ') {
+        out.pop_back();
+    }
+    return out;
+}
+
 // --- The host ---------------------------------------------------------
 
 std::unique_ptr<HostSession> HostSession::open(const std::string& game, const std::string& password, const std::string& player,
@@ -232,6 +245,7 @@ void HostSession::handle(Player& p, const Message& m) {
         }
         break;
     }
+    case msg::kChat: broadcast({p.name, p.empire, cleanChat(readText(r))}); break;
     default: break;
     }
 }
@@ -358,6 +372,33 @@ std::optional<PlayerTurn> HostSession::finishTurn() {
     return std::move(turns.front());
 }
 
+void HostSession::broadcast(const ChatLine& line) {
+    if (line.text.empty()) {
+        return;
+    }
+    chat_.push_back(line);
+    Writer w;
+    w.text(line.name);
+    w.i32(line.empire);
+    w.text(line.text);
+    for (auto& p : players_) {
+        if (p.link && p.welcomed) {
+            p.link->send(msg::kChat, w.data());
+        }
+    }
+}
+
+void HostSession::say(const std::string& text) {
+    const LobbyPlayer& me = lobby_.players.front();
+    broadcast({me.name, me.empire, cleanChat(text)});
+}
+
+std::vector<ChatLine> HostSession::takeChat() {
+    std::vector<ChatLine> out;
+    out.swap(chat_);
+    return out;
+}
+
 std::vector<std::string> HostSession::takeNotices() {
     std::vector<std::string> out;
     out.swap(notices_);
@@ -444,8 +485,34 @@ void ClientSession::handle(const Message& m) {
         turn_ = std::move(t);
         break;
     }
+    case msg::kChat: {
+        ChatLine line;
+        line.name = cleanName(readText(r));
+        line.empire = number(r, -1, kEmpires - 1);
+        line.text = cleanChat(readText(r));
+        if (!line.text.empty()) {
+            chat_.push_back(std::move(line));
+        }
+        break;
+    }
     default: break;
     }
+}
+
+void ClientSession::say(const std::string& text) {
+    const std::string line = cleanChat(text);
+    if (line.empty() || !link_) {
+        return;
+    }
+    Writer w;
+    w.text(line);
+    link_->send(msg::kChat, w.data());
+}
+
+std::vector<ChatLine> ClientSession::takeChat() {
+    std::vector<ChatLine> out;
+    out.swap(chat_);
+    return out;
 }
 
 int ClientSession::place() const {

@@ -46,6 +46,16 @@ player waits for another's battle.
 A proposal from one player to another waits for the other player's answer,
 like a computer player's proposal does. It lapses after a turn.
 
+## Chat
+
+In a game, the players can talk in the original's chat window (F2, the
+gamepad's Y button, or a click on a line shown at the top of the screen).
+A line goes to the host, which sends it on to every player with the name and
+empire of who said it; each player sees their own line when it comes back.
+A line is at most 160 printable characters. *Ignore* under an empire's
+picture hides what that player says from then on, on this computer only.
+The last 200 lines are kept while the game runs.
+
 ## Leaving
 
 When a player leaves, the computer plays their empire from then on, and the

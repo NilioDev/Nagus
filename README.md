@@ -64,7 +64,7 @@ and with gamepad, mouse, keyboard and touch controls.
 > join with the host's address, everyone chooses an empire, and each turn
 > ends when every player has given their orders (see
 > [multiplayer](docs/rules/multiplayer.md); over the internet the host
-> forwards port 47621). Rest the pointer on a button to read what it does,
+> forwards port 47621), and the players can chat during the game. Rest the pointer on a button to read what it does,
 > as in the original. Buttons that do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
@@ -154,6 +154,7 @@ itself. You can also give files when starting it:
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |
 | Change a volume or switch an option (*Options*) | Click its bar or button | Arrow keys | D-pad |
+| Chat (multiplayer game) | Click a chat line at the top of the screen | F2, then type; Enter sends, Esc closes | Y |
 | Type a name or address (multiplayer) | Click the field and type | Type; Backspace erases, Enter ends | A on the field opens the keyboard where there is one |
 | Full screen on or off | | F11 or Alt+Enter | |
 

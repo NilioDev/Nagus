@@ -8,6 +8,7 @@
 #include "nagus/game/game.hpp"
 #include "nagus/settings.hpp"
 #include "nagus/sound/jukebox.hpp"
+#include "nagus/ui/chat_screen.hpp"
 #include "nagus/ui/combat_screen.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
 #include "nagus/ui/ending_screen.hpp"
@@ -22,6 +23,7 @@
 #include "nagus/ui/research_screen.hpp"
 #include "nagus/ui/system_screen.hpp"
 
+#include <deque>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -73,6 +75,10 @@ public:
     ClientSession* clientSession() { return client_.get(); }
     // A multiplayer game is being set up or played.
     bool multiplayer() const { return host_ != nullptr || client_ != nullptr; }
+    // The chat window of a multiplayer game (Command::Chat opens it).
+    ChatWindow* chatWindow() { return chat_.get(); }
+    const std::deque<ChatLine>& chatLog() const { return chatLog_; }
+    bool openChat();
     // Orders are given; the turn ends when the other players' come.
     bool waitingForPlayers() const { return waitingTurn_; }
     // The port a hosted game listens on (0: any, for tests).
@@ -147,6 +153,13 @@ private:
     std::unique_ptr<MultiplayerScreen> mp_;
     std::unique_ptr<HostSession> host_;
     std::unique_ptr<ClientSession> client_;
+    std::unique_ptr<ChatWindow> chat_;
+    std::deque<ChatLine> chatLog_;
+    std::array<bool, kEmpires> ignored_{};
+    // The toast shows a chat line: a click on it opens the chat.
+    bool toastChat_ = false;
+    void chatResult(ChatWindow::Result r);
+    Rect toastBox();
     enum class MultiplayerStep { None, Settings, Empire };
     MultiplayerStep mpStep_ = MultiplayerStep::None;
     bool waitingTurn_ = false;
