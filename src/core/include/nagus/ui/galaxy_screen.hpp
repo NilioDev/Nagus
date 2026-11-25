@@ -50,6 +50,9 @@ public:
     static constexpr std::uint32_t kOrderScrap = 0x4cb;
     static constexpr std::uint32_t kOrderAvoid = 0x4b5;
     static constexpr std::uint32_t kOrderEngage = 0x4b6;
+    static constexpr std::uint32_t kOrderTrain = 0x4c7;
+    static constexpr std::uint32_t kOrderDefend = 0x4cc;
+    static constexpr std::uint32_t kOrderWormhole = 0x4cd;
     static constexpr int kFleetLine = 14; // height of a fleet's line in the list on the left
     // The most fleet lines shown at once; the arrows beside the list scroll
     // through more.

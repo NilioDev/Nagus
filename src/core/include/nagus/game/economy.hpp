@@ -32,6 +32,7 @@ inline constexpr int kIntel = 10;
 inline constexpr int kIntelPercent = 11;
 inline constexpr int kIndustry = 13;
 inline constexpr int kIndustryPercent = 14;
+inline constexpr int kShipExperience = 16;
 inline constexpr int kDefense = 17;
 inline constexpr int kShipyard = 18;
 inline constexpr int kShieldPerEnergyTech = 19;

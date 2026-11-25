@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 3;
+constexpr std::uint32_t kVersion = 4;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -227,10 +227,12 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         writeSector(w, f.destination.value_or(Sector{-1, -1}));
         w.u8(static_cast<std::uint32_t>(f.order));
         w.u8(f.avoid ? 1 : 0);
+        w.u8(f.cloaked ? 1 : 0);
         w.u32(static_cast<std::uint32_t>(f.ships.size()));
         for (const auto& ship : f.ships) {
             w.i32(ship.shipClass);
             w.i32(ship.hull);
+            w.u8(static_cast<std::uint32_t>(ship.experience));
         }
     }
     return w.take();
@@ -486,15 +488,23 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.destination = to;
         }
         const int order = r.u8();
-        if (order > static_cast<int>(version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack)) {
+        const Fleet::Order last = version >= 4 ? Fleet::Order::Train : version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack;
+        if (order > static_cast<int>(last)) {
             throw FormatError("damaged saved game");
         }
         f.order = static_cast<Fleet::Order>(order);
         f.avoid = version >= 3 && r.u8() != 0;
+        f.cloaked = version >= 4 && r.u8() != 0;
         for (std::uint32_t k = 0, m = count(r, kMaxShips); k < m; ++k) {
             Ship ship;
             ship.shipClass = number(r, 0, lastShip);
             ship.hull = number(r, 0, kBig);
+            if (version >= 4) {
+                ship.experience = r.u8();
+                if (ship.experience > kMaxExperience) {
+                    throw FormatError("damaged saved game");
+                }
+            }
             f.ships.push_back(ship);
         }
         g.fleets.push_back(std::move(f));

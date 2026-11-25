@@ -559,7 +559,7 @@ std::vector<int> GalaxyScreen::fleetsHere() const {
         ids.push_back(id);
     }
     for (const int id : game_.fleetsAt(chosen_)) {
-        if (game_.fleet(id)->owner != game_.player) {
+        if (const Fleet* f = game_.fleet(id); f->owner != game_.player && fleetSeen(game_, game_.player, *f)) {
             ids.push_back(id);
         }
     }
@@ -595,6 +595,11 @@ void GalaxyScreen::refreshFleet() {
     orders_.setEnabled(kOrderScrap, mine);
     orders_.setEnabled(kOrderAvoid, mine && !f->avoid);
     orders_.setEnabled(kOrderEngage, mine && f->avoid);
+    orders_.setEnabled(kOrderDefend, mine && canDefend(game_, *f));
+    orders_.setEnabled(kOrderWormhole, mine && canEnterWormhole(game_, *f));
+    orders_.setEnabled(kOrderTrain, mine && canTrain(game_, *f));
+    fleetPanel_.setEnabled(kFleetCloak, mine && (f->cloaked || canCloak(game_, *f)));
+    fleetPanel_.setOn(kFleetCloak, mine && f->cloaked);
     // Redeploying needs a second ship, in this fleet or another one here.
     const bool more = mine && (f->ships.size() > 1 || game_.fleetsAt(f->at, game_.player).size() > 1);
     fleetPanel_.setEnabled(kFleetRedeploy, more);
@@ -701,7 +706,7 @@ void GalaxyScreen::drawFleets(Canvas& canvas) {
     // A small flag in the sector's top left corner for each empire with
     // fleets there (those the player can see).
     for (const auto& f : game_.fleets) {
-        if (f.owner != game_.player && !visibleTo(game_, game_.player, f.at)) {
+        if (!fleetSeen(game_, game_.player, f)) {
             continue;
         }
         const auto c = sectorCentre(f.at);
@@ -749,6 +754,12 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
         const Rect hull{x + 10, area.y + 72, cell - 20, 4};
         canvas.fill(hull, 0xff303848u);
         canvas.fill({hull.x, hull.y, sc.hull > 0 ? hull.w * f->ships[i].hull / sc.hull : 0, hull.h}, 0xff40e070u);
+        // The crew's experience, for the player's own ships.
+        if (f->owner == game_.player) {
+            static constexpr std::size_t kLevelTexts[] = {200, 202, 203, 198, 201}; // green to legendary
+            const std::string& level = lex[kLevelTexts[static_cast<int>(crewLevel(f->ships[i].experience))]];
+            canvas.text(small, level, x + (cell - small.width(level)) / 2, area.y + 80, kNameColour);
+        }
     }
     // About the fleet: whose, how fast and how far, where it goes.
     int y = text.y + 18;
@@ -776,9 +787,15 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
             canvas.text(small, lex[661], text.x + 6, y, kBadColour);
         } else if (f->order == Fleet::Order::Scrap) {
             canvas.text(small, lex[662], text.x + 6, y, kBadColour);
+        } else if (f->order == Fleet::Order::Defend) {
+            canvas.text(small, fillText(lex[659], {std::to_string(interceptChance(game_, *f))}), text.x + 6, y, kInfoColour);
+        } else if (f->order == Fleet::Order::Wormhole) {
+            canvas.text(small, lex[657], text.x + 6, y, kInfoColour);
+        } else if (f->order == Fleet::Order::Train) {
+            canvas.text(small, lex[664], text.x + 6, y, kInfoColour);
         }
         y += small.height() + 4;
-        canvas.text(small, lex[f->avoid ? 652 : 658], text.x + 6, y, kNameColour);
+        canvas.text(small, lex[f->avoid ? 652 : 658] + (f->cloaked ? "   " + lex[162] : std::string()), text.x + 6, y, kNameColour);
         if (redeploy_) {
             y += small.height() + 4;
             drawParagraph(canvas, small, "Click a ship to take it out, or one of your fleets on the left to join it.",
@@ -891,6 +908,12 @@ void GalaxyScreen::pointerReleased(Point p) {
                 orderScrap(game_, fleet_);
             } else if (*order == kOrderAvoid || *order == kOrderEngage) {
                 orderAvoid(game_, fleet_, *order == kOrderAvoid);
+            } else if (*order == kOrderDefend) {
+                orderDefend(game_, fleet_);
+            } else if (*order == kOrderWormhole) {
+                orderWormhole(game_, fleet_);
+            } else if (*order == kOrderTrain) {
+                orderTrain(game_, fleet_);
             }
             ordersOpen_ = false;
             refreshFleet();
@@ -914,6 +937,13 @@ void GalaxyScreen::pointerReleased(Point p) {
             ordersOpen_ = true;
             moving_ = false;
             redeploy_ = false;
+            return;
+        }
+        if (b && *b == kFleetCloak) {
+            if (const Fleet* f = game_.fleet(fleet_)) {
+                orderCloak(game_, fleet_, !f->cloaked);
+            }
+            refreshFleet();
             return;
         }
         if (b && *b == kFleetRedeploy) {

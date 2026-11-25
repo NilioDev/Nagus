@@ -88,7 +88,7 @@ std::vector<CombatUnit> combatUnits(const Game& game, Sector at) {
     std::vector<CombatUnit> units;
     for (int fi = 0; fi < static_cast<int>(game.fleets.size()); ++fi) {
         const Fleet& f = game.fleets[static_cast<std::size_t>(fi)];
-        if (!(f.at == at)) {
+        if (!(f.at == at) || f.cloaked) {
             continue;
         }
         const EmpireState* e = empireOf(game, f.owner);
@@ -98,7 +98,9 @@ std::vector<CombatUnit> combatUnits(const Game& game, Sector at) {
             if (c == nullptr || e == nullptr || ship.hull <= 0) {
                 continue;
             }
-            units.push_back({f.owner, fi, si, ship.shipClass, shipFirepower(*c, *e), shipShields(*c, *e), ship.hull, c->hull});
+            // Our choice: each crew level above green adds a twentieth.
+            const int firepower = shipFirepower(*c, *e) * (20 + static_cast<int>(crewLevel(ship.experience))) / 20;
+            units.push_back({f.owner, fi, si, ship.shipClass, firepower, shipShields(*c, *e), ship.hull, c->hull});
         }
     }
     const int system = game.galaxy.systemAt(at);
@@ -192,7 +194,9 @@ std::vector<Battle> fightBattles(Game& game, const std::vector<Sector>& skip) {
             if (u.ship < 0) {
                 continue;
             }
-            game.fleets[static_cast<std::size_t>(u.fleet)].ships[static_cast<std::size_t>(u.ship)].hull = std::max(0, u.hull);
+            Ship& ship = game.fleets[static_cast<std::size_t>(u.fleet)].ships[static_cast<std::size_t>(u.ship)];
+            ship.hull = std::max(0, u.hull);
+            ship.experience = std::min(kMaxExperience, ship.experience + kBattleExperience);
             if (u.hull <= 0) {
                 const auto side = std::find(battle.owners.begin(), battle.owners.end(), u.owner) - battle.owners.begin();
                 battle.lost[static_cast<std::size_t>(side)] += 1;
@@ -237,7 +241,7 @@ std::vector<Assault> attackSystems(Game& game) {
         const Sector at = game.galaxy.systems[static_cast<std::size_t>(system)].sector;
         // Armed defenders in the sector must be beaten first.
         const bool defended = std::any_of(game.fleets.begin(), game.fleets.end(), [&](const Fleet& o) {
-            return o.at == at && o.owner == col->owner && std::any_of(o.ships.begin(), o.ships.end(), [&](const Ship& s) {
+            return o.at == at && o.owner == col->owner && !o.cloaked && std::any_of(o.ships.begin(), o.ships.end(), [&](const Ship& s) {
                        const ShipClass* c = classOf(game, s);
                        return c != nullptr && isArmed(*c);
                    });
@@ -326,6 +330,7 @@ bool orderAttack(Game& game, int id) {
     }
     f->destination.reset();
     f->order = Fleet::Order::Attack;
+    f->cloaked = false;
     return true;
 }
 

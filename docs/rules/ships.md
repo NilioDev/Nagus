@@ -51,8 +51,35 @@ own reading of the original's help texts:
   warship from the colony's owner, up to what they have.
 - *Scrap*: the fleet is dismantled at the end of the turn, before it moves
   or fights. Nothing is paid back.
+- *Cloak* (beside *Redeploy*): a fleet whose ships all have a cloaking
+  device (bit 4 at offset 176 of `shiplist.sst`: the Romulans' ships and
+  some of the Klingons') can cloak and decloak. Other empires do not see a
+  cloaked fleet, and it takes no part in battles and does not defend a
+  colony. Ordering it to attack, raid or intercept decloaks it, and a ship
+  without a cloak that joins it shows the fleet.
+- *Intercept*: with at least one warship. The fleet stays where it is, and
+  after all fleets have moved it may catch one enemy fleet it can see that
+  stopped in a neighbouring sector: it moves there and the battle is
+  fought. The chance, shown in the fleet panel, is 40% plus 15% for each
+  sector of speed, up to 95%. The order stays until the fleet is moved.
+- *Enter Wormhole*: in a wormhole's sector. At the end of the turn, before
+  fleets move, the fleet comes out at the wormhole's other end. Our choice:
+  the wormholes are paired in the order of the systems; an odd one out has
+  no endpoint, and a fleet that enters it is lost.
+- *Train Crew*: at one of the empire's colonies with a working structure
+  that gives ship experience (a military or naval academy). Each turn the
+  crews gain 10 points of experience, up to 60.
 
-Moving a fleet cancels its raid or scrap order.
+Moving a fleet cancels its raid, scrap, intercept or training order.
+
+## Crew experience
+
+Each ship's crew has experience from 0 to 100, in five levels of 20 points:
+green, regular, veteran, elite and legendary (shown under each ship in the
+fleet panel). New ships start green. A crew gains 5 points from every
+battle its ship lives through, and up to 60 by training. Each level above
+green adds a twentieth to the ship's firepower in battle. These numbers are
+our own.
 
 ## Seeing
 

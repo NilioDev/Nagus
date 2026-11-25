@@ -308,7 +308,7 @@ std::vector<DiplomacyEvent> diplomacyTurn(Game& g, const std::vector<Battle>& ba
                 seen = seen || exploredBy(g, e, g.galaxy.systems[static_cast<std::size_t>(home)].sector);
             }
             for (const auto& f : g.fleets) {
-                seen = seen || (f.owner == r && visibleTo(g, e, f.at));
+                seen = seen || (f.owner == r && fleetSeen(g, e, f));
             }
             if (seen) {
                 setTreaty(g, e, r, Treaty::Neutral);

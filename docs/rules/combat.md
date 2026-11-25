@@ -12,7 +12,7 @@ Races fight when they are at war (see [diplomacy](diplomacy.md)). After
 fleets move, every sector where ships or
 a colony's defences of enemies meet, and one of them can shoot, has a
 battle. Unarmed ships (colony ships, transports) can be shot but start no
-battle.
+battle. Cloaked fleets take no part (see [ships](ships.md#orders)).
 
 ## A battle
 
@@ -22,7 +22,9 @@ time:
 
 - A ship's firepower is beams × beam damage plus torpedoes × torpedo damage
   from the ship table, divided by five, raised by a tenth for each level of
-  weapons technology. Between half and four fifths of it hits.
+  weapons technology, and by a twentieth for each level of its crew's
+  experience above green (see [ships](ships.md#crew-experience)). Between
+  half and four fifths of it hits.
 - A ship's shields absorb three times their rating, raised by a tenth for
   each level of energy technology, for the whole battle; then the hull takes
   the damage. A ship with no hull left is destroyed.

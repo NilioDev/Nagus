@@ -302,6 +302,8 @@ std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech) {
         s.shields = static_cast<int>(rec.u32());
         rec.u32();
         s.cost = static_cast<int>(rec.u32());
+        rec.seek(at + 0xb0);
+        s.cloak = (rec.u32() & 4u) != 0;
         rec.seek(at + 0x104);
         const std::uint64_t bits = static_cast<std::uint64_t>(rec.u32()) | (static_cast<std::uint64_t>(rec.u32()) << 32);
         double range = 0;

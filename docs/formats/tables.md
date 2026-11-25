@@ -110,6 +110,7 @@ one of the nine is not known yet; Nagus picks one at random.
 | 148 | 4 | Hull |
 | 152 | 4 | Shields |
 | 160 | 4 | Build cost |
+| 176 | 4 | Abilities, as bits: 4 a cloaking device (our reading: set on the Romulans' ships, some of the Klingons' and the Yridian scout); the other bits not understood |
 | 260 | 8 | Range as a double: 0 short, 1 medium, 2 long |
 | 276 | 1 | Scan |
 | 278 | 2 | Capacity: colonists or troops |
