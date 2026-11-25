@@ -24,6 +24,7 @@ add_library(ngs_core STATIC
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp
+    src/ui/load_save_screen.cpp
     src/ui/galaxy_screen.cpp
     src/ui/research_screen.cpp
     src/ui/shell.cpp

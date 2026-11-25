@@ -2,6 +2,7 @@
 #include "nagus/ui/shell.hpp"
 
 #include <algorithm>
+#include <ctime>
 #include <random>
 
 namespace nagus {
@@ -10,6 +11,20 @@ namespace {
 
 constexpr const char* kPointer = "generic.cur";
 constexpr const char* kNoticeFont = "human20.fnt";
+constexpr std::size_t kTurnText = 1370; // "Turn"
+
+std::string today() {
+    const std::time_t now = std::time(nullptr);
+    std::tm t{};
+#ifdef _WIN32
+    localtime_s(&t, &now);
+#else
+    localtime_r(&now, &t);
+#endif
+    char text[32];
+    std::strftime(text, sizeof text, "%d-%m-%Y %H.%M", &t);
+    return text;
+}
 
 
 } // namespace
@@ -27,6 +42,7 @@ void Shell::show(Showing s) {
     empires_.reset();
     system_.reset();
     research_.reset();
+    loadSave_.reset();
     marker_.reset();
     switch (s) {
     case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
@@ -39,6 +55,15 @@ void Shell::show(Showing s) {
     case Showing::Research: research_ = std::make_unique<ResearchScreen>(assets_, *game_); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
+    case Showing::Save:
+    case Showing::Load: {
+        std::array<SaveSlot, kSaveSlots> slots;
+        for (int i = 0; i < kSaveSlots; ++i) {
+            slots[static_cast<std::size_t>(i)] = readSaveSlot(saveSlotFile(savesFolder(), i));
+        }
+        loadSave_ = std::make_unique<LoadSaveScreen>(assets_, s == Showing::Save ? LoadSaveScreen::Mode::Save : LoadSaveScreen::Mode::Load, slots);
+        break;
+    }
     }
     screen().pointerMoved(pointer_);
 }
@@ -50,6 +75,8 @@ MenuScreen& Shell::screen() {
     case Showing::Galaxy: return *galaxy_;
     case Showing::System: return *system_;
     case Showing::Research: return *research_;
+    case Showing::Save:
+    case Showing::Load: return *loadSave_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -63,8 +90,25 @@ void Shell::settle() {
             show(Showing::GameSetup);
         } else if (o == Outcome::Continue && game_) {
             show(Showing::Galaxy);
+        } else if (o == Outcome::Save && game_) {
+            show(Showing::Save);
+        } else if (o == Outcome::Load) {
+            show(Showing::Load);
         } else if (o == Outcome::Quit) {
             quit_ = true;
+        }
+        break;
+    case Showing::Save:
+    case Showing::Load:
+        if (o == Outcome::Accept) {
+            const int slot = loadSave_->chosen();
+            if (showing_ == Showing::Save) {
+                saveTo(slot);
+            } else {
+                loadFrom(slot);
+            }
+        } else if (o == Outcome::Back) {
+            show(Showing::MainMenu);
         }
         break;
     case Showing::GameSetup:
@@ -138,6 +182,32 @@ int Shell::playerColony() const {
         }
     }
     return first;
+}
+
+void Shell::saveTo(int slot) {
+    const int player = game_->player;
+    SaveInfo info;
+    info.name = player >= 0 && static_cast<std::size_t>(player) < game_->raceNames.size()
+                    ? game_->raceNames[static_cast<std::size_t>(player)]
+                    : std::string();
+    info.turn = game_->turn;
+    info.description = assets_.lexicon()[kTurnText] + " " + std::to_string(game_->turn) + ", " + today();
+    if (writeSaveFile(saveSlotFile(savesFolder(), slot), saveGame(*game_, info))) {
+        show(Showing::Galaxy);
+    } else {
+        notice_ = "The game could not be saved.";
+    }
+}
+
+void Shell::loadFrom(int slot) {
+    try {
+        Game loaded = loadGame(readSaveFile(saveSlotFile(savesFolder(), slot)), loadEconomyData(assets_.resources()));
+        galaxy_.reset();
+        game_ = std::make_unique<Game>(std::move(loaded));
+        show(Showing::Galaxy);
+    } catch (const std::exception&) {
+        notice_ = "This saved game cannot be read. It may be damaged, or from another version of Nagus.";
+    }
 }
 
 void Shell::openMarker() {

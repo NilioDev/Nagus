@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/save.hpp"
 
+#include <cstdio>
+#include <fstream>
+
 namespace nagus {
 
 namespace {
@@ -17,6 +20,7 @@ constexpr std::uint32_t kMaxFleets = 100000;
 constexpr std::uint32_t kMaxShips = 10000;
 constexpr std::uint32_t kMaxList = 1000;
 constexpr int kMaxSide = 1000;
+constexpr std::uintmax_t kMaxFileBytes = 64u * 1024 * 1024;
 
 std::string readText(Reader& r) {
     const std::size_t n = r.u16();
@@ -330,6 +334,57 @@ Game loadGame(ByteView data, const EconomyData& economy) {
         throw FormatError("damaged saved game");
     }
     return g;
+}
+
+std::filesystem::path saveSlotFile(const std::filesystem::path& folder, int slot) {
+    char name[32];
+    std::snprintf(name, sizeof name, "slot%02d.sav", slot + 1);
+    return folder / name;
+}
+
+Bytes readSaveFile(const std::filesystem::path& file) {
+    std::error_code ec;
+    const std::uintmax_t size = std::filesystem::file_size(file, ec);
+    if (ec || size > kMaxFileBytes) {
+        throw FormatError("cannot read saved game");
+    }
+    std::ifstream in(file, std::ios::binary);
+    Bytes data(static_cast<std::size_t>(size));
+    if (!in || !in.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(data.size()))) {
+        throw FormatError("cannot read saved game");
+    }
+    return data;
+}
+
+SaveSlot readSaveSlot(const std::filesystem::path& file) {
+    SaveSlot slot;
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(file, ec)) {
+        return slot;
+    }
+    slot.used = true;
+    try {
+        slot.info = readSaveInfo(readSaveFile(file));
+    } catch (const FormatError&) {
+        slot.damaged = true;
+    }
+    return slot;
+}
+
+bool writeSaveFile(const std::filesystem::path& file, const Bytes& data) {
+    std::error_code ec;
+    std::filesystem::create_directories(file.parent_path(), ec);
+    const auto part = std::filesystem::path(file).concat(".part");
+    {
+        std::ofstream out(part, std::ios::binary | std::ios::trunc);
+        out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+        if (!out.flush()) {
+            std::filesystem::remove(part, ec);
+            return false;
+        }
+    }
+    std::filesystem::rename(part, file, ec);
+    return !ec;
 }
 
 } // namespace nagus

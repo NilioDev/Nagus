@@ -138,6 +138,23 @@ int main(int argc, char** argv) {
                 }
                 shot("fleet-sent.bmp");
             }
+            // Saving the game from the main menu, and the list to load it from.
+            shell.command(Command::Back);
+            shell.command(Command::Back);
+            if (const auto r = shell.markerButton(Shell::kMarkerMenu)) {
+                shell.pointerMoved({r->centerX(), r->centerY()});
+                shell.clickAtPointer();
+                press("opening.wdf", MainMenu::kSave);
+                shot("save.bmp");
+                press("loadsave.wdf", LoadSaveScreen::kAccept);
+                shell.command(Command::Back);
+                if (const auto m = shell.markerButton(Shell::kMarkerMenu)) {
+                    shell.pointerMoved({m->centerX(), m->centerY()});
+                    shell.clickAtPointer();
+                }
+                press("opening.wdf", MainMenu::kLoad);
+                shot("load.bmp");
+            }
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "%s\n", e.what());

@@ -30,7 +30,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > click, Esc or B) takes you between the map, your systems, research and the
 > main menu. Build ships at systems with a shipyard; choose a fleet in the
 > list on the left and click a sector on the map to send it there, and use
-> *Orders* → *Colonize* with a colony ship to found new colonies. Combat, the
+> *Orders* → *Colonize* with a colony ship to found new colonies. *Save Game*
+and *Load Game* in the main menu keep up to twelve games. Combat, the
 > other empires' moves, diplomacy and the rest of the game come next. Buttons that do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
@@ -86,6 +87,7 @@ official **1.0.2 patch** (`botf102e.zip`); give it the same way, or press
 The library is in `~/.local/share/NilioDev/Nagus/library` on Linux,
 `%APPDATA%\NilioDev\Nagus\library` on Windows, in *Application Support* on
 macOS and in the app's own storage on Android.
+Saved games are kept in a `saves` folder beside `library`.
 
 If there is a `gamedata` folder with the game and patch next to the program,
 next to the `.AppImage` file or in the current folder, Nagus imports it by
@@ -114,6 +116,7 @@ itself. You can also give files when starting it:
 | Give an order (colonize) | Click *Orders* below the map | | A on *Orders* |
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
+| Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |
 | Full screen on or off | | F11 or Alt+Enter | |
 
 Settings on the set-up screen change with each click on their button. The
