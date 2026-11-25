@@ -77,14 +77,39 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     shell.draw(canvas, 0);
 
     // Pick the Klingons with the pointer, then go on with the gamepad.
+    shell.setSeed(42);
     click(shell, centre(element(assets, "emppick.wdf", 0x2394)));
     shell.command(Command::Start);
     NGS_CHECK(loadSettings(settings).empire == 3);
-    NGS_CHECK(shell.noticeOpen());
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(shell.game() != nullptr && shell.game()->player == 3);
     shell.draw(canvas, 0);
+
+    // The galaxy screen starts on the player's home system.
+    const Game& game = *shell.game();
+    GalaxyScreen& screen = *shell.galaxyScreen();
+    const auto& home = game.galaxy.systems[static_cast<std::size_t>(game.galaxy.homes[3])];
+    NGS_CHECK(screen.chosen() == home.sector);
+    NGS_CHECK(home.name == "Qo'nos");
+    // With the pointer on the map, the d-pad moves the chosen sector.
+    const auto at = screen.sectorCentre(home.sector);
+    NGS_CHECK(at.has_value());
+    shell.pointerMoved(*at);
+    shell.command(Command::Right);
+    if (home.sector.x + 1 < game.galaxy.width) {
+        NGS_CHECK(screen.chosen() == (Sector{home.sector.x + 1, home.sector.y}));
+    }
+    // The Map button shows the whole galaxy, where every sector is in view.
+    click(shell, centre(element(assets, "kmaingal.wdf", GalaxyScreen::kWholeMap)));
+    NGS_CHECK(screen.wholeMap());
+    NGS_CHECK(screen.sectorCentre({game.galaxy.width - 1, game.galaxy.height - 1}).has_value());
+    shell.draw(canvas, 0);
+
+    // Back opens the main menu, where Continue goes back to the game.
     shell.command(Command::Back);
-    NGS_CHECK(!shell.noticeOpen());
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kContinue)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
     fs::remove(settings);
 }
 

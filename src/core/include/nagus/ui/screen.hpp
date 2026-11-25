@@ -45,7 +45,12 @@ public:
     Panel(Assets& assets, const std::string& layoutName);
 
     const Layout& layout() const { return *layout_; }
+    // Where an element is on the screen.
     Rect rect(std::uint32_t id) const;
+    // Places the layout's top left corner (by default where the layout
+    // says), for layouts drawn inside another screen's area.
+    void setOrigin(Point p) { origin_ = p; }
+    Point origin() const;
 
     // Draws the background and the buttons. Buttons that cannot be used now
     // are drawn darker.
@@ -67,6 +72,7 @@ public:
     std::optional<Point> step(Command direction, Point from) const;
 
 private:
+    std::optional<Point> origin_;
     struct State {
         bool enabled = true;
         bool visible = true;

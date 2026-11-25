@@ -25,6 +25,12 @@ public:
     int height() const { return image_.height; }
     const Image& image() const { return image_; }
 
+    // Drawing outside the clip rectangle is left out (all of the canvas
+    // unless set).
+    void setClip(const Rect& r);
+    void clearClip() { clip_ = {0, 0, width(), height()}; }
+    const Rect& clip() const { return clip_; }
+
     void clear(Pixel colour = rgb(0, 0, 0));
     void fill(const Rect& r, Pixel colour);
     // Draws a picture with its see-through pixels left out.
@@ -39,6 +45,7 @@ public:
 
 private:
     Image image_;
+    Rect clip_{0, 0, image_.width, image_.height};
 };
 
 } // namespace nagus

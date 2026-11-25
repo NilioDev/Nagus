@@ -16,9 +16,13 @@ and with gamepad, mouse, keyboard and touch controls.
 > set-up screen, where galaxy shape and size, minor races, difficulty,
 > the starting level of each empire, random events, tactical combat and
 > victory conditions can be set (Nagus remembers them), and then the
-> empire choice, with each empire's portrait and description. Making the
-> galaxy and playing the game itself come next; for now Nagus says so and
-> goes back to the main menu. Buttons that do not work yet are shown dimmed.
+> empire choice, with each empire's portrait and description. Nagus then
+> makes a galaxy in the chosen shape and size, with the empires' home
+> systems and the minor races, and shows it on your empire's main screen:
+> move over the map, pick a sector to see what lies there, and switch
+> between the close view and the whole galaxy. Turns, colonies, ships and
+> the rest of the game come next. Buttons that do not work yet are shown
+> dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.
@@ -88,7 +92,10 @@ itself. You can also give files when starting it:
 | Press the button under the pointer | Click or tap | Enter or Space | A |
 | Back, Cancel | Right click | Esc or Backspace | B or Back |
 | Accept, start a new game | | | Start |
-| Next / previous empire (empire choice) | | Tab or Page Down / Page Up | RB / LB |
+| Next / previous empire (empire choice), next / previous home system (map) | | Tab or Page Down / Page Up | RB / LB |
+| Move over the galaxy map (pointer on the map) | Click a sector | Arrow keys | D-pad or right stick |
+| Close view or whole galaxy | Click *Map* | | A on *Map* |
+| Back to the main menu while playing (*Continue* returns) | Right click | Esc | B |
 | Full screen on or off | | F11 or Alt+Enter | |
 
 Settings on the set-up screen change with each click on their button. The

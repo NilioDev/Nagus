@@ -12,7 +12,7 @@
 namespace nagus {
 
 // What a screen asks the shell to do next.
-enum class Outcome { None, NewGame, Back, Accept, Quit };
+enum class Outcome { None, NewGame, Continue, Back, Accept, Quit };
 
 class MenuScreen : public Screen {
 public:
@@ -39,7 +39,8 @@ public:
     static constexpr std::uint32_t kOptions = 0x164;
     static constexpr std::uint32_t kRetire = 0x2580;
 
-    explicit MainMenu(Assets& assets);
+    // With a game running, Continue goes back to it.
+    MainMenu(Assets& assets, bool gameRunning = false);
     void draw(Canvas& canvas, std::uint64_t ms) override;
     void pointerMoved(Point p) override {
         last_ = p;

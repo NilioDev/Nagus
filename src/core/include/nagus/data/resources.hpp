@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace nagus {
 
@@ -25,6 +26,10 @@ public:
     bool has(std::string_view name) const;
     // The file's bytes. Throws FormatError when there is no such file.
     Bytes file(std::string_view name) const;
+
+    // The names (in lower case) of all files whose name ends with the given
+    // text, such as ".wdf", sorted.
+    std::vector<std::string> names(std::string_view ending) const;
 
     // Other files of the base pack, outside the archive (sounds, movies).
     std::filesystem::path loose(std::string_view name) const { return base_ / lower(name); }

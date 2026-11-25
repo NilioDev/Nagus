@@ -4,7 +4,10 @@
 // work without a window:
 //
 //   ngs_snapshot <library folder> <output folder>
+//   ngs_snapshot <library folder> <output folder> <layout.wdf>...
 //
+// The second form draws each layout with its background and buttons and
+// outlines every element with its number, to see what a screen holds.
 // The library folder is one the app or the tests imported the game into.
 #include "nagus/ui/shell.hpp"
 
@@ -41,8 +44,8 @@ void writeBmp(const std::filesystem::path& file, const Image& img) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::fprintf(stderr, "usage: ngs_snapshot <library folder> <output folder>\n");
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: ngs_snapshot <library folder> <output folder> [layout.wdf...]\n");
         return 2;
     }
     try {
@@ -50,6 +53,25 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(out);
         auto res = std::make_shared<Resources>(argv[1]);
         Assets assets(res);
+        if (argc > 3) {
+            const Font& font = assets.font("human9.fnt");
+            for (int i = 3; i < argc; ++i) {
+                Canvas canvas;
+                Panel panel(assets, argv[i]);
+                panel.draw(canvas);
+                for (const auto& e : panel.layout().elements) {
+                    canvas.frame(e.rect, rgb(255, 0, 255));
+                    char label[32];
+                    std::snprintf(label, sizeof label, "%x", e.id);
+                    canvas.text(font, label, e.rect.x + 2, e.rect.y + 1, rgb(255, 255, 0));
+                    std::printf("%s %x kind=%d %d,%d %dx%d %s %s %s\n", argv[i], e.id, static_cast<int>(e.kind),
+                                e.rect.x, e.rect.y, e.rect.w, e.rect.h, e.upImage.c_str(), e.downImage.c_str(),
+                                e.font.c_str());
+                }
+                writeBmp(out / (std::string(argv[i]) + ".bmp"), canvas.image());
+            }
+            return 0;
+        }
         Shell shell(res, out / "settings.txt");
         Canvas canvas;
         auto shot = [&](const char* name) {
@@ -68,10 +90,13 @@ int main(int argc, char** argv) {
         press("opening.wdf", MainMenu::kNewSinglePlayer);
         shot("game-setup.bmp");
         press("gmesetup.wdf", GameSetup::kAccept);
+        shell.setSeed(7);
         press("emppick.wdf", 0x2392);
         shot("empire-select.bmp");
         shell.command(Command::Start);
-        shot("not-yet.bmp");
+        shot("galaxy.bmp");
+        press("hmaingal.wdf", GalaxyScreen::kWholeMap);
+        shot("galaxy-whole.bmp");
     } catch (const std::exception& e) {
         std::fprintf(stderr, "%s\n", e.what());
         return 1;

@@ -27,7 +27,7 @@ struct Rect {
 };
 
 struct LayoutElement {
-    enum class Kind { Button, Slider, ScrollBar, Picture, Text };
+    enum class Kind { Button, Slider, ScrollBar, Picture, Text, List, Other };
     Kind kind = Kind::Picture;
     std::uint32_t id = 0;
     Rect rect;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/data/layout.hpp"
 
+#include <algorithm>
+
 namespace nagus {
 
 namespace {
@@ -25,6 +27,41 @@ Rect readRect(Reader& r) {
     }
     return rect;
 }
+
+// Sizes of the element records Nagus knows.
+std::size_t elementSize(std::uint32_t type) {
+    switch (type) {
+    case 2: return 76;   // button
+    case 5: return 227;  // list
+    case 7: return 119;  // slider
+    case 8: return 75;   // scroll bar
+    case 12: return 181; // a box of several lines (not yet understood)
+    case 13: return 41;  // picture slot
+    case 14: return 101; // text field
+    default: return 0;
+    }
+}
+
+// Whether an element record plausibly starts here.
+bool elementAt(ByteView data, std::size_t pos) {
+    if (pos + 24 > data.size()) {
+        return false;
+    }
+    Reader r(data, pos);
+    const std::uint32_t type = r.u32();
+    const std::uint32_t id = r.u32();
+    const int x = r.i32();
+    const int y = r.i32();
+    const int w = r.i32();
+    const int h = r.i32();
+    return elementSize(type) != 0 && pos + elementSize(type) <= data.size() && id < 0x1000000 &&
+           x > -kMaxCoordinate && x < kMaxCoordinate && y > -kMaxCoordinate && y < kMaxCoordinate && w >= 0 &&
+           h >= 0 && w < kMaxCoordinate && h < kMaxCoordinate;
+}
+
+// Some records carry extra data that Nagus does not understand yet; it is
+// skipped up to the next record.
+constexpr std::size_t kMaxExtra = 512;
 
 } // namespace
 
@@ -66,14 +103,16 @@ Layout readLayout(ByteView data) {
             e.downImage = pictureName(r.text(kNameSize));
             break;
         }
-        case 7: // slider: 119 bytes
-        case 8: { // scroll bar: 73 bytes
+        case 7: // slider
+        case 8: { // scroll bar
             e.kind = type == 7 ? LayoutElement::Kind::Slider : LayoutElement::Kind::ScrollBar;
-            const std::size_t size = type == 7 ? 119 : 73;
             e.images.push_back(pictureName(r.text(kNameSize)));
-            r.seek(start + size);
             break;
         }
+        case 5:
+        case 12:
+            e.kind = type == 5 ? LayoutElement::Kind::List : LayoutElement::Kind::Other;
+            break;
         case 13: { // picture slot: 41 bytes
             e.kind = LayoutElement::Kind::Picture;
             r.text(kNameSize);
@@ -97,6 +136,17 @@ Layout readLayout(ByteView data) {
         }
         default:
             throw FormatError("unknown element in screen layout");
+        }
+        r.seek(start + elementSize(type));
+        if (r.left() > 0 && !elementAt(data, r.pos())) {
+            std::size_t next = r.pos() + 1;
+            while (next < data.size() && next <= r.pos() + kMaxExtra && !elementAt(data, next)) {
+                ++next;
+            }
+            if (next < data.size() && !elementAt(data, next)) {
+                throw FormatError("unknown data in screen layout");
+            }
+            r.seek(std::min(next, data.size()));
         }
         layout.elements.push_back(std::move(e));
     }
