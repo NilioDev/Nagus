@@ -59,6 +59,14 @@ public:
     static constexpr std::uint32_t kStructuresTitle = 0x8c2;
     static constexpr std::uint32_t kStructuresBack = 0x896;
     static constexpr std::uint32_t kStructuresNext = 0x897;
+    // <x>numdlg.wdf: how many structures of a kind to scrap.
+    static constexpr std::uint32_t kScrapUp = 0x52;
+    static constexpr std::uint32_t kScrapDown = 0x53;
+    static constexpr std::uint32_t kScrapCount = 0x54;
+    static constexpr std::uint32_t kScrapText = 0x55;
+    static constexpr std::uint32_t kScrapApply = 0x56;
+    static constexpr std::uint32_t kScrapCancel = 0x57;
+    static constexpr std::uint32_t kScrapTitle = 0x264a;
     // In the energy panel: fourteen places for structures that use energy.
     static constexpr std::uint32_t kEnergyTitle = 0x960;
     static constexpr std::uint32_t kEnergyBar = 0x964;
@@ -85,6 +93,13 @@ public:
     void addChosen();
     // Where a line of the build list is, when shown.
     std::optional<Rect> optionRect(int i) const;
+    // The structures tab: where the picture of a place (0-5) on this page
+    // is, when a structure is there; clicking it asks how many of its kind
+    // to scrap.
+    std::optional<Rect> structureRect(int place) const;
+    bool scrapOpen() const { return scrapBuilding_ >= 0; }
+    int scrapCount() const { return scrapCount_; }
+    std::optional<Rect> scrapButton(std::uint32_t id) const;
 
 private:
     Colony& col() { return game_.colonies[static_cast<std::size_t>(colony_)]; }
@@ -119,6 +134,11 @@ private:
     int chosenOption_ = 0;
     int firstOption_ = 0; // the first line shown
     int structurePage_ = 0;
+    Panel scrap_;
+    int scrapBuilding_ = -1; // the kind being scrapped, -1 for none
+    int scrapCount_ = 1;
+    int scrapMost() const;
+    void scrapClicked(std::uint32_t id);
     Point pointer_;
     std::vector<std::string> animations_;
 };

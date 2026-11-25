@@ -67,6 +67,15 @@ only there, and those that need a planet type only where there is one. Not
 offered yet: structures of minor races, those for special planets (such as
 dilithium) and those for conquered systems. The queue holds five items.
 
+## Scrapping structures
+
+On the system screen's *Structures* page, clicking a structure opens the
+original's number dialog (`<x>numdlg.wdf`): how many of that kind to scrap,
+from one up to as many as the colony has, then *Apply* (or *Cancel*). The
+last built go first. Nagus scraps them at once, and gives nothing back for
+them (our choice; the original's help says they go at the end of the
+turn).
+
 ## Bonuses
 
 Each terraformed planet with a food or energy bonus (see

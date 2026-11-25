@@ -97,6 +97,10 @@ struct Colony {
 inline constexpr int kPlanetBonusPercent = 25;
 inline constexpr int kDilithiumPercent = 25;
 
+// Scraps up to `count` of a colony's structures of one building; returns
+// how many went.
+int scrapStructures(Colony& c, int building, int count);
+
 // What a colony makes in one turn.
 struct ColonyOutput {
     std::array<int, kOutputs> made{};

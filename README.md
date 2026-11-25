@@ -167,6 +167,7 @@ itself. You can also give files when starting it:
 | Next / previous tab (system screen) | | Tab or Page Down / Page Up | RB / LB |
 | Choose from the build list, then build it | Click a line, then click it again | Arrow keys on the list, Enter | D-pad on the list, A |
 | Take an item out of the build queue | Click it | | A on it |
+| Scrap structures (system screen, *Structures*) | Click one, choose how many of its kind, *Apply* | | Left stick to it, A, D-pad to the arrows and *Apply* |
 | Empire summary: events, treaties, your systems | Click *Summary* on the map | Tab or Page Down / Page Up between the lists | A on *Summary*, RB / LB |
 | Marker window: go to the map, your systems, diplomacy, intelligence, research or the main menu | Right click | Esc | B |
 | Choose a fleet in the chosen sector | Click it in the list on the left (its arrows scroll through many) | | A on it |
