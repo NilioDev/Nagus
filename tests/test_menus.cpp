@@ -404,6 +404,9 @@ NGS_TEST("the intelligence screen: the plan, the reports and the empires") {
     IntelScreen& s = *shell.intelScreen();
     NGS_CHECK(s.tab() == IntelScreen::Tab::Management);
     shell.draw(canvas, 0);
+    // In the game the empire's theme plays, and buttons click.
+    NGS_CHECK(shell.wantedTrack() == 1 + game.player && shell.jukebox().musicTrack() == 1 + game.player);
+    NGS_CHECK(shell.clickSound() == 76 + game.player && shell.jukebox().soundsPlaying());
 
     // Security, and espionage against the first empire shown.
     EmpireState& me = game.empires[static_cast<std::size_t>(game.player)];

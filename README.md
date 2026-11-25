@@ -44,7 +44,9 @@ and with gamepad, mouse, keyboard and touch controls.
 > between security at home and espionage and sabotage against each other
 > empire, choose what your agents aim at (general, science, economy or
 > military), read what they did and what was done to you, and compare the
-> empires. Music, sound and the end of the game come next. Buttons that do not work yet are shown
+> empires. The original's music plays, the main theme in the menus and
+> your empire's theme in the game, and buttons click. Films and the end of
+> the game come next. Buttons that do not work yet are shown
 > dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original

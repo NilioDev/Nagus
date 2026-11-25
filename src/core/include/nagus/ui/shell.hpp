@@ -7,6 +7,7 @@
 
 #include "nagus/game/game.hpp"
 #include "nagus/settings.hpp"
+#include "nagus/sound/jukebox.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/intel_screen.hpp"
@@ -65,6 +66,18 @@ public:
     bool markerOpen() const { return marker_ != nullptr; }
     // Where a button of the marker window is, while it is open.
     std::optional<Rect> markerButton(std::uint32_t id) const;
+    // The music and sounds; the app takes the mixed samples from it.
+    Jukebox& jukebox() { return jukebox_; }
+    // The music track for what is shown: the main theme in the menus, the
+    // player's empire's theme in the game (our choice, see
+    // docs/formats/sound.md).
+    int wantedTrack() const;
+    // The click sound of a button, for the player's empire.
+    int clickSound() const;
+    // Plays the click for buttons pressed and changes the music to suit
+    // what is shown. Called as each frame is drawn.
+    void updateSound();
+
     // The seed for the next new galaxy (random unless set, for tests).
     void setSeed(std::uint32_t seed) { seed_ = seed; }
 
@@ -74,6 +87,8 @@ private:
     MenuScreen& screen();
 
     Assets assets_;
+    Jukebox jukebox_;
+    std::uint64_t clicksHeard_ = 0;
     std::filesystem::path settingsFile_;
     GameSettings settings_;
     Showing showing_ = Showing::MainMenu;
