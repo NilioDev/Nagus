@@ -143,9 +143,13 @@ void Importer::commitGame() {
         throw FormatError("no resource archive (STBOF.RES) found");
     }
     // Checks that the main archive opens before it replaces what is there.
-    ZipArchive check(std::make_shared<FileSource>(staging / "stbof.res"));
-    if (check.find("lexicon.dic") == nullptr) {
-        throw FormatError("STBOF.RES is not the game's resource archive");
+    // The check is closed again before the files move: Windows cannot
+    // rename a file that is open.
+    {
+        const ZipArchive check(std::make_shared<FileSource>(staging / "stbof.res"));
+        if (check.find("lexicon.dic") == nullptr) {
+            throw FormatError("STBOF.RES is not the game's resource archive");
+        }
     }
     const fs::path base = baseDir(library_);
     fs::create_directories(base);
