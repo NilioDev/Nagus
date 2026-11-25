@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/ai.hpp"
 
+#include "nagus/game/combat.hpp"
+
 #include <algorithm>
 #include <limits>
 
@@ -14,6 +16,9 @@ constexpr int kColonyShips = 2;
 // Warships wanted: one for each this many turns, by difficulty (simple ...
 // impossible).
 constexpr int kTurnsPerWarship[GameSettings::kDifficulties] = {40, 30, 20, 15, 10};
+// Warships waiting at home before they go to attack, by difficulty.
+constexpr int kStrikeGroup[GameSettings::kDifficulties] = {6, 5, 4, 3, 3};
+constexpr int kTransports = 2;
 
 bool isWarship(ShipRole r) {
     return r == ShipRole::Destroyer || r == ShipRole::Cruiser || r == ShipRole::StrikeCruiser ||
@@ -34,6 +39,8 @@ bool fleetHas(const Game& g, const Fleet& f, bool (*test)(ShipRole)) {
 }
 
 bool isColonyShip(ShipRole r) { return r == ShipRole::Colony; }
+bool isTransport(ShipRole r) { return r == ShipRole::Transport; }
+bool isWarshipRole(ShipRole r) { return isWarship(r); }
 bool isScout(ShipRole r) { return r == ShipRole::Scout; }
 
 // A number from the game's state, for choices that should vary but be the
@@ -49,7 +56,9 @@ std::uint32_t mix(std::uint32_t a, std::uint32_t b, std::uint32_t c) {
 struct Census {
     int colonyShips = 0; // in fleets and in build queues
     int warships = 0;
+    int transports = 0;
     int colonies = 0;
+    bool attacking = false; // a fleet is attacking a system
 };
 
 Census count(const Game& g, int empire) {
@@ -62,7 +71,9 @@ Census count(const Game& g, int empire) {
             const ShipClass* c = classOf(g, s);
             n.colonyShips += c != nullptr && c->role == ShipRole::Colony ? 1 : 0;
             n.warships += c != nullptr && isWarship(c->role) ? 1 : 0;
+            n.transports += c != nullptr && c->role == ShipRole::Transport ? 1 : 0;
         }
+        n.attacking = n.attacking || f.order == Fleet::Order::Attack;
     }
     for (const auto& c : g.colonies) {
         if (c.owner != empire) {
@@ -75,6 +86,7 @@ Census count(const Game& g, int empire) {
                 const ShipRole r = g.economy.ships[static_cast<std::size_t>(q.building)].role;
                 n.colonyShips += r == ShipRole::Colony ? 1 : 0;
                 n.warships += isWarship(r) ? 1 : 0;
+                n.transports += r == ShipRole::Transport ? 1 : 0;
             }
         }
     }
@@ -149,9 +161,15 @@ std::optional<BuildItem> choose(const Game& g, const Colony& c, const Census& ce
         }
     }
     // Warships, more of them as the game goes on.
-    const int difficulty = std::clamp(g.settings.difficulty, 0, GameSettings::kDifficulties - 1);
-    if (census.warships < 1 + g.turn / kTurnsPerWarship[difficulty]) {
+    const int level = std::clamp(g.settings.difficulty, 0, GameSettings::kDifficulties - 1);
+    if (census.warships < 1 + g.turn / kTurnsPerWarship[level]) {
         if (auto sh = ship(isWarship)) {
+            return sh;
+        }
+    }
+    // Troops to take a system the warships are attacking.
+    if (census.attacking && census.transports < kTransports) {
+        if (auto sh = ship(isTransport)) {
             return sh;
         }
     }
@@ -212,6 +230,51 @@ std::optional<int> colonyTarget(const Game& g, const Fleet& f, const std::vector
         }
     }
     return best;
+}
+
+int difficulty(const Game& g) { return std::clamp(g.settings.difficulty, 0, GameSettings::kDifficulties - 1); }
+
+// Warships with nothing to do.
+int idleWarships(const Game& g, int empire) {
+    int n = 0;
+    for (const auto& f : g.fleets) {
+        if (f.owner == empire && !f.destination && f.order == Fleet::Order::None && fleetHas(g, f, isWarshipRole)) {
+            n += 1;
+        }
+    }
+    return n;
+}
+
+// The enemy colony to attack: one the empire knows of, within reach, the
+// nearest to the fleet.
+std::optional<int> attackTarget(const Game& g, int empire, const Fleet& f) {
+    const int range = fleetRange(f, g.economy, g.empires[static_cast<std::size_t>(empire)]);
+    std::optional<int> best;
+    int bestDistance = std::numeric_limits<int>::max();
+    for (const auto& c : g.colonies) {
+        const Sector at = g.galaxy.systems[static_cast<std::size_t>(c.system)].sector;
+        if (!hostile(g, empire, c.owner) || !exploredBy(g, empire, at) ||
+            distanceFromColonies(at, empire, g.colonies, g.galaxy) > range) {
+            continue;
+        }
+        if (const int d = distance(f.at, at); d < bestDistance) {
+            best = c.system;
+            bestDistance = d;
+        }
+    }
+    return best;
+}
+
+// Where the empire's warships are attacking, for its transports.
+std::optional<Sector> attackedSector(const Game& g, int empire, const Fleet& f) {
+    const int range = fleetRange(f, g.economy, g.empires[static_cast<std::size_t>(empire)]);
+    for (const auto& o : g.fleets) {
+        if (o.owner == empire && o.order == Fleet::Order::Attack &&
+            distanceFromColonies(o.at, empire, g.colonies, g.galaxy) <= range) {
+            return o.at;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace
@@ -303,8 +366,23 @@ void playEmpire(Game& game, int empire) {
                     break;
                 }
             }
+        } else if (fleetHas(game, f, isWarshipRole) || fleetHas(game, f, isTransport)) {
+            if (orderAttack(game, id)) {
+                continue;
+            }
+            // Transports join an attack; warships go once there are enough.
+            if (fleetHas(game, f, isTransport) && !fleetHas(game, f, isWarshipRole)) {
+                if (const auto to = attackedSector(game, empire, f)) {
+                    orderMove(game, id, *to);
+                }
+                continue;
+            }
+            if (idleWarships(game, empire) >= kStrikeGroup[difficulty(game)]) {
+                if (const auto target = attackTarget(game, empire, f)) {
+                    orderMove(game, id, game.galaxy.systems[static_cast<std::size_t>(*target)].sector);
+                }
+            }
         }
-        // Warships stay to guard home for now.
     }
 }
 

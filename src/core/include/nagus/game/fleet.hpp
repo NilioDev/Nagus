@@ -22,7 +22,7 @@ struct Ship {
 };
 
 struct Fleet {
-    enum class Order : std::uint8_t { None, Colonize };
+    enum class Order : std::uint8_t { None, Colonize, Attack };
     int id = 0;
     int owner = -1;
     Sector at;

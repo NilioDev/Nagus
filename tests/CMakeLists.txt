@@ -4,6 +4,7 @@ add_executable(ngs_tests
     test_formats.cpp
     test_economy.cpp
     test_ai.cpp
+    test_combat.cpp
     test_fleets.cpp
     test_save.cpp
     test_galaxy.cpp

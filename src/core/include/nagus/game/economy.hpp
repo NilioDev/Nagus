@@ -34,14 +34,17 @@ inline constexpr int kIndustry = 13;
 inline constexpr int kIndustryPercent = 14;
 inline constexpr int kDefense = 17;
 inline constexpr int kShipyard = 18;
+inline constexpr int kShieldPerEnergyTech = 19;
 inline constexpr int kMorale = 20;
 inline constexpr int kScanRange = 29;
 inline constexpr int kResearchPoints = 30;
 inline constexpr int kIntelPoints = 32;
 inline constexpr int kMoraleToo = 36;
+inline constexpr int kGroundDefense = 37;
 inline constexpr int kEnergyToo = 38;
 inline constexpr int kFoodToo = 42;
 inline constexpr int kSpecialShipyard = 43;
+inline constexpr int kGroundCombat = 44;
 } // namespace bonus
 
 struct EconomyData {

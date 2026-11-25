@@ -34,8 +34,10 @@ and with gamepad, mouse, keyboard and touch controls.
 > and *Load Game* in the main menu keep up to twelve games. The other four
 > empires are played by the computer: they build, settle new systems and
 > send out scouts and warships. The map shows only what your empire has
-> explored, with each empire's space in its colour. Combat, diplomacy and
-> the rest of the game come next. Buttons that do not work yet are shown
+> explored, with each empire's space in its colour. Empires at war fight
+> when their fleets meet (resolved automatically); *Orders* → *Attack
+> System* bombards an enemy colony, and troop transports invade it.
+> Diplomacy and the rest of the game come next. Buttons that do not work yet are shown
 > dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
@@ -117,7 +119,7 @@ itself. You can also give files when starting it:
 | Marker window: go to the map, your systems, research or the main menu | Right click | Esc | B |
 | Choose a fleet in the chosen sector | Click it in the list on the left | | A on it |
 | Send the chosen fleet | Click a sector on the map (its own sector stops it) | | D-pad to the sector, A |
-| Give an order (colonize) | Click *Orders* below the map | | A on *Orders* |
+| Give an order (colonize, attack system) | Click *Orders* below the map | | A on *Orders* |
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |

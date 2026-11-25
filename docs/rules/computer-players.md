@@ -16,9 +16,11 @@ A colony with an empty build queue chooses one thing, the first of:
    and there are more free systems within reach than it has colony ships;
 4. the best warship it can build, while the empire has fewer than one, plus
    one for every 40, 30, 20, 15 or 10 turns (simple to impossible);
-5. an upgrade to better facilities;
-6. the cheapest structure there is spare energy for;
-7. another facility: industry, research, energy, food, intelligence.
+5. a troop transport, while its fleets attack a system and it has fewer
+   than two;
+6. an upgrade to better facilities;
+7. the cheapest structure there is spare energy for;
+8. another facility: industry, research, energy, food, intelligence.
 
 Credits over a reserve of 150 buy what is being built, colony ships first.
 
@@ -29,6 +31,10 @@ Credits over a reserve of 150 buy what is being built, colony ships first.
   Two colony ships do not go to the same system.
 - Scouts go to a sector up to four steps away, within range, a different
   one each turn they are idle.
-- Warships stay where they are built, to guard.
+- Warships wait where they are built until the empire has 6, 5, 4, 3 or 3
+  idle warships (simple to impossible); then they go to the nearest enemy
+  colony it knows of within range, and attack it (see [combat](combat.md)).
+- Troop transports go to a system the empire's warships are attacking, and
+  join the attack.
 
 Research keeps the starting shares.

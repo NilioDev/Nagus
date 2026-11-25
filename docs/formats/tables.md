@@ -96,10 +96,14 @@ one of the nine is not known yet; Nagus picks one at random.
 | 88 | 8 | Picture name: `i_<name>30.tga`, `60`, `120`, `170` |
 | 102 | 2 | Index |
 | 104 | 2 | Role: scout, destroyer, cruiser, strike cruiser, command, colony ship, outpost, starbase, special, transport |
-| 108 | 4 | Beam strength (our reading) |
+| 108 | 4 | Not understood (115 to 242, larger on stronger ships) |
 | 112 | 4 | Beam count (our reading) |
-| 128 | 4 | Torpedo strength (our reading) |
+| 116 | 4 | Always 1 |
+| 120 | 4 | Damage of one beam (our reading: 16 on a scout, 49 on a battleship) |
+| 128 | 4 | Not understood (like offset 108, for torpedoes) |
 | 132 | 4 | Torpedo count (our reading) |
+| 136 | 4 | Always 1 |
+| 140 | 4 | Damage of one torpedo (our reading) |
 | 148 | 4 | Hull |
 | 152 | 4 | Shields |
 | 160 | 4 | Build cost |

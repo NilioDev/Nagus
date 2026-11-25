@@ -131,10 +131,10 @@ struct ShipClass {
     int race = 0;         // 0-4 an empire, 5 and up a minor race, 36 monsters
     int hull = 0;
     int shields = 0;
-    int beamDamage = 0;   // our reading: the strength of its beams
-    int beamCount = 0;
-    int torpedoDamage = 0;
+    int beamCount = 0;    // our reading: beams fired a round
+    int beamDamage = 0;   // our reading: damage of one beam
     int torpedoCount = 0;
+    int torpedoDamage = 0;
     int cost = 0;         // industry
     int range = 0;        // 0 short, 1 medium, 2 long
     int scan = 0;         // added to the scan range
