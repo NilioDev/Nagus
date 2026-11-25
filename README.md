@@ -47,7 +47,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > empires. The original's music plays, the main theme in the menus and
 > your empire's theme in the game, and buttons click. The opening film plays
 > when Nagus starts, and your empire's film when a new game begins (any
-> click, key or button skips it). The end of the game comes next. Buttons that do not work yet are shown
+> click, Enter, Esc or gamepad button skips it). The end of the game comes
+> next. Buttons that do not work yet are shown
 > dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
@@ -119,7 +120,7 @@ itself. You can also give files when starting it:
 | Press the button under the pointer | Click or tap | Enter or Space | A |
 | Back, Cancel | Right click | Esc or Backspace | B or Back |
 | Accept, start a new game | | | Start |
-| Skip a film | Click or tap | Any key | Any button |
+| Skip a film | Click or tap | Enter, Space or Esc | A, B or Start |
 | Next / previous empire (empire choice), next / previous home system (map) | | Tab or Page Down / Page Up | RB / LB |
 | Move over the galaxy map (pointer on the map) | Click a sector | Arrow keys | D-pad or right stick |
 | Close view or whole galaxy | Click *Map* | | A on *Map* |
