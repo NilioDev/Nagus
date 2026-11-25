@@ -5,6 +5,7 @@
 
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
+#include "nagus/game/economy.hpp"
 #include "nagus/game/galaxy.hpp"
 #include "nagus/settings.hpp"
 
@@ -18,12 +19,32 @@ struct Game {
     // From the game's tables, for showing the galaxy.
     std::vector<std::string> kindCodes; // map object kinds (see StarObjectKind)
     std::vector<std::string> raceNames;
+
+    EconomyData economy;
+    std::vector<Colony> colonies;
+    std::array<EmpireState, kEmpires> empires{};
+
+    // The colony on a system, or null.
+    Colony* colonyAt(int system);
+    const Colony* colonyAt(int system) const;
 };
+
+// Ends the turn: every colony makes, builds and grows.
+struct TurnSummary {
+    std::vector<std::string> events; // for the player
+};
+TurnSummary endTurn(Game& game);
 
 // Reads what the galaxy maker needs from the game's files.
 GalaxyData loadGalaxyData(const Resources& resources, const Lexicon& lexicon);
 
-Game newGame(const GameSettings& settings, const GalaxyData& data, std::uint32_t seed);
+EconomyData loadEconomyData(const Resources& resources);
+
+Game newGame(const GameSettings& settings, const GalaxyData& data, const EconomyData& economy, std::uint32_t seed);
+
+// The technology level every field starts at, by the civilization setting
+// (beginning ... advanced; our choice).
+inline constexpr int kStartTech[GameSettings::kCivilizations] = {1, 2, 3, 4, 5};
 
 // The animation that shows a planet, from the names of the game's animations
 // (with ".ani"). The names spell type, atmosphere, a variant and the size:

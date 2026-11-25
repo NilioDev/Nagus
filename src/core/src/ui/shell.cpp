@@ -70,7 +70,7 @@ void Shell::settle() {
             settings_ = empires_->settings();
             saveSettings(settingsFile_, settings_);
             const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
-            game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), seed));
+            game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), loadEconomyData(assets_.resources()), seed));
             show(Showing::Galaxy);
         } else if (o == Outcome::Back) {
             show(Showing::GameSetup);
