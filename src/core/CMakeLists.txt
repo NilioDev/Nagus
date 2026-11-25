@@ -22,6 +22,7 @@ add_library(ngs_core STATIC
     src/game/combat.cpp
     src/game/diplomacy.cpp
     src/game/game.cpp
+    src/game/events.cpp
     src/game/victory.cpp
     src/data/cursor.cpp
     src/game_files.cpp
@@ -35,6 +36,7 @@ add_library(ngs_core STATIC
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp
+    src/ui/options_screen.cpp
     src/ui/load_save_screen.cpp
     src/ui/diplomacy_screen.cpp
     src/ui/ending_screen.cpp

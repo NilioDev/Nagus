@@ -4,6 +4,7 @@
 #include "nagus/game/ai.hpp"
 #include "nagus/game/combat.hpp"
 #include "nagus/game/diplomacy.hpp"
+#include "nagus/game/events.hpp"
 #include "nagus/game/intel.hpp"
 #include "nagus/game/research.hpp"
 #include "nagus/game/victory.hpp"
@@ -309,6 +310,7 @@ TurnSummary endTurn(Game& game) {
     }
     repairShips(game);
     summary.intel = intelTurn(game);
+    summary.happenings = randomEvents(game);
     for (int e = 0; e < kEmpires; ++e) {
         auto& empire = game.empires[static_cast<std::size_t>(e)];
         const auto reached = researchTurn(empire, game.economy.techs);

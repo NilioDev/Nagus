@@ -124,7 +124,7 @@ NGS_TEST("sound: archives and the jukebox") {
 
     // The jukebox mixes the effect over silence.
     Jukebox box(nullptr, std::move(effects));
-    box.setVolumes(100, 50);
+    box.setVolumes(100, 50, 100);
     box.playEffect(0);
     box.playEffect(99); // no such sound: nothing
     NGS_CHECK(box.soundsPlaying());

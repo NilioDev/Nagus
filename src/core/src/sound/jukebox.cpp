@@ -57,7 +57,7 @@ void Jukebox::nextPiece() {
     for (int tries = 0; tries < n; ++tries) {
         piece_ = (piece_ + 1) % n;
         try {
-            current_ = Voice{std::make_shared<const Pcm>(music_->piece(track_, piece_)), 0};
+            current_ = Voice{std::make_shared<const Pcm>(music_->piece(track_, piece_)), 0, false};
             return;
         } catch (const FormatError&) {
         }
@@ -76,24 +76,25 @@ void Jukebox::playEffect(int index) {
             cached = std::make_shared<const Pcm>();
         }
     }
-    playSound(cached);
+    playSound(cached, false);
 }
 
-void Jukebox::playSound(std::shared_ptr<const Pcm> sound) {
+void Jukebox::playSound(std::shared_ptr<const Pcm> sound, bool speech) {
     if (!sound || sound->frames() == 0) {
         return;
     }
     if (voices_.size() >= kMaxVoices) {
         voices_.erase(voices_.begin());
     }
-    voices_.push_back(Voice{std::move(sound), 0});
+    voices_.push_back(Voice{std::move(sound), 0, speech});
 }
 
 void Jukebox::stopSounds() { voices_.clear(); }
 
-void Jukebox::setVolumes(int music, int effects) {
+void Jukebox::setVolumes(int music, int effects, int speech) {
     musicVolume_ = std::clamp(music, 0, 100);
     effectsVolume_ = std::clamp(effects, 0, 100);
+    speechVolume_ = std::clamp(speech, 0, 100);
 }
 
 void Jukebox::add(std::vector<int>& acc, const Pcm& pcm, double& at, int volume, std::size_t frames) const {
@@ -132,7 +133,7 @@ void Jukebox::mix(std::span<std::int16_t> out) {
         }
     }
     for (auto& v : voices_) {
-        add(acc, *v.pcm, v.at, effectsVolume_, frames);
+        add(acc, *v.pcm, v.at, v.speech ? speechVolume_ : effectsVolume_, frames);
     }
     voices_.erase(std::remove_if(voices_.begin(), voices_.end(),
                                  [](const Voice& v) { return static_cast<std::size_t>(v.at) >= v.pcm->frames(); }),
