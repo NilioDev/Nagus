@@ -147,7 +147,7 @@ itself. You can also give files when starting it:
 | Take an item out of the build queue | Click it | | A on it |
 | Empire summary: events, treaties, your systems | Click *Summary* on the map | Tab or Page Down / Page Up between the lists | A on *Summary*, RB / LB |
 | Marker window: go to the map, your systems, diplomacy, intelligence, research or the main menu | Right click | Esc | B |
-| Choose a fleet in the chosen sector | Click it in the list on the left | | A on it |
+| Choose a fleet in the chosen sector | Click it in the list on the left (its arrows scroll through many) | | A on it |
 | Send the chosen fleet | Click a sector on the map (its own sector stops it) | | D-pad to the sector, A |
 | Give an order (colonize, attack system) | Click *Orders* below the map | | A on *Orders* |
 | Choose a race on the diplomacy screen | Click it in the list at the bottom | Tab or Page Down / Page Up | RB / LB |

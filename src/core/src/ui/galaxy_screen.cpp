@@ -96,7 +96,7 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     for (const auto& e : orders_.layout().elements) {
         orders_.setEnabled(e.id, false);
     }
-    for (const std::uint32_t id : {kEconomy, kMilitary, kEvents, kOverlay, 0x40eu, 0x40fu}) {
+    for (const std::uint32_t id : {kEconomy, kMilitary, kEvents, kOverlay, kListUp, kListDown}) {
         panel_.setEnabled(id, false);
     }
     for (std::size_t i = 0; i < std::size(text::kObjectKinds); ++i) {
@@ -195,9 +195,20 @@ std::string GalaxyScreen::sectorName(Sector s) const {
 
 void GalaxyScreen::choose(Sector s) {
     if (game_.galaxy.inside(s)) {
+        if (!(s == chosen_)) {
+            listFirst_ = 0;
+        }
         chosen_ = s;
         keepInView();
+        scrollFleets(0);
     }
+}
+
+void GalaxyScreen::scrollFleets(int lines) {
+    const int most = std::max(0, static_cast<int>(fleetsHere().size()) - kFleetLines);
+    listFirst_ = std::clamp(listFirst_ + lines, 0, most);
+    panel_.setEnabled(kListUp, listFirst_ > 0);
+    panel_.setEnabled(kListDown, listFirst_ < most);
 }
 
 void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
@@ -364,6 +375,7 @@ void GalaxyScreen::drawList(Canvas& canvas) {
 
     // The fleets seen in the chosen sector, then the empire's systems, in
     // the list on the left.
+    scrollFleets(0);
     const Rect list = panel_.rect(kList);
     const auto here = fleetsHere();
     for (int i = 0; i < static_cast<int>(here.size()); ++i) {
@@ -378,9 +390,9 @@ void GalaxyScreen::drawList(Canvas& canvas) {
         std::string name = fleetName(*f);
         canvas.text(small, name, r->x + 4, r->y + 2, f->owner >= 0 && f->owner < kEmpires ? kEmpireColours[f->owner] : kMinorColour);
     }
-    int ly = list.y + 30 + static_cast<int>(here.size()) * kFleetLine + (here.empty() ? 0 : small.height());
+    int ly = list.y + 30 + std::min(static_cast<int>(here.size()), kFleetLines) * kFleetLine + (here.empty() ? 0 : small.height());
     for (const auto& c : game_.colonies) {
-        if (c.owner == game_.player) {
+        if (c.owner == game_.player && ly + small.height() <= list.y + list.h) {
             canvas.text(small, g.systems[static_cast<std::size_t>(c.system)].name, list.x + 10, ly, kEmpireColours[player]);
             ly += small.height() + 3;
         }
@@ -443,8 +455,9 @@ std::vector<int> GalaxyScreen::fleetsHere() const {
 
 std::optional<Rect> GalaxyScreen::fleetLine(int i) const {
     const Rect list = panel_.rect(kList);
-    const Rect r{list.x + 6, list.y + 30 + i * kFleetLine, list.w - 12, kFleetLine};
-    if (i < 0 || i >= static_cast<int>(fleetsHere().size()) || r.y + r.h > list.y + list.h) {
+    const int at = i - listFirst_;
+    const Rect r{list.x + 6, list.y + 30 + at * kFleetLine, list.w - 12, kFleetLine};
+    if (i < 0 || i >= static_cast<int>(fleetsHere().size()) || at < 0 || at >= kFleetLines || r.y + r.h > list.y + list.h) {
         return std::nullopt;
     }
     return r;
@@ -620,6 +633,13 @@ void GalaxyScreen::pointerPressed(Point p) {
             return;
         }
     }
+    // The list's arrows lie over the edge of the panel below the map.
+    for (const std::uint32_t id : {kListUp, kListDown}) {
+        if (panel_.usable(id) && panel_.rect(id).contains(p.x, p.y)) {
+            panel_.pointerPressed(p);
+            return;
+        }
+    }
     // Sending the chosen fleet.
     if (const Fleet* f = game_.fleet(fleet_); moving_ && f != nullptr) {
         if (const auto s = sectorAt(p)) {
@@ -682,6 +702,8 @@ void GalaxyScreen::pointerReleased(Point p) {
         endPlayerTurn();
     } else if (id && *id == kSummary) {
         outcome_ = Outcome::Summary;
+    } else if (id && (*id == kListUp || *id == kListDown)) {
+        scrollFleets(*id == kListUp ? -(kFleetLines - 1) : kFleetLines - 1);
     }
 }
 

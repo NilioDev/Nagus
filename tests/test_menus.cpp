@@ -18,10 +18,11 @@ namespace {
 
 Point centre(const Rect& r) { return {r.centerX(), r.centerY()}; }
 
-void click(Shell& shell, Point p) {
-    shell.pointerMoved(p);
-    shell.pointerPressed(p);
-    shell.pointerReleased(p);
+template <typename T>
+void click(T& screen, Point p) {
+    screen.pointerMoved(p);
+    screen.pointerPressed(p);
+    screen.pointerReleased(p);
 }
 
 Rect element(Assets& assets, const char* layout, std::uint32_t id) {
@@ -926,4 +927,42 @@ NGS_TEST("a multiplayer game: hosting, joining, empires and a turn together") {
     NGS_CHECK(pump([&] { return guest.noticeOpen(); }));
     NGS_CHECK(guest.game() == nullptr && !guest.multiplayer());
     fs::remove_all(dir);
+}
+
+NGS_TEST("the fleet list on the map scrolls through many fleets") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    const EconomyData economy = loadEconomyData(*res);
+    GameSettings settings;
+    settings.empire = 1;
+    Game g = newGame(settings, loadGalaxyData(*res, assets.lexicon()), economy, 3);
+    const Sector home = g.galaxy.systems[static_cast<std::size_t>(g.galaxy.homes[1])].sector;
+    const int cls = g.fleets.front().ships.front().shipClass;
+    for (int i = 0; i < 15; ++i) {
+        g.addFleet(1, home, cls);
+    }
+    GalaxyScreen screen(assets, g);
+    screen.choose(home);
+    Canvas canvas;
+    screen.draw(canvas, 0);
+    const auto here = screen.fleetsHere();
+    NGS_CHECK(here.size() >= 15);
+    NGS_CHECK(screen.fleetLine(0) && !screen.fleetLine(GalaxyScreen::kFleetLines));
+    const Rect down = element(assets, "hmaingal.wdf", GalaxyScreen::kListDown);
+    click(screen, centre(down));
+    const int last = static_cast<int>(here.size()) - 1;
+    NGS_CHECK(screen.firstFleetLine() == std::min(GalaxyScreen::kFleetLines - 1, last + 1 - GalaxyScreen::kFleetLines));
+    NGS_CHECK(!screen.fleetLine(0) && screen.fleetLine(GalaxyScreen::kFleetLines));
+    // The last one can be chosen.
+    click(screen, centre(down));
+    NGS_CHECK(screen.fleetLine(last).has_value());
+    click(screen, centre(*screen.fleetLine(last)));
+    NGS_CHECK(screen.chosenFleet() == here.back());
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kListUp)));
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kListUp)));
+    NGS_CHECK(screen.firstFleetLine() == 0);
 }
