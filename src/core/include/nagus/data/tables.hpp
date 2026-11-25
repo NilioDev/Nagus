@@ -117,6 +117,33 @@ struct Building {
 };
 std::vector<Building> readBuildings(ByteView data);
 
+// Ship classes (shiplist.sst, with the technologies they need from
+// shiptech.sst).
+enum class ShipRole : std::uint8_t {
+    Scout, Destroyer, Cruiser, StrikeCruiser, Command, Colony, Outpost, Starbase, Special, Transport
+};
+inline constexpr int kShipRoles = 10;
+struct ShipClass {
+    std::string name;
+    std::string className;
+    std::string picture;  // i_<picture>30.tga, ...60, ...120, ...170
+    ShipRole role = ShipRole::Scout;
+    int race = 0;         // 0-4 an empire, 5 and up a minor race, 36 monsters
+    int hull = 0;
+    int shields = 0;
+    int beamDamage = 0;   // our reading: the strength of its beams
+    int beamCount = 0;
+    int torpedoDamage = 0;
+    int torpedoCount = 0;
+    int cost = 0;         // industry
+    int range = 0;        // 0 short, 1 medium, 2 long
+    int scan = 0;         // added to the scan range
+    int capacity = 0;     // colonists or troops
+    int upgradesFrom = -1; // the class this one improves on (an index)
+    std::array<int, 6> tech{}; // levels needed: biotech, computers, construction, energy, propulsion, weapons
+};
+std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech);
+
 // How fast population grows (ppgrowth.bin): for each bracket of population,
 // a rate in ten-millionths per turn.
 struct GrowthBracket {

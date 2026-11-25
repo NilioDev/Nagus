@@ -38,6 +38,14 @@ public:
     static constexpr std::uint32_t kInfoName = 0x44d;
     static constexpr std::uint32_t kInfoPicture = 0x3fc;
     static constexpr std::uint32_t kSystemDetails = 0x44e;
+    // The fleet panel below the map, and its orders menu.
+    static constexpr std::uint32_t kFleetCloak = 0x4b9;
+    static constexpr std::uint32_t kFleetRedeploy = 0x4ba;
+    static constexpr std::uint32_t kFleetOrders = 0x4bb;
+    static constexpr std::uint32_t kFleetShips = 0x4bc;
+    static constexpr std::uint32_t kFleetText = 0x4c0;
+    static constexpr std::uint32_t kOrderColonize = 0x4b2;
+    static constexpr int kFleetLine = 14; // height of a fleet's line in the list on the left
 
     GalaxyScreen(Assets& assets, Game& game);
 
@@ -58,6 +66,20 @@ public:
     std::optional<Point> sectorCentre(Sector s) const;
     std::optional<Sector> sectorAt(Point p) const;
 
+    // Fleets: those seen in the chosen sector are listed on the left; a
+    // click on one chooses it (the panel below then shows its ships), and
+    // for the player's own the next click on the map sends it there.
+    std::vector<int> fleetsHere() const;
+    std::optional<Rect> fleetLine(int i) const;
+    int chosenFleet() const { return fleet_; }
+    void chooseFleet(int id);
+    bool moving() const { return moving_; }
+    bool ordersOpen() const { return ordersOpen_; }
+    std::optional<Rect> orderButton(std::uint32_t id) const;
+    // Back: stops sending a fleet, or closes the orders, or lets go of the
+    // chosen fleet. Returns false when there was nothing to stop.
+    bool cancel();
+
 private:
     int sectorSize() const;
     void keepInView();
@@ -65,6 +87,10 @@ private:
     void drawSector(Canvas& canvas, int at);
     void drawList(Canvas& canvas);
     void drawSystem(Canvas& canvas, const StarSystem& s, std::uint64_t ms);
+    void drawFleets(Canvas& canvas);
+    void drawFleetPanel(Canvas& canvas);
+    void refreshFleet();
+    std::string fleetName(const Fleet& f) const;
 
     Assets& assets_;
     Game& game_;
@@ -80,6 +106,11 @@ private:
     std::vector<std::string> kindNames_;
     std::vector<std::string> animations_; // the names of the game's animations
     std::vector<std::string> events_;
+    Panel fleetPanel_;
+    Panel orders_;
+    int fleet_ = -1;      // the chosen fleet's id
+    bool moving_ = false; // the next click on the map sends the chosen fleet
+    bool ordersOpen_ = false;
 };
 
 } // namespace nagus

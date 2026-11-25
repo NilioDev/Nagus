@@ -6,6 +6,7 @@
 #include "nagus/data/lexicon.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/game/economy.hpp"
+#include "nagus/game/fleet.hpp"
 #include "nagus/game/galaxy.hpp"
 #include "nagus/settings.hpp"
 
@@ -23,16 +24,34 @@ struct Game {
     EconomyData economy;
     std::vector<Colony> colonies;
     std::array<EmpireState, kEmpires> empires{};
+    std::vector<Fleet> fleets;
+    int nextFleetId = 1;
 
     // The colony on a system, or null.
     Colony* colonyAt(int system);
     const Colony* colonyAt(int system) const;
+    Fleet* fleet(int id);
+    const Fleet* fleet(int id) const;
+    // The fleets in a sector, of an owner or (-1) of anyone.
+    std::vector<int> fleetsAt(Sector s, int owner = -1) const;
+    // A new fleet of one ship.
+    Fleet& addFleet(int owner, Sector at, int shipClass);
 };
+
+// Whether an empire sees what is in a sector: near its colonies (two
+// sectors) and its fleets (one sector and their scan).
+bool visibleTo(const Game& game, int empire, Sector s);
+
+// Sends a fleet towards a sector, if it is in range. Returns whether it goes.
+bool orderMove(Game& game, int fleet, Sector to);
+// Tells a fleet to found a colony where it is (on the next turn).
+bool orderColonize(Game& game, int fleet);
 
 // Ends the turn: every colony makes, builds and grows.
 struct TurnSummary {
     std::vector<std::string> events;     // for the player: what the colonies finished
     std::vector<std::string> researched; // the player's new technologies
+    std::vector<std::string> colonized;  // systems the player colonized
 };
 TurnSummary endTurn(Game& game);
 
@@ -84,6 +103,13 @@ inline constexpr std::size_t kCurrentStructures = 209;
 inline constexpr std::size_t kEmpty = 276;        // "empty"
 inline constexpr std::size_t kUpgradeTo = 1400;   // "Upgrade to %s"
 inline constexpr std::size_t kGrowthRate = 425;
+inline constexpr std::size_t kColonized = 1043; // "System %s colonized"
+inline constexpr std::size_t kGalSpeed = 405;   // "Gal. Speed"
+inline constexpr std::size_t kGalRange = 404;   // "Gal. Range"
+inline constexpr std::size_t kHullShields = 435; // "Hit Points / Shields"
+inline constexpr std::size_t kRangeNames[3] = {1147, 1156, 611}; // Short, Medium, Long
+inline constexpr std::size_t kShips = 1139;
+inline constexpr std::size_t kCrew = 197;
 } // namespace text
 
 } // namespace nagus

@@ -64,7 +64,7 @@ public:
     static constexpr std::uint32_t kEnergyBar = 0x964;
     static constexpr std::uint32_t kEnergyText = 0x966;
 
-    enum class Tab { Summary, Production, Energy, BuildList, Structures };
+    enum class Tab { Summary, Production, Energy, BuildList, Shipbuilding, Structures };
 
     SystemScreen(Assets& assets, Game& game, int colony);
 

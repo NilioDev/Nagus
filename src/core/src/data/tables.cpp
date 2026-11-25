@@ -244,4 +244,66 @@ std::vector<GrowthBracket> readGrowth(ByteView data) {
     return list;
 }
 
+std::vector<ShipClass> readShipClasses(ByteView list, ByteView tech) {
+    constexpr std::size_t kShip = 288;
+    constexpr std::size_t kTech = 16;
+    const std::size_t count = records(list, 0, kShip, "ship table");
+    if (records(tech, 0, kTech, "ship technology table") != count) {
+        throw FormatError("bad ship technology table");
+    }
+    std::vector<ShipClass> ships(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::size_t at = i * kShip;
+        Reader rec(list, at);
+        ShipClass& s = ships[i];
+        s.name = rec.text(40);
+        s.className = rec.text(20);
+        rec.seek(at + 0x58);
+        s.picture = rec.text(8);
+        rec.seek(at + 0x68);
+        const int role = rec.u16();
+        if (role >= kShipRoles) {
+            throw FormatError("bad ship table");
+        }
+        s.role = static_cast<ShipRole>(role);
+        rec.seek(at + 0x6c);
+        s.beamDamage = static_cast<int>(rec.u32());
+        s.beamCount = static_cast<int>(rec.u32());
+        rec.seek(at + 0x80);
+        s.torpedoDamage = static_cast<int>(rec.u32());
+        s.torpedoCount = static_cast<int>(rec.u32());
+        rec.seek(at + 0x94);
+        s.hull = static_cast<int>(rec.u32());
+        s.shields = static_cast<int>(rec.u32());
+        rec.u32();
+        s.cost = static_cast<int>(rec.u32());
+        rec.seek(at + 0x104);
+        const std::uint64_t bits = static_cast<std::uint64_t>(rec.u32()) | (static_cast<std::uint64_t>(rec.u32()) << 32);
+        double range = 0;
+        static_assert(sizeof range == sizeof bits);
+        std::memcpy(&range, &bits, sizeof range);
+        s.range = range >= 0 && range <= 2 ? static_cast<int>(range) : 0;
+        rec.seek(at + 0x114);
+        s.scan = rec.u8();
+        rec.u8();
+        s.capacity = rec.u16();
+        s.race = rec.u8();
+        if (s.hull < 0 || s.cost < 0 || s.beamCount < 0 || s.torpedoCount < 0) {
+            throw FormatError("bad ship table");
+        }
+
+        Reader t(tech, i * kTech);
+        t.u32(); // the race again
+        if (t.u16() != i) {
+            throw FormatError("bad ship technology table");
+        }
+        const int from = t.u16();
+        s.upgradesFrom = from == 0xffff || static_cast<std::size_t>(from) >= count ? -1 : from;
+        for (auto& level : s.tech) {
+            level = t.u8();
+        }
+    }
+    return ships;
+}
+
 } // namespace nagus

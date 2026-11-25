@@ -196,10 +196,45 @@ std::vector<BuildItem> buildOptions(const Colony& c, const EmpireState& empire, 
         }
         items.push_back(item);
     }
+    // Ships, where there is a shipyard: the newest of each line.
+    if (colonyOutput(c, data).shipyard) {
+        std::vector<bool> ok(data.ships.size());
+        for (std::size_t i = 0; i < data.ships.size(); ++i) {
+            ok[i] = canBuildShip(data.ships[i], c.owner, empire);
+        }
+        for (std::size_t i = 0; i < data.ships.size(); ++i) {
+            const int older = data.ships[i].upgradesFrom;
+            if (ok[i] && older >= 0) {
+                ok[static_cast<std::size_t>(older)] = false;
+            }
+        }
+        for (std::size_t i = 0; i < data.ships.size(); ++i) {
+            if (ok[i]) {
+                items.push_back({BuildItem::Kind::Ship, static_cast<int>(i)});
+            }
+        }
+    }
     return items;
 }
 
+bool canBuildShip(const ShipClass& s, int race, const EmpireState& empire) {
+    if (s.race != race || s.role == ShipRole::Outpost || s.role == ShipRole::Starbase || s.role == ShipRole::Special) {
+        return false;
+    }
+    for (std::size_t f = 0; f < s.tech.size(); ++f) {
+        if (s.tech[f] > empire.tech[f]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::uint32_t itemCost(const BuildItem& item, const Colony& c, const EconomyData& data) {
+    if (item.kind == BuildItem::Kind::Ship) {
+        return item.building >= 0 && static_cast<std::size_t>(item.building) < data.ships.size()
+                   ? static_cast<std::uint32_t>(std::max(1, data.ships[static_cast<std::size_t>(item.building)].cost))
+                   : 0;
+    }
     const Building* b = buildingAt(data, item.building);
     if (b == nullptr) {
         return 0;
@@ -213,6 +248,11 @@ std::uint32_t itemCost(const BuildItem& item, const Colony& c, const EconomyData
 }
 
 std::string itemName(const BuildItem& item, const EconomyData& data) {
+    if (item.kind == BuildItem::Kind::Ship) {
+        return item.building >= 0 && static_cast<std::size_t>(item.building) < data.ships.size()
+                   ? data.ships[static_cast<std::size_t>(item.building)].name
+                   : std::string();
+    }
     const Building* b = buildingAt(data, item.building);
     return b != nullptr ? b->name : std::string();
 }
@@ -360,6 +400,11 @@ TurnReport colonyTurn(Colony& c, const EconomyData& data) {
         }
         c.progress -= cost;
         c.queue.erase(c.queue.begin());
+        if (item.kind == BuildItem::Kind::Ship) {
+            report.ships.push_back(item.building);
+            report.finished.push_back(itemName(item, data));
+            continue;
+        }
         const Building* b = buildingAt(data, item.building);
         if (b == nullptr) {
             continue;
@@ -374,6 +419,7 @@ TurnReport colonyTurn(Colony& c, const EconomyData& data) {
             c.facilities[o] += 1;
             break;
         case BuildItem::Kind::Upgrade: c.facility[o] = item.building; break;
+        case BuildItem::Kind::Ship: break;
         case BuildItem::Kind::Structure: {
             // A newer structure replaces the one it upgrades.
             for (auto& s : c.structures) {

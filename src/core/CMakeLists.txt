@@ -12,6 +12,7 @@ add_library(ngs_core STATIC
     src/data/tables.cpp
     src/data/animation.cpp
     src/game/economy.cpp
+    src/game/fleet.cpp
     src/game/galaxy.cpp
     src/game/research.cpp
     src/game/game.cpp

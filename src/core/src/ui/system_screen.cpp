@@ -22,6 +22,24 @@ constexpr Pixel kBarEmpty = 0xff303848u;
 constexpr int kLineHeight = 19;
 constexpr std::size_t kNoText = 0;
 
+// The picture of a build item: buildings add "_30", "_60", "170" or ""
+// to their picture's name, ships put "i_" before it and "30", "60", "170"
+// or "120" after.
+std::string itemPicture(const EconomyData& data, const BuildItem& item, const char* size) {
+    if (item.kind == BuildItem::Kind::Ship) {
+        if (item.building < 0 || static_cast<std::size_t>(item.building) >= data.ships.size()) {
+            return {};
+        }
+        const std::string s = size;
+        const std::string number = s == ".tga" ? "120" : s == "_30.tga" ? "30" : s == "_60.tga" ? "60" : "170";
+        return "i_" + data.ships[static_cast<std::size_t>(item.building)].picture + number + ".tga";
+    }
+    if (item.building < 0 || static_cast<std::size_t>(item.building) >= data.buildings.size()) {
+        return {};
+    }
+    return data.buildings[static_cast<std::size_t>(item.building)].picture + size;
+}
+
 std::string pictureOf(const EconomyData& data, int building, const char* suffix) {
     if (building < 0 || static_cast<std::size_t>(building) >= data.buildings.size()) {
         return {};
@@ -91,7 +109,6 @@ SystemScreen::SystemScreen(Assets& assets, Game& game, int colony)
     }
     const Rect bottom = panel_.rect(kBottom);
     strip_.setOrigin({bottom.x, bottom.y});
-    panel_.setEnabled(kShipbuilding, false);
     refresh();
 }
 
@@ -105,7 +122,8 @@ const Font& SystemScreen::font(int size) const {
 Panel* SystemScreen::sub() {
     switch (tab_) {
     case Tab::Production: return &labor_;
-    case Tab::BuildList: return &build_;
+    case Tab::BuildList:
+    case Tab::Shipbuilding: return &build_;
     case Tab::Structures: return &structures_;
     case Tab::Energy: return &energy_;
     case Tab::Summary: break;
@@ -114,6 +132,10 @@ Panel* SystemScreen::sub() {
 }
 
 void SystemScreen::showTab(Tab t) {
+    if (t != tab_) {
+        chosenOption_ = 0;
+        firstOption_ = 0;
+    }
     tab_ = t;
     refresh();
 }
@@ -122,11 +144,15 @@ void SystemScreen::refresh() {
     const Colony& c = col();
     const auto& empire = game_.empires[static_cast<std::size_t>(std::clamp(game_.player, 0, kEmpires - 1))];
     options_ = buildOptions(c, empire, system(), game_.economy);
+    // Ships have a tab of their own.
+    const bool ships = tab_ == Tab::Shipbuilding;
+    std::erase_if(options_, [&](const BuildItem& i) { return (i.kind == BuildItem::Kind::Ship) != ships; });
     chosenOption_ = std::clamp(chosenOption_, 0, std::max(0, static_cast<int>(options_.size()) - 1));
     panel_.setOn(kSummary, tab_ == Tab::Summary);
     panel_.setOn(kProduction, tab_ == Tab::Production);
     panel_.setOn(kEnergy, tab_ == Tab::Energy);
     panel_.setOn(kBuildList, tab_ == Tab::BuildList);
+    panel_.setOn(kShipbuilding, tab_ == Tab::Shipbuilding);
     panel_.setOn(kStructures, tab_ == Tab::Structures);
     panel_.setEnabled(kBuy, !c.queue.empty() && buyCost(c, game_.economy) <= empire.credits);
     for (int row = 0; row < 5; ++row) {
@@ -179,7 +205,8 @@ void SystemScreen::draw(Canvas& canvas, std::uint64_t ms) {
     case Tab::Summary: drawSummary(canvas, ms); break;
     case Tab::Production: drawLabor(canvas); break;
     case Tab::Energy: drawEnergy(canvas); break;
-    case Tab::BuildList: drawBuildList(canvas); break;
+    case Tab::BuildList:
+    case Tab::Shipbuilding: drawBuildList(canvas); break;
     case Tab::Structures: drawStructures(canvas); break;
     }
     strip_.draw(canvas);
@@ -235,7 +262,7 @@ void SystemScreen::drawQueue(Canvas& canvas) {
     }
     // The item being built, with how long it still takes.
     const BuildItem& first = c.queue.front();
-    const Image& pic = assets_.image(pictureOf(data, first.building, ".tga"));
+    const Image& pic = assets_.image(itemPicture(data, first, ".tga"));
     const Rect place = panel_.rect(kCurrentPicture);
     canvas.draw(pic, place.x + (place.w - pic.width) / 2, place.y + (place.h - pic.height) / 2);
     canvas.text(small, itemName(first, data), panel_.rect(kCurrentName), kText, Align::Center);
@@ -246,7 +273,7 @@ void SystemScreen::drawQueue(Canvas& canvas) {
     // The items after it.
     for (std::size_t i = 1; i < c.queue.size() && i <= std::size(kQueueSlots); ++i) {
         const Rect slot = panel_.rect(kQueueSlots[i - 1]);
-        const Image& small30 = assets_.image(pictureOf(data, c.queue[i].building, "_30.tga"));
+        const Image& small30 = assets_.image(itemPicture(data, c.queue[i], "_30.tga"));
         canvas.draw(small30, slot.x + 4, slot.y + (slot.h - small30.height) / 2);
         drawParagraph(canvas, small, itemName(c.queue[i], data), {slot.x + 40, slot.y + 3, slot.w - 44, slot.h - 6}, kText);
     }
@@ -372,20 +399,36 @@ void SystemScreen::drawBuildList(Canvas& canvas) {
     }
     // The chosen line: its picture and what it does.
     const BuildItem& item = options_[static_cast<std::size_t>(chosenOption_)];
-    const Building& b = data.buildings[static_cast<std::size_t>(item.building)];
     const Rect place = build_.rect(kBuildPicture);
-    const Image& pic = assets_.image(pictureOf(data, item.building, "170.tga"));
+    const Image& pic = assets_.image(itemPicture(data, item, "170.tga"));
     canvas.draw(pic, place.x, place.y);
     const Rect details = build_.rect(kBuildDetails);
     const Font& small = font(9);
     int y = details.y + 4;
-    drawParagraph(canvas, f, b.name, {details.x + 6, y, details.w - 12, f.height() * 2 + 2}, kText);
-    y += f.height() * (f.width(b.name) > details.w - 12 ? 2 : 1) + 6;
+    const std::string name = itemName(item, data);
+    drawParagraph(canvas, f, name, {details.x + 6, y, details.w - 12, f.height() * 2 + 2}, kText);
+    y += f.height() * (f.width(name) > details.w - 12 ? 2 : 1) + 6;
     auto line = [&](const std::string& label, const std::string& value) {
         drawFact(canvas, small, {details.x + 6, y, details.w - 12, small.height() + 2}, label, value, kText);
         y += small.height() + 4;
     };
     line(lex[text::kBuildCost], std::to_string(itemCost(item, c, data)));
+    if (item.kind == BuildItem::Kind::Ship) {
+        const ShipClass& s = data.ships[static_cast<std::size_t>(item.building)];
+        Fleet one;
+        one.ships.push_back({item.building, s.hull});
+        const auto& empire = game_.empires[static_cast<std::size_t>(std::clamp(game_.player, 0, kEmpires - 1))];
+        line(s.className, "");
+        line(lex[text::kHullShields], std::to_string(s.hull) + " / " + std::to_string(s.shields));
+        line(lex[text::kGalSpeed], std::to_string(fleetSpeed(one, data, empire)));
+        line(lex[text::kGalRange], lex[text::kRangeNames[std::clamp(s.range, 0, 2)]]);
+        if (s.capacity > 0) {
+            line(lex[s.role == ShipRole::Colony ? text::kPopulation : text::kCrew],
+                 std::to_string(s.role == ShipRole::Colony ? s.capacity * kColonistsPerCapacity : s.capacity));
+        }
+        return;
+    }
+    const Building& b = data.buildings[static_cast<std::size_t>(item.building)];
     if (b.energy > 0) {
         line(lex[text::kMaintenance], std::to_string(b.energy));
     }
@@ -457,7 +500,7 @@ void SystemScreen::pointerMoved(Point p) {
 
 void SystemScreen::pointerPressed(Point p) {
     pointer_ = p;
-    if (tab_ == Tab::BuildList) {
+    if (tab_ == Tab::BuildList || tab_ == Tab::Shipbuilding) {
         for (int i = 0; i < static_cast<int>(options_.size()); ++i) {
             if (const auto r = optionRect(i); r && r->contains(p.x, p.y)) {
                 // A click chooses a line; a click on the chosen line builds it.
@@ -516,6 +559,7 @@ void SystemScreen::clicked(std::uint32_t id) {
     case kBuildList:
     case kBuild: showTab(Tab::BuildList); return;
     case kStructures: showTab(Tab::Structures); return;
+    case kShipbuilding: showTab(Tab::Shipbuilding); return;
     case kBuy: {
         auto& empire = game_.empires[static_cast<std::size_t>(std::clamp(game_.player, 0, kEmpires - 1))];
         const int cost = buyCost(c, game_.economy);
@@ -562,7 +606,7 @@ std::optional<Point> SystemScreen::command(Command c) {
         return std::nullopt;
     }
     // In the build list, up and down choose a line.
-    if (tab_ == Tab::BuildList && build_.rect(kBuildItems).contains(pointer_.x, pointer_.y) &&
+    if ((tab_ == Tab::BuildList || tab_ == Tab::Shipbuilding) && build_.rect(kBuildItems).contains(pointer_.x, pointer_.y) &&
         (c == Command::Up || c == Command::Down)) {
         chooseOption(chosenOption_ + (c == Command::Up ? -1 : 1));
         if (const auto r = optionRect(chosenOption_)) {
@@ -571,12 +615,13 @@ std::optional<Point> SystemScreen::command(Command c) {
         return std::nullopt;
     }
     if (c == Command::Next || c == Command::Previous) {
-        static constexpr Tab kOrder[] = {Tab::Summary, Tab::Production, Tab::Energy, Tab::BuildList, Tab::Structures};
+        static constexpr Tab kOrder[] = {Tab::Summary, Tab::Production, Tab::Energy, Tab::BuildList, Tab::Shipbuilding, Tab::Structures};
+        constexpr int n = static_cast<int>(std::size(kOrder));
         int i = 0;
         while (kOrder[i] != tab_) {
             ++i;
         }
-        i = (i + (c == Command::Next ? 1 : 4)) % 5;
+        i = (i + (c == Command::Next ? 1 : n - 1)) % n;
         showTab(kOrder[i]);
         return std::nullopt;
     }
@@ -590,7 +635,7 @@ std::optional<Point> SystemScreen::command(Command c) {
             }
         }
     }
-    if (tab_ == Tab::BuildList && (c == Command::Left || c == Command::Right)) {
+    if ((tab_ == Tab::BuildList || tab_ == Tab::Shipbuilding) && (c == Command::Left || c == Command::Right)) {
         // Lets the gamepad reach the list itself.
         const Rect list = build_.rect(kBuildItems);
         if (const auto r = optionRect(chosenOption_); r && !list.contains(pointer_.x, pointer_.y) && c == Command::Right &&

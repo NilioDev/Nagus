@@ -75,6 +75,7 @@ EconomyData loadEconomyData(const Resources& resources) {
     EconomyData d;
     d.techs = readTechTree(resources.file("techtree.tec"));
     d.buildings = readBuildings(resources.file("edifice.bst"));
+    d.ships = readShipClasses(resources.file("shiplist.sst"), resources.file("shiptech.sst"));
     d.growth = readGrowth(resources.file("ppgrowth.bin"));
     d.habitats = readHabitats(resources.file("habit.bin"));
     return d;
@@ -91,6 +92,137 @@ Colony* Game::colonyAt(int system) {
 
 const Colony* Game::colonyAt(int system) const { return const_cast<Game*>(this)->colonyAt(system); }
 
+Fleet* Game::fleet(int id) {
+    for (auto& f : fleets) {
+        if (f.id == id) {
+            return &f;
+        }
+    }
+    return nullptr;
+}
+
+const Fleet* Game::fleet(int id) const { return const_cast<Game*>(this)->fleet(id); }
+
+std::vector<int> Game::fleetsAt(Sector s, int owner) const {
+    std::vector<int> ids;
+    for (const auto& f : fleets) {
+        if (f.at == s && (owner < 0 || f.owner == owner)) {
+            ids.push_back(f.id);
+        }
+    }
+    return ids;
+}
+
+Fleet& Game::addFleet(int owner, Sector at, int shipClass) {
+    Fleet f;
+    f.id = nextFleetId++;
+    f.owner = owner;
+    f.at = at;
+    int hull = 0;
+    if (shipClass >= 0 && static_cast<std::size_t>(shipClass) < economy.ships.size()) {
+        hull = economy.ships[static_cast<std::size_t>(shipClass)].hull;
+    }
+    f.ships.push_back({shipClass, hull});
+    fleets.push_back(f);
+    return fleets.back();
+}
+
+bool visibleTo(const Game& game, int empire, Sector s) {
+    if (distanceFromColonies(s, empire, game.colonies, game.galaxy) <= 2) {
+        return true;
+    }
+    for (const auto& f : game.fleets) {
+        if (f.owner != empire) {
+            continue;
+        }
+        int scan = 0;
+        for (const auto& ship : f.ships) {
+            if (ship.shipClass >= 0 && static_cast<std::size_t>(ship.shipClass) < game.economy.ships.size()) {
+                scan = std::max(scan, game.economy.ships[static_cast<std::size_t>(ship.shipClass)].scan);
+            }
+        }
+        if (distance(f.at, s) <= 1 + scan) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool orderMove(Game& game, int id, Sector to) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !game.galaxy.inside(to) || f->owner < 0 || f->owner >= kEmpires) {
+        return false;
+    }
+    const auto& empire = game.empires[static_cast<std::size_t>(f->owner)];
+    if (fleetSpeed(*f, game.economy, empire) <= 0 ||
+        distanceFromColonies(to, f->owner, game.colonies, game.galaxy) > fleetRange(*f, game.economy, empire)) {
+        return false;
+    }
+    f->destination = to == f->at ? std::nullopt : std::optional<Sector>(to);
+    f->order = Fleet::Order::None;
+    return true;
+}
+
+bool orderColonize(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !canColonize(*f, game.galaxy, game.colonies, game.economy)) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Colonize;
+    return true;
+}
+
+namespace {
+
+void moveFleets(Game& game) {
+    for (auto& f : game.fleets) {
+        if (!f.destination || f.owner < 0 || f.owner >= kEmpires) {
+            continue;
+        }
+        const int speed = fleetSpeed(f, game.economy, game.empires[static_cast<std::size_t>(f.owner)]);
+        const auto steps = path(f.at, *f.destination);
+        if (steps.empty()) {
+            f.destination.reset();
+            continue;
+        }
+        const auto n = static_cast<std::size_t>(std::min<int>(speed, static_cast<int>(steps.size())));
+        if (n > 0) {
+            f.at = steps[n - 1];
+        }
+        if (f.at == *f.destination) {
+            f.destination.reset();
+        }
+    }
+}
+
+void colonize(Game& game, TurnSummary& summary) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::Colonize) {
+            continue;
+        }
+        f.order = Fleet::Order::None;
+        if (!canColonize(f, game.galaxy, game.colonies, game.economy)) {
+            continue;
+        }
+        // The colony ship stays as the colony's first people.
+        const auto ship = std::find_if(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+            return game.economy.ships[static_cast<std::size_t>(s.shipClass)].role == ShipRole::Colony;
+        });
+        const int colonists = std::max(1, game.economy.ships[static_cast<std::size_t>(ship->shipClass)].capacity);
+        f.ships.erase(ship);
+        const int at = game.galaxy.systemAt(f.at);
+        game.colonies.push_back(foundColony(at, game.galaxy.systems[static_cast<std::size_t>(at)], f.owner, colonists,
+                                            game.empires[static_cast<std::size_t>(f.owner)], game.economy));
+        if (f.owner == game.player) {
+            summary.colonized.push_back(game.galaxy.systems[static_cast<std::size_t>(at)].name);
+        }
+    }
+    std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
+}
+
+} // namespace
+
 TurnSummary endTurn(Game& game) {
     TurnSummary summary;
     for (auto& c : game.colonies) {
@@ -102,6 +234,10 @@ TurnSummary endTurn(Game& game) {
         e.credits += r.credits;
         e.researchPoints += r.research;
         e.intelPoints += r.intel;
+        const Sector sector = game.galaxy.systems[static_cast<std::size_t>(c.system)].sector;
+        for (const int ship : r.ships) {
+            game.addFleet(c.owner, sector, ship);
+        }
         if (c.owner == game.player) {
             const std::string& where = game.galaxy.systems[static_cast<std::size_t>(c.system)].name;
             for (const auto& f : r.finished) {
@@ -109,6 +245,8 @@ TurnSummary endTurn(Game& game) {
             }
         }
     }
+    colonize(game, summary);
+    moveFleets(game);
     for (int e = 0; e < kEmpires; ++e) {
         auto& empire = game.empires[static_cast<std::size_t>(e)];
         const auto reached = researchTurn(empire, game.economy.techs);
@@ -147,6 +285,19 @@ Game newGame(const GameSettings& settings, const GalaxyData& data, const Economy
         const int home = g.galaxy.homes[static_cast<std::size_t>(e)];
         if (home >= 0) {
             g.colonies.push_back(homeColony(home, g.galaxy.systems[static_cast<std::size_t>(home)], e, state, economy));
+            // A colony ship and a scout to start with: the cheapest of each.
+            for (const ShipRole role : {ShipRole::Colony, ShipRole::Scout}) {
+                int best = -1;
+                for (std::size_t i = 0; i < economy.ships.size(); ++i) {
+                    const ShipClass& s = economy.ships[i];
+                    if (s.race == e && s.role == role && (best < 0 || s.cost < economy.ships[static_cast<std::size_t>(best)].cost)) {
+                        best = static_cast<int>(i);
+                    }
+                }
+                if (best >= 0) {
+                    g.addFleet(e, g.galaxy.systems[static_cast<std::size_t>(home)].sector, best);
+                }
+            }
         }
     }
     return g;

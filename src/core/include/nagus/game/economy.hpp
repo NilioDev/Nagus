@@ -47,14 +47,15 @@ inline constexpr int kSpecialShipyard = 43;
 struct EconomyData {
     std::vector<Tech> techs;
     std::vector<Building> buildings;
+    std::vector<ShipClass> ships;
     std::vector<GrowthBracket> growth;
     std::vector<Habitat> habitats;
 };
 
 struct BuildItem {
-    enum class Kind : std::uint8_t { Facility, Upgrade, Structure };
+    enum class Kind : std::uint8_t { Facility, Upgrade, Structure, Ship };
     Kind kind = Kind::Facility;
-    int building = -1; // index into EconomyData::buildings
+    int building = -1; // index into EconomyData::buildings, or EconomyData::ships for a ship
     bool operator==(const BuildItem&) const = default;
 };
 
@@ -120,6 +121,9 @@ std::vector<BuildItem> buildOptions(const Colony& c, const EmpireState& empire, 
                                     const EconomyData& data);
 std::uint32_t itemCost(const BuildItem& item, const Colony& c, const EconomyData& data);
 std::string itemName(const BuildItem& item, const EconomyData& data);
+// Whether an empire can build a ship class (at a colony with a shipyard).
+bool canBuildShip(const ShipClass& s, int race, const EmpireState& empire);
+
 // Credits to finish the first item of the queue at once.
 int buyCost(const Colony& c, const EconomyData& data);
 
@@ -138,6 +142,7 @@ Colony homeColony(int system, const StarSystem& s, int empire, const EmpireState
 // of what was finished.
 struct TurnReport {
     std::vector<std::string> finished;
+    std::vector<int> ships; // ship classes built
     int credits = 0;
     int research = 0;
     int intel = 0;
