@@ -125,6 +125,11 @@ NGS_TEST("all layouts, fonts, pointers and texts of the original read") {
         NGS_CHECK(!l.elements.empty());
         NGS_CHECK(!l.background.empty());
     }
+    const auto layouts = res.names(".wdf");
+    NGS_CHECK(layouts.size() == 377);
+    for (const auto& name : layouts) {
+        readLayout(res.file(name));
+    }
     const Layout opening = readLayout(res.file("opening.wdf"));
     NGS_CHECK(opening.elements.size() == 9);
     NGS_CHECK(readTga(res.file(opening.background)).width == 800);

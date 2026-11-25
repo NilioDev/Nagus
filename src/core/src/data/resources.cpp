@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/data/resources.hpp"
 
+#include <set>
+
 #include "nagus/game_files.hpp"
 
 namespace nagus {
@@ -28,6 +30,24 @@ Resources::Resources(std::shared_ptr<Source> archive, std::map<std::string, Byte
     for (auto& [name, data] : overrides) {
         overrides_.emplace(lower(name), std::move(data));
     }
+}
+
+std::vector<std::string> Resources::names(std::string_view ending) const {
+    const std::string end = lower(ending);
+    std::set<std::string> found;
+    auto take = [&](const std::string& name) {
+        const std::string n = lower(name);
+        if (n.size() >= end.size() && n.compare(n.size() - end.size(), end.size(), end) == 0) {
+            found.insert(n);
+        }
+    };
+    for (const auto& e : archive_->entries()) {
+        take(e.name);
+    }
+    for (const auto& [name, data] : overrides_) {
+        take(name);
+    }
+    return {found.begin(), found.end()};
 }
 
 bool Resources::has(std::string_view name) const {
