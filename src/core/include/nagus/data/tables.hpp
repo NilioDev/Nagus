@@ -6,6 +6,7 @@
 
 #include "nagus/util/bytes.hpp"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -44,6 +45,37 @@ struct HomePlanet {
 };
 std::vector<HomePlanet> readHomePlanets(ByteView data);
 
+// Planet types and atmospheres (environ.est): eight types (arctic, barren,
+// desert, gas giant, jungle, oceanic, terran, volcanic) with the share of
+// planets of each type, then five atmospheres (methane, none, oxygen rich,
+// sulfuric, thin oxygen). Atmospheres are numbered on from the types: 8-12.
+inline constexpr int kPlanetTypes = 8;
+inline constexpr int kAtmospheres = 5;
+struct PlanetKinds {
+    std::vector<std::string> names; // 13: the types, then the atmospheres
+    std::vector<float> shares;      // 8, one per type
+};
+PlanetKinds readPlanetKinds(ByteView data);
+
+// Which atmospheres each planet type can have (habit.bin), with six numbers
+// per pair that are not understood yet.
+struct Habitat {
+    int type = 0;
+    int atmosphere = 0; // 8-12
+    std::array<std::uint8_t, 6> values{};
+};
+std::vector<Habitat> readHabitats(ByteView data);
+
+// Room for population on a planet by type and size (planspac.bin): nine
+// steps for each pair (not yet known what picks the step). Gas giants have
+// none.
+struct PlanetRoom {
+    int type = 0;
+    int size = 0; // 0 small, 1 medium, 2 large
+    std::array<std::uint32_t, 9> population{};
+};
+std::vector<PlanetRoom> readPlanetRoom(ByteView data);
+
 // The technologies (techtree.tec), in fields of levels 0 to 10.
 enum class TechField : std::uint8_t { Biotech, Computers, Construction, Energy, Propulsion, Weapons, Sociology };
 inline constexpr int kTechFields = 7;
@@ -55,5 +87,43 @@ struct Tech {
     std::uint32_t description = 0; // offset of its text in techdesc.tec
 };
 std::vector<Tech> readTechTree(ByteView data);
+
+// Buildings (edifice.bst): the facilities that make food, industry, energy,
+// research and intelligence, and the structures a system can have.
+enum class Output : std::uint8_t { Research, Industry, Food, Energy, Intelligence };
+inline constexpr int kOutputs = 5;
+struct Building {
+    enum class Class : std::uint8_t { Facility, Structure, Unique };
+    std::string name;
+    std::string plural;
+    int id = 0;
+    int upgradesFrom = -1; // the id of the building this one replaces
+    std::string picture;
+    TechField field = TechField::Biotech;
+    int level = 0;         // the technology level it needs
+    std::uint8_t excluded = 0; // bit e set: empire e can not build it
+    std::uint32_t minorRaces = 0xffffffffu; // minor races whose systems it needs (all bits: none)
+    int systemKind = 9;    // the system it needs: 0 the home system, 1 the race's own, 9 any (others not known)
+    int planetType = 8;    // a planet type it needs; 8 for none, above for special planets
+    int bonus = 0;         // what it does (edifbnft.bst), for structures
+    Class kind = Class::Facility;
+    Output output = Output::Industry; // what it adds to
+    std::uint32_t cost = 0;   // industry needed to build it
+    std::uint32_t energy = 0; // energy it needs to work
+    int workers = 0;          // people (millions) needed to work it
+    int amount = 0;           // what it makes, or the size of its bonus
+
+    bool buildableBy(int empire) const { return empire >= 0 && empire < 8 && (excluded & (1u << empire)) == 0; }
+};
+std::vector<Building> readBuildings(ByteView data);
+
+// How fast population grows (ppgrowth.bin): for each bracket of population,
+// a rate in ten-millionths per turn.
+struct GrowthBracket {
+    int from = 0;
+    int to = 0;
+    std::uint32_t rate = 0;
+};
+std::vector<GrowthBracket> readGrowth(ByteView data);
 
 } // namespace nagus

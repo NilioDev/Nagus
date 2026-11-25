@@ -113,6 +113,72 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     fs::remove(settings);
 }
 
+NGS_TEST("the home system's screen: people at work, the build queue and the next turn") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-system-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(5);
+    shell.command(Command::Start); // the Federation, chosen by default
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    const Game& game = *shell.game();
+
+    // A click on the panel below the map opens the chosen home system.
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kInfo)));
+    NGS_CHECK(shell.showing() == Shell::Showing::System);
+    SystemScreen& screen = *shell.systemScreen();
+    const Colony& colony = game.colonies[static_cast<std::size_t>(screen.colony())];
+    NGS_CHECK(colony.owner == game.player && colony.home);
+    shell.draw(canvas, 0);
+
+    // Production: one fewer worker on the farms, then back.
+    click(shell, centre(element(assets, "hsolars.wdf", SystemScreen::kProduction)));
+    NGS_CHECK(screen.tab() == SystemScreen::Tab::Production);
+    const Rect middle = element(assets, "hsolars.wdf", SystemScreen::kMiddle);
+    const int farmers = colony.working[static_cast<std::size_t>(Output::Food)];
+    Rect less = element(assets, "hlabor.wdf", SystemScreen::kLaborRows[0][2]);
+    less.x += middle.x;
+    less.y += middle.y;
+    click(shell, centre(less));
+    NGS_CHECK(colony.working[static_cast<std::size_t>(Output::Food)] == farmers - 1);
+    shell.draw(canvas, 0);
+
+    // The build list: a click chooses a line, a second click builds it.
+    shell.command(Command::Next);
+    shell.command(Command::Next);
+    NGS_CHECK(screen.tab() == SystemScreen::Tab::BuildList);
+    shell.draw(canvas, 0);
+    NGS_CHECK(!screen.options().empty());
+    NGS_CHECK(screen.options().size() >= 2);
+    const auto line = screen.optionRect(1);
+    NGS_CHECK(line.has_value());
+    click(shell, centre(*line));
+    NGS_CHECK(screen.chosenOption() == 1 && colony.queue.empty());
+    click(shell, centre(*line));
+    NGS_CHECK(colony.queue.size() == 1);
+    shell.draw(canvas, 0);
+
+    // Back on the map, the turn ends with the Turn button.
+    shell.command(Command::Back);
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    const int progress = colony.progress;
+    for (int t = 0; t < 30 && !colony.queue.empty(); ++t) {
+        click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    }
+    NGS_CHECK(game.turn > 1);
+    NGS_CHECK(colony.queue.empty() || colony.progress > progress);
+    shell.draw(canvas, 0);
+    fs::remove(settings);
+}
+
 NGS_TEST("the gamepad's d-pad moves the pointer between buttons") {
     const auto lib = gameLibrary();
     if (!lib) {

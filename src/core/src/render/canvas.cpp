@@ -59,14 +59,26 @@ void Canvas::frame(const Rect& r, Pixel colour, int t) {
     fill({r.x + r.w - t, r.y, t, r.h}, colour);
 }
 
-void Canvas::draw(const Image& img, int x, int y) {
+void Canvas::draw(const Image& img, int x, int y) { draw(img, {0, 0, img.width, img.height}, x, y); }
+
+void Canvas::draw(const Image& img, const Rect& part, int x, int y) {
+    // Keep the part inside the picture.
+    const int px = std::clamp(part.x, 0, img.width);
+    const int py = std::clamp(part.y, 0, img.height);
+    const int pw = std::min(part.x + part.w, img.width) - px;
+    const int ph = std::min(part.y + part.h, img.height) - py;
+    if (pw <= 0 || ph <= 0) {
+        return;
+    }
+    x += px - part.x;
+    y += py - part.y;
     const int x0 = std::max(0, clip_.x - x);
     const int y0 = std::max(0, clip_.y - y);
-    const int x1 = std::min(img.width, clip_.x + clip_.w - x);
-    const int y1 = std::min(img.height, clip_.y + clip_.h - y);
+    const int x1 = std::min(pw, clip_.x + clip_.w - x);
+    const int y1 = std::min(ph, clip_.y + clip_.h - y);
     for (int sy = y0; sy < y1; ++sy) {
         for (int sx = x0; sx < x1; ++sx) {
-            const Pixel p = img.at(sx, sy);
+            const Pixel p = img.at(px + sx, py + sy);
             if ((p >> 24) != 0) {
                 image_.at(x + sx, y + sy) = p;
             }

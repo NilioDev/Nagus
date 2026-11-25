@@ -87,7 +87,134 @@ std::size_t pickWeighted(const std::vector<double>& weights, Random& rng) {
     return 0;
 }
 
+std::string roman(int n) {
+    static constexpr const char* kNumerals[] = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+    return n >= 1 && n <= 10 ? kNumerals[n - 1] : std::to_string(n);
+}
+
 bool isStar(const StarObjectKind& k) { return k.code.size() == 4 && k.code[0] == 's' && k.code[1] == '-'; }
+
+int roomFor(const GalaxyData& data, int type, int size, Random& rng) {
+    for (const auto& r : data.rooms) {
+        if (r.type == type && r.size == size) {
+            return static_cast<int>(r.population[rng.below(static_cast<std::uint32_t>(r.population.size()))]);
+        }
+    }
+    return 0;
+}
+
+Planet randomPlanet(const GalaxyData& data, Random& rng) {
+    Planet p;
+    std::vector<double> shares(data.planetKinds.shares.begin(), data.planetKinds.shares.end());
+    p.type = shares.empty() ? 1 : static_cast<int>(pickWeighted(shares, rng));
+    std::vector<int> atmospheres;
+    for (const auto& h : data.habitats) {
+        if (h.type == p.type) {
+            atmospheres.push_back(h.atmosphere);
+        }
+    }
+    p.atmosphere = atmospheres.empty() ? 9 : atmospheres[rng.below(static_cast<std::uint32_t>(atmospheres.size()))];
+    p.size = p.type == kGasGiant ? 2 : static_cast<int>(rng.below(3));
+    p.room = roomFor(data, p.type, p.size, rng);
+    p.variant = static_cast<int>(rng.below(4));
+    return p;
+}
+
+// How many planets a star has (our guess: one to eight, three to five most often).
+int planetCount(Random& rng) {
+    static constexpr double kWeights[] = {0.06, 0.10, 0.18, 0.22, 0.20, 0.12, 0.08, 0.04};
+    std::vector<double> w(std::begin(kWeights), std::end(kWeights));
+    return static_cast<int>(pickWeighted(w, rng)) + 1;
+}
+
+// An empire's home planets, from the table of home systems. The planets'
+// types are not in the table yet (as far as known): gas giants are marked,
+// the home world itself is terran with an oxygen-rich atmosphere.
+// "Cardassia 5" becomes "Cardassia V".
+std::string numbered(const std::string& name) {
+    const auto space = name.rfind(' ');
+    if (space == std::string::npos || space + 1 >= name.size() || name.size() - space > 3 ||
+        !std::all_of(name.begin() + static_cast<std::ptrdiff_t>(space) + 1, name.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+        return name;
+    }
+    return name.substr(0, space + 1) + roman(std::stoi(name.substr(space + 1)));
+}
+
+struct SolPlanet {
+    const char* name;
+    int type;
+    int atmosphere;
+    int size;
+};
+// Types: 0 arctic, 1 barren, 2 desert, 7 volcanic; atmospheres: 9 none,
+// 11 sulfuric, 12 thin oxygen.
+constexpr SolPlanet kSolPlanets[] = {
+    {"Mercury", 1, 9, 0}, {"Venus", 7, 11, 1}, {"Mars", 2, 12, 0}, {"Pluto", 0, 9, 0}};
+
+std::vector<Planet> homePlanets(const GalaxyData& data, const std::string& race, Random& rng) {
+    std::vector<Planet> planets;
+    for (const auto& h : data.homePlanets) {
+        if (h.race != race) {
+            continue;
+        }
+        Planet p;
+        if (h.kind != 10) {
+            // Only planets marked as gas giants are.
+            for (int tries = 0; tries < 20 && (tries == 0 || p.type == kGasGiant); ++tries) {
+                p = randomPlanet(data, rng);
+            }
+            if (p.type == kGasGiant) {
+                p.type = 1;
+                p.atmosphere = 9;
+                p.room = roomFor(data, p.type, p.size, rng);
+            }
+        }
+        p.name = numbered(h.name);
+        // The planets of the Sol system as they are.
+        for (const auto& [name, type, atmosphere, size] : kSolPlanets) {
+            if (h.name == name) {
+                p.type = type;
+                p.atmosphere = atmosphere;
+                p.size = size;
+                p.room = roomFor(data, p.type, p.size, rng);
+            }
+        }
+        if (h.kind == 10) {
+            p.type = kGasGiant;
+            p.atmosphere = 8;
+            p.size = 2;
+            p.room = 0;
+            p.variant = static_cast<int>(rng.below(4));
+        }
+        planets.push_back(p);
+    }
+    // The home world: Earth where there is one, else the planet marked
+    // with 1, else the planet in the middle that is not a gas giant.
+    int home = -1;
+    std::size_t k = 0;
+    for (const auto& h : data.homePlanets) {
+        if (h.race != race) {
+            continue;
+        }
+        if (h.name == "Earth" || (home < 0 && h.kind == 1)) {
+            home = static_cast<int>(k);
+        }
+        ++k;
+    }
+    for (int i = static_cast<int>(planets.size()) / 2; home < 0 && i < static_cast<int>(planets.size()); ++i) {
+        if (planets[static_cast<std::size_t>(i)].type != kGasGiant) {
+            home = i;
+        }
+    }
+    if (home >= 0) {
+        auto& p = planets[static_cast<std::size_t>(home)];
+        p.type = 6;
+        p.atmosphere = 10;
+        p.size = 2;
+        p.room = roomFor(data, p.type, p.size, rng);
+    }
+    return planets;
+}
 
 } // namespace
 
@@ -226,6 +353,34 @@ Galaxy makeGalaxy(const GalaxySetup& setup, const GalaxyData& data) {
         }
     }
 
+    // Planets.
+    for (auto& s : g.systems) {
+        if (!s.star) {
+            continue;
+        }
+        if (s.race >= 0 && s.race < kEmpires && static_cast<std::size_t>(s.race) < data.races.size()) {
+            s.planets = homePlanets(data, data.races[static_cast<std::size_t>(s.race)].name, rng);
+        }
+        if (s.planets.empty()) {
+            const int n = planetCount(rng);
+            for (int i = 0; i < n; ++i) {
+                s.planets.push_back(randomPlanet(data, rng));
+            }
+        }
+        if (s.race >= kEmpires) {
+            // A minor race lives on a planet that can hold people.
+            bool livable = false;
+            for (const auto& p : s.planets) {
+                livable = livable || p.room > 0;
+            }
+            if (!livable) {
+                s.planets.front().type = 6;
+                s.planets.front().atmosphere = 10;
+                s.planets.front().room = roomFor(data, 6, s.planets.front().size, rng);
+            }
+        }
+    }
+
     // Names for the other stars.
     std::vector<std::string> names = data.starNames;
     rng.shuffle(names);
@@ -237,6 +392,11 @@ Galaxy makeGalaxy(const GalaxySetup& setup, const GalaxyData& data) {
                 ++next;
             }
             s.name = next < names.size() ? names[next++] : "System " + std::to_string(next++ + 1);
+        }
+        for (std::size_t i = 0; i < s.planets.size(); ++i) {
+            if (s.planets[i].name.empty()) {
+                s.planets[i].name = s.name + " " + roman(static_cast<int>(i) + 1);
+            }
         }
     }
     return g;

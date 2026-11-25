@@ -119,4 +119,129 @@ std::vector<Tech> readTechTree(ByteView data) {
     return techs;
 }
 
+PlanetKinds readPlanetKinds(ByteView data) {
+    constexpr std::size_t kHeader = 0x82;
+    constexpr std::size_t kRecord = 50;
+    Reader r(data);
+    const std::size_t count = r.u16();
+    if (count != kPlanetTypes + kAtmospheres || data.size() < kHeader + count * kRecord) {
+        throw FormatError("bad planet type table");
+    }
+    PlanetKinds k;
+    for (int i = 0; i < kPlanetTypes; ++i) {
+        const std::uint32_t bits = r.u32();
+        float share = 0;
+        std::memcpy(&share, &bits, sizeof share);
+        if (!(share >= 0 && share <= 1)) {
+            throw FormatError("bad planet type table");
+        }
+        k.shares.push_back(share);
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, kHeader + i * kRecord);
+        k.names.push_back(rec.text(12));
+    }
+    return k;
+}
+
+std::vector<Habitat> readHabitats(ByteView data) {
+    const std::size_t count = records(data, 0, 8, "habitat table");
+    std::vector<Habitat> h(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, i * 8);
+        h[i].type = rec.u8();
+        h[i].atmosphere = rec.u8();
+        if (h[i].type >= kPlanetTypes || h[i].atmosphere < kPlanetTypes ||
+            h[i].atmosphere >= kPlanetTypes + kAtmospheres) {
+            throw FormatError("bad habitat table");
+        }
+        for (auto& v : h[i].values) {
+            v = rec.u8();
+        }
+    }
+    return h;
+}
+
+std::vector<PlanetRoom> readPlanetRoom(ByteView data) {
+    const std::size_t count = records(data, 0, 40, "planet room table");
+    std::vector<PlanetRoom> rooms(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, i * 40);
+        rooms[i].type = rec.u8();
+        rooms[i].size = rec.u8();
+        rec.u16();
+        if (rooms[i].type >= kPlanetTypes || rooms[i].size > 2) {
+            throw FormatError("bad planet room table");
+        }
+        for (auto& v : rooms[i].population) {
+            v = rec.u32();
+            if (v > 100000) {
+                throw FormatError("bad planet room table");
+            }
+        }
+    }
+    return rooms;
+}
+
+std::vector<Building> readBuildings(ByteView data) {
+    constexpr std::size_t kHeader = 0x2e4;
+    constexpr std::size_t kRecord = 176;
+    constexpr std::size_t kMaxBuildings = 2048;
+    Reader r(data);
+    const std::size_t count = r.u32();
+    if (count > kMaxBuildings || data.size() < kHeader || count > (data.size() - kHeader) / kRecord) {
+        throw FormatError("bad building table");
+    }
+    std::vector<Building> list(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::size_t at = kHeader + i * kRecord;
+        Reader rec(data, at);
+        Building& b = list[i];
+        b.name = rec.text(40);
+        b.plural = rec.text(40);
+        b.id = rec.u16();
+        const int from = rec.u16();
+        b.upgradesFrom = from == 0x7fff ? -1 : from;
+        rec.skip(4);
+        b.picture = rec.text(8);
+        rec.seek(at + 0x65);
+        const std::uint8_t field = rec.u8();
+        b.level = rec.u8();
+        b.excluded = rec.u8();
+        b.minorRaces = rec.u32();
+        rec.seek(at + 0x70);
+        b.systemKind = rec.u8();
+        b.planetType = rec.u8();
+        b.bonus = rec.u8();
+        const std::uint8_t kind = rec.u8();
+        rec.u8(); // which empire's or minor race's style (not used)
+        const std::uint8_t output = rec.u8();
+        if (field >= kTechFields || kind > 2 || output >= kOutputs) {
+            throw FormatError("bad building table");
+        }
+        b.field = static_cast<TechField>(field);
+        b.kind = static_cast<Building::Class>(kind);
+        b.output = static_cast<Output>(output);
+        rec.seek(at + 0x78);
+        b.cost = rec.u32();
+        b.energy = rec.u32();
+        b.workers = rec.u16();
+        rec.seek(at + 0x86);
+        b.amount = rec.u16();
+    }
+    return list;
+}
+
+std::vector<GrowthBracket> readGrowth(ByteView data) {
+    const std::size_t count = records(data, 0, 12, "growth table");
+    std::vector<GrowthBracket> list(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        Reader rec(data, i * 12);
+        list[i].from = rec.u16();
+        list[i].to = rec.u16();
+        list[i].rate = rec.u32();
+    }
+    return list;
+}
+
 } // namespace nagus

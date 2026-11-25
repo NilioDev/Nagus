@@ -18,6 +18,7 @@ constexpr Pixel kMinorColour = 0xffd0d0d0u;
 constexpr Pixel kNameColour = 0xff9098b0u;
 constexpr Pixel kChosen = 0xffffff00u;
 constexpr Pixel kInfoColour = 0xffffcc66u;
+constexpr std::uint64_t kFrameMs = 90; // how long each frame of a turning planet shows
 
 std::string format1(const std::string& pattern, const std::string& value) {
     std::string out = pattern;
@@ -29,13 +30,48 @@ std::string format1(const std::string& pattern, const std::string& value) {
 
 } // namespace
 
+void drawPlanetStrip(Canvas& canvas, Assets& assets, const Game& game, const StarSystem& s, const Rect& strip,
+                     const Font& small, std::uint64_t ms, const std::vector<std::string>& animations) {
+    // The star on the left of the strip, its planets in a row to its right.
+    canvas.setClip(strip);
+    const int frame = static_cast<int>(ms / kFrameMs);
+    const std::string code = static_cast<std::size_t>(s.kind) < game.kindCodes.size() ? game.kindCodes[static_cast<std::size_t>(s.kind)] : "";
+    const Animation& star = assets.animation(code + ".ani");
+    if (star.frames > 0) {
+        canvas.draw(star.sheet, star.part(frame), strip.x - star.frameWidth / 2, strip.y + (strip.h - star.frameHeight) / 2);
+    }
+    if (s.planets.empty()) {
+        canvas.clearClip();
+        return;
+    }
+    const int left = strip.x + 60;
+    const int step = (strip.w - 60) / static_cast<int>(s.planets.size());
+    for (std::size_t i = 0; i < s.planets.size(); ++i) {
+        const Planet& p = s.planets[i];
+        const int cx = left + step * static_cast<int>(i) + step / 2;
+        const int cy = strip.y + (strip.h - small.height()) / 2;
+        const Animation& a = assets.animation(planetAnimation(p, animations));
+        if (a.frames > 0) {
+            // Each planet turns at its own pace.
+            canvas.draw(a.sheet, a.part(frame + static_cast<int>(i) * 5), cx - a.frameWidth / 2, cy - a.frameHeight / 2);
+        } else {
+            canvas.fill({cx - 4, cy - 4, 8, 8}, kNameColour);
+        }
+        const int w = small.width(p.name);
+        canvas.text(small, p.name, cx - w / 2, strip.y + strip.h - small.height() - 1, kNameColour);
+    }
+    canvas.clearClip();
+}
+
 GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     : assets_(assets), game_(game), prefix_(kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]),
-      panel_(assets, std::string(1, prefix_) + "maingal.wdf"), info_(assets, std::string(1, prefix_) + "_starmp.wdf") {
+      panel_(assets, std::string(1, prefix_) + "maingal.wdf"), info_(assets, std::string(1, prefix_) + "_starmp.wdf"),
+      system_(assets, std::string(1, prefix_) + "_sysmap.wdf"), animations_(assets.resources().names(".ani")) {
     map_ = panel_.rect(kMap);
     const Rect infoArea = panel_.rect(kInfo);
     info_.setOrigin({infoArea.x, infoArea.y});
-    for (const std::uint32_t id : {kTurn, kSummary, kEconomy, kMilitary, kEvents, kOverlay, 0x40eu, 0x40fu}) {
+    system_.setOrigin({infoArea.x, infoArea.y});
+    for (const std::uint32_t id : {kSummary, kEconomy, kMilitary, kEvents, kOverlay, 0x40eu, 0x40fu}) {
         panel_.setEnabled(id, false);
     }
     for (std::size_t i = 0; i < std::size(text::kObjectKinds); ++i) {
@@ -113,7 +149,7 @@ void GalaxyScreen::choose(Sector s) {
     }
 }
 
-void GalaxyScreen::draw(Canvas& canvas, std::uint64_t) {
+void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
     panel_.draw(canvas);
     const Galaxy& g = game_.galaxy;
     const int size = sectorSize();
@@ -182,11 +218,24 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t) {
                 kInfoColour, Align::Center);
 
     // Below the map: the chosen sector and what is in it.
+    const int at = g.systemAt(chosen_);
+    if (at >= 0 && !g.systems[static_cast<std::size_t>(at)].planets.empty()) {
+        drawSystem(canvas, g.systems[static_cast<std::size_t>(at)], ms);
+    } else {
+        drawSector(canvas, at);
+    }
+    drawList(canvas);
+}
+
+void GalaxyScreen::drawSector(Canvas& canvas, int at) {
+    const Galaxy& g = game_.galaxy;
+    const int player = std::clamp(game_.player, 0, kEmpires - 1);
+    const Font& small = assets_.font(kSmallFonts[player]);
+    const Font& font = assets_.font(kFonts[player]);
     info_.draw(canvas);
     canvas.text(small, sectorName(chosen_), info_.rect(kInfoSector), kInfoColour, Align::Center);
     const Rect details = info_.rect(kInfoDetails);
     int y = details.y + 4;
-    const int at = g.systemAt(chosen_);
     if (at >= 0) {
         const auto& s = g.systems[static_cast<std::size_t>(at)];
         const std::string kind = static_cast<std::size_t>(s.kind) < kindNames_.size() ? kindNames_[static_cast<std::size_t>(s.kind)] : "";
@@ -201,15 +250,55 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t) {
                         s.race < kEmpires ? kEmpireColours[s.race] : kMinorColour);
         }
     }
+}
+
+void GalaxyScreen::drawSystem(Canvas& canvas, const StarSystem& s, std::uint64_t ms) {
+    const int player = std::clamp(game_.player, 0, kEmpires - 1);
+    const Font& small = assets_.font(kSmallFonts[player]);
+    const Font& font = assets_.font(kFonts[player]);
+    system_.draw(canvas);
+    canvas.text(small, sectorName(chosen_), system_.rect(kInfoSector), kInfoColour, Align::Center);
+    const Pixel nameColour = s.race >= 0 && s.race < kEmpires ? kEmpireColours[s.race] : s.race >= 0 ? kMinorColour : kInfoColour;
+    canvas.text(small, s.name, system_.rect(kInfoName), nameColour, Align::Center);
+
+    // On the left: what kind of star, and who lives here.
+    const Rect details = system_.rect(kSystemDetails);
+    int y = details.y + 2;
+    const std::string kind = static_cast<std::size_t>(s.kind) < kindNames_.size() ? kindNames_[static_cast<std::size_t>(s.kind)] : "";
+    canvas.text(small, kind, details.x + 4, y, kNameColour);
+    y += small.height() + 3;
+    if (s.race >= 0 && static_cast<std::size_t>(s.race) < game_.raceNames.size()) {
+        canvas.text(font, game_.raceNames[static_cast<std::size_t>(s.race)], details.x + 4, y, nameColour);
+    }
+
+    drawPlanetStrip(canvas, assets_, game_, s, system_.rect(kInfoPicture), small, ms, animations_);
+}
+
+void GalaxyScreen::drawList(Canvas& canvas) {
+    const Galaxy& g = game_.galaxy;
+    const int player = std::clamp(game_.player, 0, kEmpires - 1);
+    const Font& small = assets_.font(kSmallFonts[player]);
 
     // The empire's systems, in the list on the left.
     const Rect list = panel_.rect(kList);
     int ly = list.y + 30;
-    for (const auto& s : g.systems) {
-        if (s.race == game_.player) {
-            canvas.text(small, s.name, list.x + 10, ly, kEmpireColours[player]);
+    for (const auto& c : game_.colonies) {
+        if (c.owner == game_.player) {
+            canvas.text(small, g.systems[static_cast<std::size_t>(c.system)].name, list.x + 10, ly, kEmpireColours[player]);
             ly += small.height() + 3;
         }
+    }
+    // The credits, and what happened last turn.
+    ly += small.height();
+    const auto& empire = game_.empires[static_cast<std::size_t>(player)];
+    canvas.text(small, assets_.lexicon()[text::kCredits] + ": " + std::to_string(empire.credits), list.x + 10, ly, kInfoColour);
+    ly += small.height() * 2;
+    for (const auto& e : events_) {
+        if (ly + small.height() > list.y + list.h) {
+            break;
+        }
+        drawParagraph(canvas, small, e, {list.x + 10, ly, list.w - 16, small.height() * 2 + 2}, kNameColour);
+        ly += small.height() * (small.width(e) > list.w - 16 ? 2 : 1) + 3;
     }
 }
 
@@ -218,10 +307,28 @@ void GalaxyScreen::pointerMoved(Point p) {
     panel_.pointerMoved(p);
 }
 
+int GalaxyScreen::chosenColony() const {
+    const int at = game_.galaxy.systemAt(chosen_);
+    for (std::size_t i = 0; at >= 0 && i < game_.colonies.size(); ++i) {
+        if (game_.colonies[i].system == at && game_.colonies[i].owner == game_.player) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
 void GalaxyScreen::pointerPressed(Point p) {
     pointer_ = p;
     if (const auto s = sectorAt(p)) {
+        // A second click on one of the player's systems opens it.
+        if (*s == chosen_ && chosenColony() >= 0) {
+            outcome_ = Outcome::Open;
+        }
         choose(*s);
+        return;
+    }
+    if (panel_.rect(kInfo).contains(p.x, p.y) && chosenColony() >= 0) {
+        outcome_ = Outcome::Open;
         return;
     }
     panel_.pointerPressed(p);
@@ -229,9 +336,12 @@ void GalaxyScreen::pointerPressed(Point p) {
 
 void GalaxyScreen::pointerReleased(Point p) {
     pointer_ = p;
-    if (const auto id = panel_.pointerReleased(p); id && *id == kWholeMap) {
+    const auto id = panel_.pointerReleased(p);
+    if (id && *id == kWholeMap) {
         whole_ = !whole_;
         keepInView();
+    } else if (id && *id == kTurn) {
+        events_ = endTurn(game_).events;
     }
 }
 

@@ -3,6 +3,7 @@
 #include "gamedata.hpp"
 #include "test.hpp"
 
+#include "nagus/data/animation.hpp"
 #include "nagus/data/cursor.hpp"
 #include "nagus/data/font.hpp"
 #include "nagus/data/image.hpp"
@@ -11,6 +12,7 @@
 #include "nagus/data/resources.hpp"
 #include "nagus/data/tables.hpp"
 #include "nagus/data/zip_archive.hpp"
+#include "nagus/game/game.hpp"
 
 using namespace nagus;
 using namespace nagus::test;
@@ -180,12 +182,73 @@ NGS_TEST("tables of races, stars, home systems and technologies") {
     NGS_CHECK(techs[65].field == TechField::Weapons && techs[65].level == 10);
 }
 
+NGS_TEST("planet types, atmospheres, room for people and turning planets") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const Resources res(*lib);
+    const auto kinds = readPlanetKinds(res.file("environ.est"));
+    NGS_CHECK(kinds.names.size() == 13 && kinds.shares.size() == 8);
+    NGS_CHECK(kinds.names[3] == "Gas Giant" || kinds.names[3] == "gas giant");
+    float total = 0;
+    for (const float f : kinds.shares) {
+        total += f;
+    }
+    NGS_CHECK(total > 0.99f && total < 1.01f);
+    const auto habitats = readHabitats(res.file("habit.bin"));
+    NGS_CHECK(habitats.size() == 14);
+    for (const auto& h : habitats) {
+        NGS_CHECK(h.type >= 0 && h.type < kPlanetTypes && h.atmosphere >= 8 && h.atmosphere < 13);
+    }
+    const auto rooms = readPlanetRoom(res.file("planspac.bin"));
+    NGS_CHECK(rooms.size() == 21);
+    const Animation small = readAnimation(res.file("aros.ani"));
+    NGS_CHECK(small.frameWidth == 16 && small.frames == 24);
+    NGS_CHECK(small.frame(25).width == 16);
+    const Animation star = readAnimation(res.file("s-y-.ani"));
+    NGS_CHECK(star.frameWidth == 100 && star.frames == 36);
+    const auto animations = res.names(".ani");
+    Planet earth;
+    earth.name = "Earth";
+    NGS_CHECK(planetAnimation(earth, animations) == "eart.ani");
+    Planet terran;
+    terran.name = "Sol III";
+    terran.type = 6;
+    terran.atmosphere = 10;
+    terran.size = 2;
+    NGS_CHECK(planetAnimation(terran, animations) == "trol.ani");
+    for (int type = 0; type < kPlanetTypes; ++type) {
+        for (int size = 0; size < 3; ++size) {
+            terran.type = type;
+            terran.size = size;
+            NGS_CHECK(!planetAnimation(terran, animations).empty());
+        }
+    }
+}
+
 NGS_TEST("table readers refuse damaged tables") {
     for (const Bytes& bad : {Bytes{}, Bytes{1}, Bytes{0xff, 0xff, 0, 0}}) {
         bool threw = false;
         try {
             readRaces(bad);
             readStarNames(bad);
+        } catch (const FormatError&) {
+            threw = true;
+        }
+        NGS_CHECK(threw);
+    }
+    for (const Bytes& bad : {Bytes{}, Bytes{1, 0, 0, 0}, Bytes(20, 0xff)}) {
+        bool threw = false;
+        try {
+            readPlanetKinds(bad);
+        } catch (const FormatError&) {
+            threw = true;
+        }
+        NGS_CHECK(threw);
+        threw = false;
+        try {
+            readAnimation(bad);
         } catch (const FormatError&) {
             threw = true;
         }

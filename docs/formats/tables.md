@@ -46,7 +46,7 @@ order of the empires and of the planets from their star:
 | --- | --- | --- |
 | 0 | 40 | Planet name |
 | 40 | 40 | Race name |
-| 80 | 4 | Not understood (0, 1 or 10) |
+| 80 | 4 | 10 for a gas giant; 0 or 1 otherwise (not understood) |
 | 84 | 4 | Not understood; the same for all planets of a system |
 
 ## Technologies (`techtree.tec`)
@@ -62,3 +62,24 @@ order of the empires and of the planets from their star:
 | 68 | 4 | Offset of its description in `techdesc.tec` (zero-ended texts) |
 
 Sociology is not shown to the player.
+
+## Planet types and atmospheres (`environ.est`)
+
+A 16-bit count (13), eight 32-bit floats with the share of planets of each
+type (they add up to one), then from offset 0x82 thirteen 50-byte names: the
+eight planet types (arctic, barren, desert, gas giant, jungle, oceanic,
+terran, volcanic) and the five atmospheres (methane, none, oxygen rich,
+sulfuric, thin oxygen). Elsewhere atmospheres are numbered on from the types,
+8 to 12.
+
+## Habitats (`habit.bin`)
+
+Fourteen 8-byte records: planet type, atmosphere (8-12) and six numbers not
+yet understood. They list which atmospheres each planet type can have.
+
+## Room for people (`planspac.bin`)
+
+Twenty-one 40-byte records, one per planet type and size (gas giants have
+none): type (8 bits), size (8 bits, small, medium, large), 16 bits not
+understood, then nine 32-bit numbers of people (in millions). What picks
+one of the nine is not known yet; Nagus picks one at random.
