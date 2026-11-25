@@ -1,0 +1,311 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "nagus/game/ai.hpp"
+
+#include <algorithm>
+#include <limits>
+
+namespace nagus {
+
+namespace {
+
+// Credits kept back before buying, and colony ships at once (our choice).
+constexpr int kReserve = 150;
+constexpr int kColonyShips = 2;
+// Warships wanted: one for each this many turns, by difficulty (simple ...
+// impossible).
+constexpr int kTurnsPerWarship[GameSettings::kDifficulties] = {40, 30, 20, 15, 10};
+
+bool isWarship(ShipRole r) {
+    return r == ShipRole::Destroyer || r == ShipRole::Cruiser || r == ShipRole::StrikeCruiser ||
+           r == ShipRole::Command;
+}
+
+const ShipClass* classOf(const Game& g, const Ship& s) {
+    return s.shipClass >= 0 && static_cast<std::size_t>(s.shipClass) < g.economy.ships.size()
+               ? &g.economy.ships[static_cast<std::size_t>(s.shipClass)]
+               : nullptr;
+}
+
+bool fleetHas(const Game& g, const Fleet& f, bool (*test)(ShipRole)) {
+    return std::any_of(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        const ShipClass* c = classOf(g, s);
+        return c != nullptr && test(c->role);
+    });
+}
+
+bool isColonyShip(ShipRole r) { return r == ShipRole::Colony; }
+bool isScout(ShipRole r) { return r == ShipRole::Scout; }
+
+// A number from the game's state, for choices that should vary but be the
+// same each time the same game is played.
+std::uint32_t mix(std::uint32_t a, std::uint32_t b, std::uint32_t c) {
+    std::uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu ^ (c + 0x165667b1u) * 0xc2b2ae35u;
+    h ^= h >> 15;
+    h *= 0x2c1b3c6du;
+    h ^= h >> 12;
+    return h;
+}
+
+struct Census {
+    int colonyShips = 0; // in fleets and in build queues
+    int warships = 0;
+    int colonies = 0;
+};
+
+Census count(const Game& g, int empire) {
+    Census n;
+    for (const auto& f : g.fleets) {
+        if (f.owner != empire) {
+            continue;
+        }
+        for (const auto& s : f.ships) {
+            const ShipClass* c = classOf(g, s);
+            n.colonyShips += c != nullptr && c->role == ShipRole::Colony ? 1 : 0;
+            n.warships += c != nullptr && isWarship(c->role) ? 1 : 0;
+        }
+    }
+    for (const auto& c : g.colonies) {
+        if (c.owner != empire) {
+            continue;
+        }
+        n.colonies += 1;
+        for (const auto& q : c.queue) {
+            if (q.kind == BuildItem::Kind::Ship && q.building >= 0 &&
+                static_cast<std::size_t>(q.building) < g.economy.ships.size()) {
+                const ShipRole r = g.economy.ships[static_cast<std::size_t>(q.building)].role;
+                n.colonyShips += r == ShipRole::Colony ? 1 : 0;
+                n.warships += isWarship(r) ? 1 : 0;
+            }
+        }
+    }
+    return n;
+}
+
+// How many free systems are within reach of the empire's colonies.
+int freeSystems(const Game& g, int empire, int reach) {
+    int n = 0;
+    for (int i = 0; i < static_cast<int>(g.galaxy.systems.size()); ++i) {
+        if (freeForColony(g, i, empire) &&
+            distanceFromColonies(g.galaxy.systems[static_cast<std::size_t>(i)].sector, empire, g.colonies, g.galaxy) <= reach) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+// What a colony should build next, or nothing.
+std::optional<BuildItem> choose(const Game& g, const Colony& c, const Census& census, int empire) {
+    const EmpireState& e = g.empires[static_cast<std::size_t>(empire)];
+    const StarSystem& s = g.galaxy.systems[static_cast<std::size_t>(c.system)];
+    const auto options = buildOptions(c, e, s, g.economy);
+    if (options.empty()) {
+        return std::nullopt;
+    }
+    const ColonyOutput out = colonyOutput(c, g.economy);
+    auto facility = [&](Output o) -> std::optional<BuildItem> {
+        for (const auto& item : options) {
+            if (item.kind == BuildItem::Kind::Facility && item.building >= 0) {
+                const Building& b = g.economy.buildings[static_cast<std::size_t>(item.building)];
+                if (b.output == o) {
+                    return item;
+                }
+            }
+        }
+        return std::nullopt;
+    };
+    auto ship = [&](bool (*test)(ShipRole)) -> std::optional<BuildItem> {
+        std::optional<BuildItem> best;
+        int bestCost = -1;
+        for (const auto& item : options) {
+            if (item.kind != BuildItem::Kind::Ship) {
+                continue;
+            }
+            const ShipClass& sc = g.economy.ships[static_cast<std::size_t>(item.building)];
+            if (test(sc.role) && sc.cost > bestCost) {
+                best = item;
+                bestCost = sc.cost;
+            }
+        }
+        return best;
+    };
+
+    // Food first: a starving colony shrinks.
+    if (out.made[static_cast<std::size_t>(Output::Food)] < out.foodNeeded) {
+        if (auto f = facility(Output::Food)) {
+            return f;
+        }
+    }
+    // Power for the structures that need it.
+    if (out.made[static_cast<std::size_t>(Output::Energy)] < out.energyNeeded) {
+        if (auto f = facility(Output::Energy)) {
+            return f;
+        }
+    }
+    // Colony ships while there are systems to settle.
+    const int reach = 6 + e.tech[static_cast<std::size_t>(TechField::Propulsion)] / 3;
+    if (census.colonyShips < kColonyShips && freeSystems(g, empire, reach) > census.colonyShips) {
+        if (auto sh = ship(isColonyShip)) {
+            return sh;
+        }
+    }
+    // Warships, more of them as the game goes on.
+    const int difficulty = std::clamp(g.settings.difficulty, 0, GameSettings::kDifficulties - 1);
+    if (census.warships < 1 + g.turn / kTurnsPerWarship[difficulty]) {
+        if (auto sh = ship(isWarship)) {
+            return sh;
+        }
+    }
+    // Better facilities.
+    for (const auto& item : options) {
+        if (item.kind == BuildItem::Kind::Upgrade) {
+            return item;
+        }
+    }
+    // The cheapest structure there is energy for.
+    const int spare = out.made[static_cast<std::size_t>(Output::Energy)] - out.energyNeeded;
+    std::optional<BuildItem> cheapest;
+    std::uint32_t lowest = std::numeric_limits<std::uint32_t>::max();
+    for (const auto& item : options) {
+        if (item.kind != BuildItem::Kind::Structure) {
+            continue;
+        }
+        const Building& b = g.economy.buildings[static_cast<std::size_t>(item.building)];
+        if (static_cast<int>(b.energy) > spare) {
+            continue;
+        }
+        if (const std::uint32_t cost = itemCost(item, c, g.economy); cost < lowest) {
+            cheapest = item;
+            lowest = cost;
+        }
+    }
+    if (cheapest) {
+        return cheapest;
+    }
+    // Then more facilities, by what the empire needs most.
+    for (const Output o : {Output::Industry, Output::Research, Output::Energy, Output::Food, Output::Intelligence}) {
+        if (auto f = facility(o)) {
+            return f;
+        }
+    }
+    return std::nullopt;
+}
+
+// A colony ship looks for the best free system it can reach: near, with
+// room for many.
+std::optional<int> colonyTarget(const Game& g, const Fleet& f, const std::vector<int>& taken) {
+    const EmpireState& e = g.empires[static_cast<std::size_t>(f.owner)];
+    const int range = fleetRange(f, g.economy, e);
+    std::optional<int> best;
+    int bestScore = std::numeric_limits<int>::min();
+    for (int i = 0; i < static_cast<int>(g.galaxy.systems.size()); ++i) {
+        if (!freeForColony(g, i, f.owner) || std::find(taken.begin(), taken.end(), i) != taken.end()) {
+            continue;
+        }
+        const StarSystem& s = g.galaxy.systems[static_cast<std::size_t>(i)];
+        if (distanceFromColonies(s.sector, f.owner, g.colonies, g.galaxy) > range) {
+            continue;
+        }
+        const int score = systemRoom(s, f.owner, g.economy) / 10 - 4 * distance(f.at, s.sector);
+        if (score > bestScore) {
+            best = i;
+            bestScore = score;
+        }
+    }
+    return best;
+}
+
+} // namespace
+
+bool freeForColony(const Game& game, int system, int empire) {
+    if (system < 0 || static_cast<std::size_t>(system) >= game.galaxy.systems.size()) {
+        return false;
+    }
+    const StarSystem& s = game.galaxy.systems[static_cast<std::size_t>(system)];
+    return s.star && s.race < 0 && game.colonyAt(system) == nullptr && systemRoom(s, empire, game.economy) > 0;
+}
+
+void playEmpire(Game& game, int empire) {
+    if (empire < 0 || empire >= kEmpires) {
+        return;
+    }
+    EmpireState& e = game.empires[static_cast<std::size_t>(empire)];
+
+    // Build queues: keep one thing in each.
+    for (auto& c : game.colonies) {
+        if (c.owner != empire || !c.queue.empty()) {
+            continue;
+        }
+        const Census census = count(game, empire);
+        if (const auto item = choose(game, c, census, empire)) {
+            c.queue.push_back(*item);
+        }
+    }
+    // Spare credits finish what is being built, colony ships first.
+    std::vector<Colony*> buyers;
+    for (auto& c : game.colonies) {
+        if (c.owner == empire && !c.queue.empty()) {
+            buyers.push_back(&c);
+        }
+    }
+    std::stable_sort(buyers.begin(), buyers.end(), [&](const Colony* a, const Colony* b) {
+        auto colonyShip = [&](const Colony* c) {
+            const BuildItem& q = c->queue.front();
+            return q.kind == BuildItem::Kind::Ship && game.economy.ships[static_cast<std::size_t>(q.building)].role == ShipRole::Colony;
+        };
+        return colonyShip(a) && !colonyShip(b);
+    });
+    for (Colony* c : buyers) {
+        const int cost = buyCost(*c, game.economy);
+        if (cost > 0 && e.credits - cost >= kReserve) {
+            e.credits -= cost;
+            c->progress = static_cast<int>(itemCost(c->queue.front(), *c, game.economy));
+        }
+    }
+
+    // Fleets.
+    std::vector<int> taken; // systems a colony ship is going to
+    for (const auto& f : game.fleets) {
+        if (f.owner == empire && f.destination && fleetHas(game, f, isColonyShip)) {
+            const int at = game.galaxy.systemAt(*f.destination);
+            if (at >= 0) {
+                taken.push_back(at);
+            }
+        }
+    }
+    std::vector<int> ids;
+    for (const auto& f : game.fleets) {
+        if (f.owner == empire && !f.destination && f.order == Fleet::Order::None) {
+            ids.push_back(f.id);
+        }
+    }
+    for (const int id : ids) {
+        const Fleet& f = *game.fleet(id);
+        if (fleetHas(game, f, isColonyShip)) {
+            const int here = game.galaxy.systemAt(f.at);
+            if (here >= 0 && std::find(taken.begin(), taken.end(), here) == taken.end() && orderColonize(game, id)) {
+                taken.push_back(here);
+                continue;
+            }
+            if (const auto target = colonyTarget(game, f, taken)) {
+                taken.push_back(*target);
+                orderMove(game, id, game.galaxy.systems[static_cast<std::size_t>(*target)].sector);
+            }
+        } else if (fleetHas(game, f, isScout)) {
+            // Scouts look around: a sector within reach, a different one
+            // each time.
+            const int range = fleetRange(f, game.economy, e);
+            for (int attempt = 0; attempt < 8; ++attempt) {
+                const std::uint32_t h = mix(static_cast<std::uint32_t>(game.turn), static_cast<std::uint32_t>(id),
+                                            static_cast<std::uint32_t>(attempt));
+                const Sector to{f.at.x + static_cast<int>(h % 9) - 4, f.at.y + static_cast<int>((h / 9) % 9) - 4};
+                if (game.galaxy.inside(to) && distanceFromColonies(to, empire, game.colonies, game.galaxy) <= range &&
+                    orderMove(game, id, to)) {
+                    break;
+                }
+            }
+        }
+        // Warships stay to guard home for now.
+    }
+}
+
+} // namespace nagus

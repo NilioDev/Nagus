@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/game/game.hpp"
 
+#include "nagus/game/ai.hpp"
 #include "nagus/game/research.hpp"
 
 #include <algorithm>
@@ -148,6 +149,43 @@ bool visibleTo(const Game& game, int empire, Sector s) {
     return false;
 }
 
+bool exploredBy(const Game& game, int empire, Sector s) {
+    if (!game.galaxy.inside(s) || empire < 0 || empire >= kEmpires) {
+        return false;
+    }
+    const auto i = static_cast<std::size_t>(s.y * game.galaxy.width + s.x);
+    return i < game.explored.size() && (game.explored[i] & (1u << empire)) != 0;
+}
+
+void explore(Game& game) {
+    const Galaxy& gal = game.galaxy;
+    game.explored.resize(static_cast<std::size_t>(gal.width * gal.height));
+    auto mark = [&](int owner, Sector centre, int radius) {
+        if (owner < 0 || owner >= kEmpires) {
+            return;
+        }
+        for (int y = centre.y - radius; y <= centre.y + radius; ++y) {
+            for (int x = centre.x - radius; x <= centre.x + radius; ++x) {
+                if (gal.inside({x, y})) {
+                    game.explored[static_cast<std::size_t>(y * gal.width + x)] |= static_cast<std::uint8_t>(1u << owner);
+                }
+            }
+        }
+    };
+    for (const auto& c : game.colonies) {
+        mark(c.owner, gal.systems[static_cast<std::size_t>(c.system)].sector, 2);
+    }
+    for (const auto& f : game.fleets) {
+        int scan = 0;
+        for (const auto& ship : f.ships) {
+            if (ship.shipClass >= 0 && static_cast<std::size_t>(ship.shipClass) < game.economy.ships.size()) {
+                scan = std::max(scan, game.economy.ships[static_cast<std::size_t>(ship.shipClass)].scan);
+            }
+        }
+        mark(f.owner, f.at, 1 + scan);
+    }
+}
+
 bool orderMove(Game& game, int id, Sector to) {
     Fleet* f = game.fleet(id);
     if (f == nullptr || !game.galaxy.inside(to) || f->owner < 0 || f->owner >= kEmpires) {
@@ -225,6 +263,12 @@ void colonize(Game& game, TurnSummary& summary) {
 
 TurnSummary endTurn(Game& game) {
     TurnSummary summary;
+    // The computer players give their orders.
+    for (int e = 0; e < kEmpires; ++e) {
+        if (e != game.player) {
+            playEmpire(game, e);
+        }
+    }
     for (auto& c : game.colonies) {
         const TurnReport r = colonyTurn(c, game.economy);
         if (c.owner < 0 || c.owner >= kEmpires) {
@@ -257,6 +301,7 @@ TurnSummary endTurn(Game& game) {
             }
         }
     }
+    explore(game);
     game.turn += 1;
     return summary;
 }
@@ -300,6 +345,7 @@ Game newGame(const GameSettings& settings, const GalaxyData& data, const Economy
             }
         }
     }
+    explore(g);
     return g;
 }
 
