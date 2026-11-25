@@ -137,6 +137,44 @@ std::optional<Point> Panel::step(Command direction, Point from) const {
     return best;
 }
 
+// Breaks a line into lines no wider than the box, between words (or inside
+// a word too long for a line).
+std::vector<std::string> wrapText(const Font& font, const std::string& text, int width) {
+    std::vector<std::string> out;
+    std::string line;
+    std::size_t i = 0;
+    while (i < text.size()) {
+        std::size_t end = text.find(' ', i);
+        if (end == std::string::npos) {
+            end = text.size();
+        }
+        std::string word = text.substr(i, end - i);
+        i = end + 1;
+        const std::string candidate = line.empty() ? word : line + " " + word;
+        if (font.width(candidate) <= width) {
+            line = candidate;
+            continue;
+        }
+        if (!line.empty()) {
+            out.push_back(line);
+        }
+        line.clear();
+        while (font.width(word) > width && word.size() > 1) {
+            std::size_t n = word.size() - 1;
+            while (n > 1 && font.width(word.substr(0, n)) > width) {
+                --n;
+            }
+            out.push_back(word.substr(0, n));
+            word.erase(0, n);
+        }
+        line = word;
+    }
+    if (!line.empty() || out.empty()) {
+        out.push_back(line);
+    }
+    return out;
+}
+
 void drawParagraph(Canvas& canvas, const Font& font, const std::string& text, const Rect& box, Pixel colour) {
     int y = box.y;
     const int lineHeight = font.height() + 2;

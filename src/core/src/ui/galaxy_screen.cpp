@@ -96,7 +96,7 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     for (const auto& e : orders_.layout().elements) {
         orders_.setEnabled(e.id, false);
     }
-    for (const std::uint32_t id : {kSummary, kEconomy, kMilitary, kEvents, kOverlay, 0x40eu, 0x40fu}) {
+    for (const std::uint32_t id : {kEconomy, kMilitary, kEvents, kOverlay, 0x40eu, 0x40fu}) {
         panel_.setEnabled(id, false);
     }
     for (std::size_t i = 0; i < std::size(text::kObjectKinds); ++i) {
@@ -680,6 +680,8 @@ void GalaxyScreen::pointerReleased(Point p) {
         keepInView();
     } else if (id && *id == kTurn) {
         endPlayerTurn();
+    } else if (id && *id == kSummary) {
+        outcome_ = Outcome::Summary;
     }
 }
 

@@ -43,6 +43,7 @@ add_library(ngs_core STATIC
     src/ui/menus.cpp
     src/ui/multiplayer_screen.cpp
     src/ui/chat_screen.cpp
+    src/ui/summary_screen.cpp
     src/ui/options_screen.cpp
     src/ui/load_save_screen.cpp
     src/ui/combat_screen.cpp

@@ -13,7 +13,7 @@ namespace nagus {
 
 // What a screen asks the shell to do next.
 enum class Outcome { None, NewGame, Continue, Back, Accept, Quit, Open, Save, Load, HallOfFame, Retire, Options, Combat,
-                     Multiplayer, Host, Join, ChooseEmpire, Start, EndTurn };
+                     Multiplayer, Host, Join, ChooseEmpire, Start, EndTurn, Summary };
 
 class MenuScreen : public Screen {
 public:

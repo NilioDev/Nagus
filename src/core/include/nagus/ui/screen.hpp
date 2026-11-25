@@ -18,6 +18,7 @@
 #include <optional>
 #include <string_view>
 #include <string>
+#include <vector>
 
 namespace nagus {
 
@@ -93,6 +94,10 @@ private:
     std::optional<std::uint32_t> held_;
     bool overHeld_ = false;
 };
+
+// Breaks text into lines no wider than width, between words (or inside a
+// word too long for a line).
+std::vector<std::string> wrapText(const Font& font, const std::string& text, int width);
 
 // Puts text into a box, breaking lines between words.
 void drawParagraph(Canvas& canvas, const Font& font, const std::string& text, const Rect& box, Pixel colour);
