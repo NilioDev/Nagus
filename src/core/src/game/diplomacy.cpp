@@ -257,6 +257,8 @@ void declareWar(Game& g, int from, int to, std::vector<DiplomacyEvent>& events) 
     events.push_back({278, from, to});
 }
 
+void changeRegard(Game& g, int race, int empire, int change) { addRegard(g, race, empire, change); }
+
 bool giveGift(Game& g, int from, int to, int credits, std::vector<DiplomacyEvent>& events) {
     if (from < 0 || from >= kEmpires || !met(g, from, to) || credits <= 0 ||
         credits > g.empires[static_cast<std::size_t>(from)].credits) {

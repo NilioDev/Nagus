@@ -2,6 +2,7 @@
 #include "nagus/game/ai.hpp"
 
 #include "nagus/game/combat.hpp"
+#include "nagus/game/intel.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -292,6 +293,7 @@ void playEmpire(Game& game, int empire) {
         return;
     }
     EmpireState& e = game.empires[static_cast<std::size_t>(empire)];
+    planIntel(game, empire);
 
     // Build queues: keep one thing in each.
     for (auto& c : game.colonies) {

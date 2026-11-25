@@ -40,8 +40,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > diplomacy screen (marker window) you meet the other races: propose
 > treaties from non-aggression to alliance, give gifts, declare war, answer
 > the other empires' proposals and win minor races over until they join
-> your empire. Intelligence, music, sound and the end of the game come
-> next. Buttons that do not work yet are shown
+> your empire. On the intelligence screen you share your intelligence
+> between security at home and espionage and sabotage against each other
+> empire, choose what your agents aim at (general, science, economy or
+> military), read what they did and what was done to you, and compare the
+> empires. Music, sound and the end of the game come next. Buttons that do not work yet are shown
 > dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
@@ -120,11 +123,12 @@ itself. You can also give files when starting it:
 | Next / previous tab (system screen) | | Tab or Page Down / Page Up | RB / LB |
 | Choose from the build list, then build it | Click a line, then click it again | Arrow keys on the list, Enter | D-pad on the list, A |
 | Take an item out of the build queue | Click it | | A on it |
-| Marker window: go to the map, your systems, diplomacy, research or the main menu | Right click | Esc | B |
+| Marker window: go to the map, your systems, diplomacy, intelligence, research or the main menu | Right click | Esc | B |
 | Choose a fleet in the chosen sector | Click it in the list on the left | | A on it |
 | Send the chosen fleet | Click a sector on the map (its own sector stops it) | | D-pad to the sector, A |
 | Give an order (colonize, attack system) | Click *Orders* below the map | | A on *Orders* |
 | Choose a race on the diplomacy screen | Click it in the list at the bottom | Tab or Page Down / Page Up | RB / LB |
+| Next / previous page (intelligence screen) | Click *Management*, *Report* or *Empire Status* | Tab or Page Down / Page Up | RB / LB |
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |

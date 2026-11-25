@@ -98,6 +98,16 @@ struct ColonyOutput {
 inline constexpr int kResearchFields = 6;
 inline constexpr int kMaxTechLevel = 10;
 
+// What an empire's agents do against another empire: shares (percent) of
+// the intelligence for operations, and what they aim at.
+enum class IntelFocus : std::uint8_t { General, Science, Economy, Military };
+inline constexpr int kIntelFocuses = 4;
+struct IntelPlan {
+    int espionage = 0;
+    int sabotage = 0;
+    IntelFocus focus = IntelFocus::General;
+};
+
 struct EmpireState {
     int credits = 0;
     std::array<int, kTechFields> tech{};     // the level reached in each field
@@ -106,6 +116,14 @@ struct EmpireState {
     std::array<bool, kResearchFields> locked{};                     // shares kept when others change
     int researchPoints = 0;              // gathered this turn
     int intelPoints = 0;
+    // Intelligence: the share kept for security, the plan against each
+    // other empire, and the points gathered towards the next operation.
+    int security = 100;
+    std::array<IntelPlan, 5> intel{};
+    std::array<int, 5> espionagePool{};
+    std::array<int, 5> sabotagePool{};
+    int lastIntel = 0;    // intelligence last turn, for showing
+    int lastSecurity = 0; // of which for security
 };
 
 // How many people (millions) a system can hold for an empire or minor race.

@@ -9,6 +9,7 @@
 #include "nagus/settings.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
+#include "nagus/ui/intel_screen.hpp"
 #include "nagus/ui/load_save_screen.hpp"
 #include "nagus/ui/menus.hpp"
 #include "nagus/ui/research_screen.hpp"
@@ -39,7 +40,7 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Save, Load };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -48,6 +49,7 @@ public:
     SystemScreen* systemScreen() { return system_.get(); }
     ResearchScreen* researchScreen() { return research_.get(); }
     DiplomacyScreen* diplomacyScreen() { return diplomacy_.get(); }
+    IntelScreen* intelScreen() { return intel_.get(); }
     LoadSaveScreen* loadSaveScreen() { return loadSave_.get(); }
     // Where saved games are kept: next to the settings file.
     std::filesystem::path savesFolder() const { return settingsFile_.parent_path() / "saves"; }
@@ -82,6 +84,7 @@ private:
     std::unique_ptr<SystemScreen> system_;
     std::unique_ptr<ResearchScreen> research_;
     std::unique_ptr<DiplomacyScreen> diplomacy_;
+    std::unique_ptr<IntelScreen> intel_;
     std::unique_ptr<LoadSaveScreen> loadSave_;
     std::unique_ptr<Panel> marker_;
     void openMarker();

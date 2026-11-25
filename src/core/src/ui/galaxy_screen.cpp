@@ -2,6 +2,7 @@
 #include "nagus/ui/galaxy_screen.hpp"
 
 #include "nagus/ui/diplomacy_screen.hpp"
+#include "nagus/ui/intel_screen.hpp"
 
 #include <algorithm>
 
@@ -685,6 +686,10 @@ void GalaxyScreen::pointerReleased(Point p) {
         }
         for (const auto& a : summary.assaults) {
             events_.emplace_back(assaultText(a), kBadColour);
+        }
+        for (const auto& r : summary.intel) {
+            const bool good = (r.attacker == game_.player) == r.success;
+            events_.emplace_back(intelText(assets_.lexicon(), game_, r), good ? kInfoColour : kBadColour);
         }
         for (const auto& d : summary.diplomacy) {
             events_.emplace_back(diplomacyText(assets_.lexicon(), game_, d), d.text == 278 ? kBadColour : kInfoColour);
