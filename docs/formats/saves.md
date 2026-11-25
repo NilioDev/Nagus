@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (4; versions 1 to 3 still load) | u32 |
+| Version (5; versions 1 to 4 still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -45,6 +45,7 @@ count and then its entries.
 | Version 2: the empires people play (multiplayer) | 5 × u8 |
 | Next fleet number | i32 |
 | Fleets | list, see below |
+| Stations (from version 5) | list, see below |
 
 A race: name and picture (text), its first regard for each empire
 (5 × i32), aggression in percent (i32) and the offset of its description
@@ -82,9 +83,13 @@ focus (u8), success (u8), value and system (2 × i32, system -1 for none).
 A fleet: number, owner (2 × i32), sector, under way (u8), destination
 (sector), order (u8: 0 none, 1 colonize, 2 attack system, from version 3 also
 3 raid, 4 scrap, and from version 4 also 5 defend, 6 enter wormhole, 7 train
-crew), from version 3 whether it avoids battles (u8), from version 4 whether it
-is cloaked (u8), and a list of ships: class, hull (2 × i32) and, from version
+crew, and from version 5 also 8 build outpost, 9 build starbase, 10 upgrade
+station), from version 3 whether it avoids battles (u8), from version 4 whether it
+is cloaked (u8), from version 5 the industry put into its station (i32), and a list of ships: class, hull (2 × i32) and, from version
 4, the crew's experience (u8, 0 to 100).
+
+From version 5, after the fleets, a list of stations (outposts and
+starbases): owner (i32), sector, class and hull (2 × i32).
 
 ## Reading
 

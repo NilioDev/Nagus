@@ -103,6 +103,18 @@ std::vector<CombatUnit> combatUnits(const Game& game, Sector at) {
             units.push_back({f.owner, fi, si, ship.shipClass, firepower, shipShields(*c, *e), ship.hull, c->hull});
         }
     }
+    for (int si = 0; si < static_cast<int>(game.stations.size()); ++si) {
+        const Station& st = game.stations[static_cast<std::size_t>(si)];
+        const EmpireState* e = empireOf(game, st.owner);
+        if (!(st.at == at) || e == nullptr || st.hull <= 0 || st.shipClass < 0 ||
+            static_cast<std::size_t>(st.shipClass) >= game.economy.ships.size()) {
+            continue;
+        }
+        const ShipClass& c = game.economy.ships[static_cast<std::size_t>(st.shipClass)];
+        CombatUnit u{st.owner, -1, -1, st.shipClass, shipFirepower(c, *e), shipShields(c, *e), st.hull, c.hull};
+        u.station = si;
+        units.push_back(u);
+    }
     const int system = game.galaxy.systemAt(at);
     if (const Colony* col = game.colonyAt(system); col != nullptr) {
         const ColonyDefence d = colonyDefence(game, *col);
@@ -185,12 +197,15 @@ std::vector<Battle> fightBattles(Game& game, const std::vector<Sector>& skip) {
                 const int through = damage[b] - std::min(damage[b], v.shields);
                 v.shields = std::max(0, v.shields - damage[b]);
                 // Colonies' defences are not destroyed, only kept busy.
-                if (v.ship >= 0) {
+                if (v.ship >= 0 || v.station >= 0) {
                     v.hull -= through;
                 }
             }
         }
         for (const auto& u : units) {
+            if (u.station >= 0) {
+                game.stations[static_cast<std::size_t>(u.station)].hull = std::max(0, u.hull);
+            }
             if (u.ship < 0) {
                 continue;
             }
@@ -213,6 +228,7 @@ void removeWrecks(Game& game) {
         std::erase_if(f.ships, [](const Ship& s) { return s.hull <= 0; });
     }
     std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
+    std::erase_if(game.stations, [](const Station& s) { return s.hull <= 0; });
 }
 
 std::vector<Assault> attackSystems(Game& game) {
@@ -337,13 +353,22 @@ bool orderAttack(Game& game, int id) {
 void repairShips(Game& game) {
     for (auto& f : game.fleets) {
         const Colony* col = game.colonyAt(game.galaxy.systemAt(f.at));
-        const bool home = col != nullptr && col->owner == f.owner;
+        const Station* st = game.stationAt(f.at);
+        const bool home = (col != nullptr && col->owner == f.owner) ||
+                          (st != nullptr && st->owner == f.owner && st->shipClass >= 0 &&
+                           game.economy.ships[static_cast<std::size_t>(st->shipClass)].role == ShipRole::Starbase);
         for (auto& s : f.ships) {
             const ShipClass* c = classOf(game, s);
             if (c == nullptr) {
                 continue;
             }
             s.hull = home ? c->hull : std::min(c->hull, s.hull + std::max(1, c->hull * kRepairElsewhere / 100));
+        }
+    }
+    for (auto& st : game.stations) {
+        if (st.shipClass >= 0 && static_cast<std::size_t>(st.shipClass) < game.economy.ships.size()) {
+            const int full = game.economy.ships[static_cast<std::size_t>(st.shipClass)].hull;
+            st.hull = std::min(full, st.hull + std::max(1, full * kRepairElsewhere / 100));
         }
     }
 }

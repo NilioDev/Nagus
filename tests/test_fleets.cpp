@@ -291,3 +291,92 @@ NGS_TEST("fleet orders: cloak, defend, wormholes and training") {
     const Game back = loadGame(saveGame(g, {}), economy);
     NGS_CHECK(back.fleet(rom3)->cloaked && back.fleet(trainee)->ships.front().experience == kTrainingLimit);
 }
+
+NGS_TEST("outposts and starbases: built by transports, they fight, mend and extend the range") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const Resources res(*lib);
+    const Lexicon lex(res.file("lexicon.dic"));
+    const EconomyData economy = loadEconomyData(res);
+    GameSettings settings;
+    settings.empire = 1;
+    settings.randomEvents = false;
+    Game g = newGame(settings, loadGalaxyData(res, lex), economy, 3);
+    g.fleets.clear();
+    int transport = -1;
+    int warship = -1;
+    for (std::size_t i = 0; i < economy.ships.size(); ++i) {
+        const ShipClass& c = economy.ships[i];
+        if (c.race == 1 && c.role == ShipRole::Transport && transport < 0) {
+            transport = static_cast<int>(i);
+        }
+        if (c.race == 0 && isArmed(c) && warship < 0) {
+            warship = static_cast<int>(i);
+        }
+    }
+    const int outpost = stationClass(g, 1, ShipRole::Outpost);
+    NGS_CHECK(transport >= 0 && outpost >= 0 && economy.ships[static_cast<std::size_t>(outpost)].name == "Outpost");
+    NGS_CHECK(stationClass(g, 1, ShipRole::Starbase) < 0); // not known yet
+
+    // Out in empty space at the edge of the range.
+    const Sector home = g.galaxy.systems[static_cast<std::size_t>(g.galaxy.homes[1])].sector;
+    Sector out = home;
+    for (int x = 0; x < g.galaxy.width; ++x) {
+        for (int y = 0; y < g.galaxy.height; ++y) {
+            const Sector s{x, y};
+            if (g.galaxy.systemAt(s) < 0 && distanceFromBases(g, s, 1) == 3 && out == home) {
+                out = s;
+            }
+        }
+    }
+    NGS_CHECK(!(out == home));
+    const int f = g.addFleet(1, out, transport).id;
+    g.fleet(f)->ships.push_back(g.fleet(f)->ships.front());
+    NGS_CHECK(canBuildOutpost(g, *g.fleet(f)) && !canBuildStarbase(g, *g.fleet(f)) && !canUpgradeStation(g, *g.fleet(f)));
+    NGS_CHECK(orderBuildStation(g, f, Fleet::Order::BuildOutpost));
+    const int work = stationWork(g, *g.fleet(f));
+    NGS_CHECK(work == economy.ships[static_cast<std::size_t>(outpost)].cost);
+    const int turns = (work + 2 * kStationWorkPerTransport - 1) / (2 * kStationWorkPerTransport);
+    for (int t = 1; t < turns; ++t) {
+        endTurn(g);
+        NGS_CHECK(g.stationAt(out) == nullptr && g.fleet(f)->progress == t * 2 * kStationWorkPerTransport);
+    }
+    // Saved halfway.
+    const Game half = loadGame(saveGame(g, {}), economy);
+    NGS_CHECK(half.fleet(f)->order == Fleet::Order::BuildOutpost && half.fleet(f)->progress == g.fleet(f)->progress);
+    const TurnSummary s = endTurn(g);
+    const Station* st = g.stationAt(out);
+    NGS_CHECK(st != nullptr && st->owner == 1 && st->shipClass == outpost);
+    NGS_CHECK(g.fleet(f)->ships.size() == 1 && g.fleet(f)->order == Fleet::Order::None);
+    NGS_CHECK(std::any_of(s.events.begin(), s.events.end(), [](const std::string& e) { return e.starts_with("Outpost finished"); }));
+    // It extends the range and sees.
+    NGS_CHECK(distanceFromBases(g, out, 1) == 0 && visibleTo(g, 1, out));
+
+    // A starbase, once the technology is there.
+    g.empires[1].tech.fill(9);
+    NGS_CHECK(!canBuildOutpost(g, *g.fleet(f)) && canBuildStarbase(g, *g.fleet(f)));
+    NGS_CHECK(orderBuildStation(g, f, Fleet::Order::BuildStarbase));
+    for (int t = 0; t < 30 && g.fleet(f) != nullptr; ++t) {
+        endTurn(g);
+    }
+    NGS_CHECK(g.fleet(f) == nullptr); // the last transport became the starbase
+    st = g.stationAt(out);
+    NGS_CHECK(st != nullptr && economy.ships[static_cast<std::size_t>(st->shipClass)].role == ShipRole::Starbase);
+
+    // It fights an enemy that comes, and is saved and loaded.
+    for (auto& r : g.relations) {
+        r.treaty = Treaty::War;
+    }
+    const int enemy = g.addFleet(0, out, warship).id;
+    const auto units = combatUnits(g, out);
+    NGS_CHECK(std::any_of(units.begin(), units.end(), [](const CombatUnit& u) { return u.station == 0 && u.firepower > 0; }));
+    NGS_CHECK(battleStarts(g, units));
+    const int fullHull = g.stationAt(out)->hull;
+    g.fleet(enemy)->ships.front().hull = 1;
+    endTurn(g);
+    NGS_CHECK(g.fleet(enemy) == nullptr && g.stationAt(out) != nullptr);
+    const Game back = loadGame(saveGame(g, {}), economy);
+    NGS_CHECK(back.stations.size() == 1 && back.stations[0].at == out && back.stations[0].hull <= fullHull);
+}

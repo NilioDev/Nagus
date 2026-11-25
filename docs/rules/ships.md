@@ -9,8 +9,9 @@ rules.
 
 A colony with a shipyard can build the ship classes of its empire whose
 technologies the empire has. Of a line of classes (a class and the one that
-improves on it), only the newest it can build is offered. Outposts,
-starbases and special ships are not built yet. A finished ship starts a new
+improves on it), only the newest it can build is offered. Outposts and
+starbases are built by troop transports (see [Stations](#stations));
+special ships are not built. A finished ship starts a new
 fleet in the colony's sector.
 
 Every empire starts with its cheapest colony ship and its cheapest scout at
@@ -70,7 +71,41 @@ own reading of the original's help texts:
   that gives ship experience (a military or naval academy). Each turn the
   crews gain 10 points of experience, up to 60.
 
-Moving a fleet cancels its raid, scrap, intercept or training order.
+- *Build Outpost*, *Build Starbase* and *Upgrade*: see
+  [Stations](#stations).
+
+Moving a fleet cancels its raid, scrap, intercept, training or station
+order.
+
+## Stations
+
+Outposts and starbases are stations: they stay in their sector and have the
+hull, shields and weapons of their class in the ship table (roles outpost
+and starbase). As the original's help texts say, troop transports build
+them:
+
+- *Build Outpost*: in a sector with no station, when the empire knows the
+  technologies of an outpost class.
+- *Build Starbase*: at one of the empire's outposts, when it knows those of
+  a starbase class. The starbase takes the outpost's place.
+- *Upgrade*: at one of the empire's stations, when a better class of the
+  same kind (the one that costs most) can be built.
+
+Our choice for how long it takes: each troop transport in the fleet puts
+150 industry a turn into the work, until it reaches the class's cost (for
+an upgrade, the difference in cost). Then the oldest troop transport is
+used up to man the station, and the order ends. The work is kept while the
+fleet stays.
+
+A station counts like a colony for range (fleets may go as far from it as
+from a colony) and for seeing (two sectors). It fights in battles in its
+sector like a ship, but never starts one by moving; one whose hull is gone
+is destroyed. A starbase mends its empire's ships in its sector fully each
+turn, as a colony does; stations mend a tenth of their own hull a turn. The
+map shows each station's small picture in its sector.
+
+Computer players' troop transports with no attack to join build an outpost
+at the colony where they are, then turn it into a starbase and upgrade it.
 
 ## Crew experience
 
