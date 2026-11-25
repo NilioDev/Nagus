@@ -30,6 +30,9 @@ public:
     // In the panel below the map.
     static constexpr std::uint32_t kInfoSector = 0x44c;
     static constexpr std::uint32_t kInfoDetails = 0x44f;
+    static constexpr std::uint32_t kInfoName = 0x44d;
+    static constexpr std::uint32_t kInfoPicture = 0x3fc;
+    static constexpr std::uint32_t kSystemDetails = 0x44e;
 
     GalaxyScreen(Assets& assets, Game& game);
 
@@ -50,18 +53,23 @@ private:
     void choose(Sector s);
     void keepInView();
     std::string sectorName(Sector s) const;
+    void drawSector(Canvas& canvas, int at);
+    void drawList(Canvas& canvas);
+    void drawSystem(Canvas& canvas, const StarSystem& s, std::uint64_t ms);
 
     Assets& assets_;
     Game& game_;
     char prefix_;
     Panel panel_;
-    Panel info_; // the panel below the map, about the chosen sector
+    Panel info_;   // the panel below the map, about the chosen sector
+    Panel system_; // the same for a star system, with its planets
     Rect map_;
     bool whole_ = false;
     Sector chosen_;
     Sector origin_; // the sector in the map's top left corner (close view)
     Point pointer_;
     std::vector<std::string> kindNames_;
+    std::vector<std::string> animations_; // the names of the game's animations
 };
 
 } // namespace nagus

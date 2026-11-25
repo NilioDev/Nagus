@@ -25,6 +25,12 @@ GalaxyData loadGalaxyData(const Resources& resources, const Lexicon& lexicon);
 
 Game newGame(const GameSettings& settings, const GalaxyData& data, std::uint32_t seed);
 
+// The animation that shows a planet, from the names of the game's animations
+// (with ".ani"). The names spell type, atmosphere, a variant and the size:
+// "trol.ani" is a large terran planet with an oxygen-rich atmosphere. The
+// planets of the Sol system have their own ("eart.ani").
+std::string planetAnimation(const Planet& planet, const std::vector<std::string>& names);
+
 // Lexicon numbers of the empires' home system names and of the names of the
 // map object kinds (in the order of objstruc.smt).
 namespace text {

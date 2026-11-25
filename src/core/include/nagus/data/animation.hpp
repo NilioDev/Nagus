@@ -5,6 +5,7 @@
 #pragma once
 
 #include "nagus/data/image.hpp"
+#include "nagus/data/layout.hpp"
 
 namespace nagus {
 
@@ -16,6 +17,8 @@ struct Animation {
 
     // Frame `i` (wrapping around) as its own picture.
     Image frame(int i) const;
+    // Where frame `i` (wrapping around) is in the sheet.
+    Rect part(int i) const;
 };
 
 Animation readAnimation(ByteView data);

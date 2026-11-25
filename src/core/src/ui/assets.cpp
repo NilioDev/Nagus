@@ -51,6 +51,23 @@ const Cursor& Assets::cursor(const std::string& name) {
     return it->second;
 }
 
+const Animation& Assets::animation(const std::string& name) {
+    const std::string key = lower(name);
+    auto it = animations_.find(key);
+    if (it == animations_.end()) {
+        Animation a;
+        if (!key.empty() && resources_->has(key)) {
+            try {
+                a = readAnimation(resources_->file(key));
+            } catch (const FormatError&) {
+                a = Animation();
+            }
+        }
+        it = animations_.emplace(key, std::move(a)).first;
+    }
+    return it->second;
+}
+
 const std::vector<std::string>& Assets::texts(const std::string& name) {
     const std::string key = lower(name);
     auto it = texts_.find(key);

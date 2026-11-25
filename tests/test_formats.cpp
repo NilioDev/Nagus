@@ -12,6 +12,7 @@
 #include "nagus/data/resources.hpp"
 #include "nagus/data/tables.hpp"
 #include "nagus/data/zip_archive.hpp"
+#include "nagus/game/game.hpp"
 
 using namespace nagus;
 using namespace nagus::test;
@@ -207,6 +208,23 @@ NGS_TEST("planet types, atmospheres, room for people and turning planets") {
     NGS_CHECK(small.frame(25).width == 16);
     const Animation star = readAnimation(res.file("s-y-.ani"));
     NGS_CHECK(star.frameWidth == 100 && star.frames == 36);
+    const auto animations = res.names(".ani");
+    Planet earth;
+    earth.name = "Earth";
+    NGS_CHECK(planetAnimation(earth, animations) == "eart.ani");
+    Planet terran;
+    terran.name = "Sol III";
+    terran.type = 6;
+    terran.atmosphere = 10;
+    terran.size = 2;
+    NGS_CHECK(planetAnimation(terran, animations) == "trol.ani");
+    for (int type = 0; type < kPlanetTypes; ++type) {
+        for (int size = 0; size < 3; ++size) {
+            terran.type = type;
+            terran.size = size;
+            NGS_CHECK(!planetAnimation(terran, animations).empty());
+        }
+    }
 }
 
 NGS_TEST("table readers refuse damaged tables") {

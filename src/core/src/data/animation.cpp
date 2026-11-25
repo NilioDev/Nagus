@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/data/animation.hpp"
 
+#include <algorithm>
+
 namespace nagus {
 
 namespace {
@@ -33,15 +35,23 @@ Animation readAnimation(ByteView data) {
     return a;
 }
 
+Rect Animation::part(int i) const {
+    if (frames <= 0 || frameWidth <= 0) {
+        return {};
+    }
+    i = ((i % frames) + frames) % frames;
+    const int columns = std::max(1, sheet.width / frameWidth);
+    return {(i % columns) * frameWidth, (i / columns) * frameHeight, frameWidth, frameHeight};
+}
+
 Image Animation::frame(int i) const {
     Image f(frameWidth, frameHeight);
     if (frames <= 0) {
         return f;
     }
-    i = ((i % frames) + frames) % frames;
-    const int columns = sheet.width / frameWidth;
-    const int x0 = (i % columns) * frameWidth;
-    const int y0 = (i / columns) * frameHeight;
+    const Rect r = part(i);
+    const int x0 = r.x;
+    const int y0 = r.y;
     for (int y = 0; y < frameHeight; ++y) {
         for (int x = 0; x < frameWidth; ++x) {
             f.at(x, y) = sheet.at(x0 + x, y0 + y);

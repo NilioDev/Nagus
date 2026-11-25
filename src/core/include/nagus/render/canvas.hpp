@@ -35,6 +35,8 @@ public:
     void fill(const Rect& r, Pixel colour);
     // Draws a picture with its see-through pixels left out.
     void draw(const Image& img, int x, int y);
+    // Draws the part `part` of a picture with its top left corner at x, y.
+    void draw(const Image& img, const Rect& part, int x, int y);
     // Darkens or tints a rectangle: `alpha` 0..255 of `colour` over it.
     void blend(const Rect& r, Pixel colour, int alpha);
     void frame(const Rect& r, Pixel colour, int thickness = 1);
