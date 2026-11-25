@@ -9,6 +9,13 @@ at 16 and the descriptor at 17. Rows run from the bottom up unless bit 5 of
 the descriptor is set. The colour `0x7c1f` (full red and blue, magenta) is
 see-through.
 
+## Textures (`.gif`)
+
+The 3D models' textures (and a few other pictures) are GIF files in the
+public GIF87a format: 8-bit colour indices with a colour table, LZW-packed.
+Nagus reads the first picture of a file; a transparent colour (GIF89a)
+gives see-through pixels. The reader checks every block length and code.
+
 ## Pointers (`.cur`)
 
 A 16-byte header of 16-bit numbers: hot spot x and y, number of frames,

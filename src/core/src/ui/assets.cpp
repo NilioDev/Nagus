@@ -37,7 +37,8 @@ const Image& Assets::image(const std::string& name) {
         Image img;
         if (!key.empty() && resources_->has(key)) {
             try {
-                img = readTga(resources_->file(key));
+                const bool gif = key.size() > 4 && key.compare(key.size() - 4, 4, ".gif") == 0;
+                img = gif ? readGif(resources_->file(key)) : readTga(resources_->file(key));
             } catch (const FormatError&) {
                 img = Image();
             }

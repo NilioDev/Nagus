@@ -59,9 +59,14 @@ With tactical combat set to *Manual*, ending the turn stops after the
 fleets have moved: every battle the player takes part in opens the combat
 screen (the original's `<x>tactscn.wdf` layout), one after the other. The
 rest of the turn (the other battles, attacks on systems, research and so
-on) follows once they are fought. The original shows the battle in 3D; we
-show the player's ships on the left and the others' on the right, with the
-fire of the last round.
+on) follows once they are fought. The battle shows in 3D with the game's
+own models (see [models](../formats/models.md)): the player's ships on the
+left facing right, the others' on the right, the camera swinging slowly
+above the player's side, with the fire of the last round as beams and a
+fireball for each ship destroyed. A ship's size follows its hull (the
+models' own sizes differ too much to use), stations are larger. *Playback*
+and *Tactical* (or the shoulder buttons) switch between this view and a
+flat one, the sides in rows seen from above.
 
 First the player chooses (`tactical.wdf`) to let the battle be fought
 *Automatically* (as below, the player's ships choosing as the computer

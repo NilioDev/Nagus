@@ -44,4 +44,9 @@ struct Image {
 // Reads an uncompressed Targa picture (16, 24 or 32 bits per pixel).
 Image readTga(ByteView data);
 
+// Reads the first picture of a GIF file (87a or 89a, the public format); the
+// 3D models' textures are GIFs. A transparent colour gives see-through
+// pixels.
+Image readGif(ByteView data);
+
 } // namespace nagus

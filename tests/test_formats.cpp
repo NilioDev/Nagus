@@ -9,11 +9,14 @@
 #include "nagus/data/image.hpp"
 #include "nagus/data/layout.hpp"
 #include "nagus/data/lexicon.hpp"
+#include "nagus/data/model.hpp"
 #include "nagus/data/tips.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/data/tables.hpp"
 #include "nagus/data/zip_archive.hpp"
 #include "nagus/game/game.hpp"
+
+#include <bit>
 
 using namespace nagus;
 using namespace nagus::test;
@@ -56,6 +59,112 @@ NGS_TEST("Targa reader refuses short and odd pictures") {
         bool threw = false;
         try {
             readTga(bad);
+        } catch (const FormatError&) {
+            threw = true;
+        }
+        NGS_CHECK(threw);
+    }
+}
+
+NGS_TEST("GIF pictures with a transparent colour") {
+    const Bytes b{0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x04, 0x00, 0x02, 0x00, 0x81, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00,
+                  0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x03, 0x00, 0x2c,
+                  0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x08, 0x0b, 0x00, 0x01, 0x08, 0x04, 0x10, 0x40,
+                  0xc0, 0x80, 0x00, 0x01, 0x01, 0x00, 0x3b};
+    const Image img = readGif(b);
+    NGS_CHECK(img.width == 4 && img.height == 2);
+    NGS_CHECK(img.at(0, 0) == rgb(255, 0, 0) && img.at(3, 0) == rgb(255, 0, 0));
+    NGS_CHECK(img.at(0, 1) == rgb(0, 255, 0) && img.at(1, 1) == rgb(0, 0, 255));
+    NGS_CHECK(img.at(2, 1) == 0u); // see-through
+    for (std::size_t cut : {std::size_t{3}, std::size_t{20}, std::size_t{45}}) {
+        bool threw = false;
+        try {
+            readGif(ByteView(b.data(), cut));
+        } catch (const FormatError&) {
+            threw = true;
+        }
+        NGS_CHECK(threw);
+    }
+}
+
+namespace {
+
+void putFloat(Bytes& b, float f) { put32(b, std::bit_cast<std::uint32_t>(f)); }
+
+// A model of one triangle: three points, three corners, one face in one node.
+Bytes triangleModel() {
+    Bytes b(0x50, 0);
+    const auto set = [&](std::size_t at, std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) {
+            b[at + static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(v >> (8 * i));
+        }
+    };
+    set(0x10, 3);
+    set(0x14, 3);
+    set(0x3c, 0x144);
+    set(0x40, 0x8c);
+    set(0x44, 0x50);
+    const float points[3][3] = {{0, 0, 0}, {30, 0, 0}, {0, 40, 0}};
+    for (const auto& p : points) {
+        putFloat(b, p[0]);
+        putFloat(b, p[1]);
+        putFloat(b, p[2]);
+        put32(b, 0);
+        put32(b, 0);
+    }
+    for (std::uint32_t i = 0; i < 3; ++i) {
+        put32(b, 0);
+        putFloat(b, 0);
+        putFloat(b, 0);
+        putFloat(b, 1);
+        putFloat(b, static_cast<float>(i) * 0.5f);
+        putFloat(b, 0.25f);
+        put32(b, 0);
+        put32(b, i);
+        put32(b, 1);
+        put32(b, 1);
+    }
+    // The face.
+    for (std::uint32_t v : {1u, 0x100u, 0u, 0u}) {
+        put32(b, v);
+    }
+    putFloat(b, 0);
+    putFloat(b, 0);
+    putFloat(b, 1);
+    putFloat(b, 0);
+    for (std::uint32_t v : {0u, 0u, 0u, 3u, 0u, 68u, 136u, 0u}) {
+        put32(b, v);
+    }
+    // The node.
+    for (std::uint32_t v : {4u, 0x104u, 0u, 0u}) {
+        put32(b, v);
+    }
+    return b;
+}
+
+} // namespace
+
+NGS_TEST("3D models: points, corners and faces from the node tree") {
+    const Bytes b = triangleModel();
+    NGS_CHECK(b.size() == 0x154);
+    const Model m = readModel(b);
+    NGS_CHECK(m.vertices.size() == 3 && m.faces.size() == 1);
+    NGS_CHECK(m.radius == 40.0f);
+    NGS_CHECK(m.faces[0].corners.size() == 3 && m.faces[0].corners[2].vertex == 2);
+    NGS_CHECK(m.faces[0].corners[1].u == 0.5f && m.faces[0].corners[1].v == 0.25f);
+    NGS_CHECK(m.faces[0].normal.z == 1.0f);
+    // Damaged: a corner past the table, a point not a number, a node past
+    // the end, a cut file.
+    std::vector<Bytes> bad(4, b);
+    bad[0][0x13c] = 0xcc; // the third corner's place: 204, past three corners
+    bad[1][0x53] = 0x7f;  // the first point's x: not a number
+    bad[1][0x52] = 0xc0;
+    bad[2][0x3d] = 0x10; // the root node: past the end
+    bad[3].resize(0x100);
+    for (const Bytes& d : bad) {
+        bool threw = false;
+        try {
+            readModel(d);
         } catch (const FormatError&) {
             threw = true;
         }

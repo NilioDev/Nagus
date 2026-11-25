@@ -732,6 +732,19 @@ NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to t
     shell.draw(canvas, 0);
     click(shell, centre(*c.button(CombatScreen::kManual)));
     NGS_CHECK(c.phase() == CombatScreen::Phase::Orders);
+    // The battle shows in 3D with the game's models; Tactical shows it flat,
+    // and the shoulder buttons switch back.
+    NGS_CHECK(c.view() == CombatScreen::View::Visual);
+    NGS_CHECK(c.hasModel(0));
+    shell.draw(canvas, 50);
+    for (std::size_t i = 0; i < c.battle().units().size(); ++i) {
+        const Rect r = c.unitRect(i);
+        NGS_CHECK(CombatScreen::kView.contains(r.centerX(), r.centerY()));
+    }
+    click(shell, centre(*c.button(CombatScreen::kTactical)));
+    NGS_CHECK(c.view() == CombatScreen::View::Tactical);
+    shell.command(Command::Next);
+    NGS_CHECK(c.view() == CombatScreen::View::Visual);
     // The gamepad chooses the maneuver and waits on Turn.
     shell.command(Command::Right);
     NGS_CHECK(c.chosen() == Maneuver::Charge);
