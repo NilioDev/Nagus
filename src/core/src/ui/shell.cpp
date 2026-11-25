@@ -29,8 +29,17 @@ std::string today() {
 
 } // namespace
 
+namespace {
+// Tracks of music.snd and sounds of sfx.snd (our reading; see
+// docs/formats/sound.md): the main theme, then a theme for each empire;
+// a set of five button clicks, one for each empire.
+constexpr int kMenuTrack = 0;
+constexpr int kEmpireTracks = 1;
+constexpr int kClickSounds = 76;
+} // namespace
+
 Shell::Shell(std::shared_ptr<Resources> resources, std::filesystem::path settingsFile)
-    : assets_(std::move(resources)), settingsFile_(std::move(settingsFile)) {
+    : assets_(resources), jukebox_(*resources), settingsFile_(std::move(settingsFile)) {
     settings_ = loadSettings(settingsFile_);
     show(Showing::MainMenu);
 }
@@ -154,7 +163,27 @@ void Shell::settle() {
     }
 }
 
+int Shell::wantedTrack() const {
+    const bool inGame = game_ && showing_ != Showing::MainMenu && showing_ != Showing::GameSetup &&
+                        showing_ != Showing::EmpireSelect && showing_ != Showing::Save && showing_ != Showing::Load;
+    return inGame ? kEmpireTracks + std::clamp(game_->player, 0, kEmpires - 1) : kMenuTrack;
+}
+
+int Shell::clickSound() const {
+    const int empire = game_ ? game_->player : settings_.empire;
+    return kClickSounds + std::clamp(empire, 0, kEmpires - 1);
+}
+
+void Shell::updateSound() {
+    if (assets_.clicks() != clicksHeard_) {
+        clicksHeard_ = assets_.clicks();
+        jukebox_.playEffect(clickSound());
+    }
+    jukebox_.playMusic(wantedTrack());
+}
+
 void Shell::draw(Canvas& canvas, std::uint64_t ms) {
+    updateSound();
     canvas.clear();
     screen().draw(canvas, ms);
     if (!notice_.empty()) {

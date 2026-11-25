@@ -92,6 +92,7 @@ struct App {
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     SDL_Texture* frame = nullptr;
+    SDL_AudioStream* audio = nullptr; // null when there is no sound device
     fs::path prefDir;
     fs::path library;
     std::unique_ptr<nagus::Shell> shell;
@@ -277,9 +278,24 @@ void drawImportScreen(App& app) {
     }
 }
 
+// Keeps about a sixth of a second of sound queued for the device.
+void feedAudio(App& app) {
+    if (app.audio == nullptr || !app.shell) {
+        return;
+    }
+    constexpr int kFrames = 1024;
+    constexpr int kQueued = nagus::Jukebox::kRate / 6 * 4;
+    std::vector<std::int16_t> buffer(kFrames * 2);
+    for (int i = 0; i < 16 && SDL_GetAudioStreamQueued(app.audio) < kQueued; ++i) {
+        app.shell->jukebox().mix(buffer);
+        SDL_PutAudioStreamData(app.audio, buffer.data(), static_cast<int>(buffer.size() * sizeof(std::int16_t)));
+    }
+}
+
 void present(App& app) {
     if (app.shell) {
         app.shell->draw(app.canvas, SDL_GetTicks());
+        feedAudio(app);
         SDL_UpdateTexture(app.frame, nullptr, app.canvas.image().pixels.data(), kW * 4);
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
         SDL_RenderClear(app.renderer);
@@ -402,6 +418,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
         return SDL_APP_FAILURE;
     }
     auto app = std::make_unique<App>();
+    // Sound is optional: without a device the game plays silently.
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        const SDL_AudioSpec spec{SDL_AUDIO_S16, 2, nagus::Jukebox::kRate};
+        app->audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+        if (app->audio != nullptr) {
+            SDL_ResumeAudioStreamDevice(app->audio);
+        } else {
+            SDL_Log("No sound: %s", SDL_GetError());
+        }
+    }
     if (char* pref = SDL_GetPrefPath("NilioDev", "Nagus")) {
         app->prefDir = pathFromUtf8(pref);
         SDL_free(pref);
@@ -585,6 +611,9 @@ void SDL_AppQuit(void* appstate, SDL_AppResult) {
     }
     if (app->pad != nullptr) {
         SDL_CloseGamepad(app->pad);
+    }
+    if (app->audio != nullptr) {
+        SDL_DestroyAudioStream(app->audio);
     }
     SDL_DestroyTexture(app->frame);
     SDL_DestroyRenderer(app->renderer);

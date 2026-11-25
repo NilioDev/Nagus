@@ -82,6 +82,7 @@ std::optional<std::uint32_t> Panel::pointerReleased(Point p) {
     held_.reset();
     overHeld_ = false;
     if (held && buttonAt(p) == held) {
+        assets_.clicked();
         return held;
     }
     return std::nullopt;

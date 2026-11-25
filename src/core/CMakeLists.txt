@@ -25,6 +25,9 @@ add_library(ngs_core STATIC
     src/game_files.cpp
     src/settings.cpp
     src/render/canvas.cpp
+    src/sound/pcm.cpp
+    src/sound/archives.cpp
+    src/sound/jukebox.cpp
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp

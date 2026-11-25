@@ -34,6 +34,9 @@ public:
     const Lexicon& lexicon() const { return lexicon_; }
     // The texts of a file of NUL-separated texts (such as racedesc.rst).
     const std::vector<std::string>& texts(const std::string& name);
+    // Counts the buttons pressed, for the click sound.
+    void clicked() { ++clicks_; }
+    std::uint64_t clicks() const { return clicks_; }
 
 private:
     std::shared_ptr<Resources> resources_;
@@ -44,6 +47,7 @@ private:
     std::map<std::string, Cursor> cursors_;
     std::map<std::string, Animation> animations_;
     std::map<std::string, std::vector<std::string>> texts_;
+    std::uint64_t clicks_ = 0;
 };
 
 } // namespace nagus
