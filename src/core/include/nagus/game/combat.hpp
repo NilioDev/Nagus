@@ -17,9 +17,31 @@ int shipFirepower(const ShipClass& s, const EmpireState& empire);
 int shipShields(const ShipClass& s, const EmpireState& empire);
 bool isArmed(const ShipClass& s);
 
-// Every sector where enemies meet and one of them can shoot. Destroyed
-// ships are removed.
-std::vector<Battle> fightBattles(Game& game);
+// One side's part in a battle: a ship, or (ship -1) a colony's defences.
+struct CombatUnit {
+    int owner = -1;
+    int fleet = -1; // index into Game::fleets
+    int ship = -1;  // index into the fleet's ships
+    int shipClass = -1;
+    int firepower = 0;
+    int shields = 0;
+    int hull = 0;
+    int maxHull = 0;
+};
+// Everyone in a sector who would take part in a battle there.
+std::vector<CombatUnit> combatUnits(const Game& game, Sector at);
+// Whether someone among them can shoot at an enemy.
+bool battleStarts(const Game& game, const std::vector<CombatUnit>& units);
+// The battle's sides and their ships, with nothing lost yet.
+Battle battleSides(const std::vector<CombatUnit>& units, Sector at);
+// The same mixing of numbers the battles use for chance.
+std::uint32_t combatRandom(std::uint32_t a, std::uint32_t b, std::uint32_t c, std::uint32_t d);
+
+// Every sector where enemies meet and one of them can shoot, but those in
+// skip (fought already). Destroyed ships are removed.
+std::vector<Battle> fightBattles(Game& game, const std::vector<Sector>& skip = {});
+// Removes destroyed ships, and fleets with no ships left.
+void removeWrecks(Game& game);
 
 // Fleets told to attack a system: warships bombard it, troop transports
 // land and fight the people. Needs no armed defenders left in the sector.

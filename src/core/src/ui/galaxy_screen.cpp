@@ -2,6 +2,7 @@
 #include "nagus/ui/galaxy_screen.hpp"
 
 #include "nagus/ui/diplomacy_screen.hpp"
+#include "nagus/game/tactical.hpp"
 #include "nagus/ui/intel_screen.hpp"
 
 #include <algorithm>
@@ -678,44 +679,68 @@ void GalaxyScreen::pointerReleased(Point p) {
         whole_ = !whole_;
         keepInView();
     } else if (id && *id == kTurn) {
-        const TurnSummary summary = endTurn(game_);
-        events_.clear();
-        for (const auto& h : summary.happenings) {
-            events_.emplace_back(fillText(assets_.lexicon()[h.text], h.values), h.text == 1021 ? kInfoColour : kBadColour);
-        }
-        for (const int e : summary.fallen) {
-            const std::string name = static_cast<std::size_t>(e) < game_.raceNames.size() ? game_.raceNames[static_cast<std::size_t>(e)] : "?";
-            events_.emplace_back("The " + name + " have lost their last system", kBadColour);
-        }
-        // Battles first: they need the player's attention.
-        for (const auto& b : summary.battles) {
-            events_.emplace_back(battleText(b), kBadColour);
-        }
-        for (const auto& a : summary.assaults) {
-            events_.emplace_back(assaultText(a), kBadColour);
-        }
-        for (const auto& r : summary.intel) {
-            const bool good = (r.attacker == game_.player) == r.success;
-            events_.emplace_back(intelText(assets_.lexicon(), game_, r), good ? kInfoColour : kBadColour);
-        }
-        for (const auto& d : summary.diplomacy) {
-            events_.emplace_back(diplomacyText(assets_.lexicon(), game_, d), d.text == 278 ? kBadColour : kInfoColour);
-        }
-        for (const auto& e : summary.events) {
-            events_.emplace_back(e, kNameColour);
-        }
-        for (const auto& t : summary.researched) {
-            events_.emplace_back(assets_.lexicon()[text::kResearch] + ": " + t, kNameColour);
-        }
-        for (const auto& s : summary.colonized) {
-            events_.emplace_back(format1(assets_.lexicon()[text::kColonized], s), kNameColour);
-        }
-        if (game_.fleet(fleet_) == nullptr) {
-            fleet_ = -1;
-            moving_ = false;
-        }
-        refreshFleet();
+        endPlayerTurn();
     }
+}
+
+void GalaxyScreen::endPlayerTurn() {
+    if (game_.settings.automaticCombat) {
+        report(endTurn(game_));
+        return;
+    }
+    // The player fights their battles themselves, between the halves.
+    pending_ = beginEndTurn(game_);
+    waiting_ = playerBattles(game_);
+    if (waiting_.empty()) {
+        finishTurn({});
+    } else {
+        outcome_ = Outcome::Combat;
+    }
+}
+
+void GalaxyScreen::finishTurn(const std::vector<Battle>& fought) {
+    waiting_.clear();
+    finishEndTurn(game_, pending_, fought);
+    report(pending_);
+}
+
+void GalaxyScreen::report(const TurnSummary& summary) {
+    events_.clear();
+    for (const auto& h : summary.happenings) {
+        events_.emplace_back(fillText(assets_.lexicon()[h.text], h.values), h.text == 1021 ? kInfoColour : kBadColour);
+    }
+    for (const int e : summary.fallen) {
+        const std::string name = static_cast<std::size_t>(e) < game_.raceNames.size() ? game_.raceNames[static_cast<std::size_t>(e)] : "?";
+        events_.emplace_back("The " + name + " have lost their last system", kBadColour);
+    }
+    // Battles first: they need the player's attention.
+    for (const auto& b : summary.battles) {
+        events_.emplace_back(battleText(b), kBadColour);
+    }
+    for (const auto& a : summary.assaults) {
+        events_.emplace_back(assaultText(a), kBadColour);
+    }
+    for (const auto& r : summary.intel) {
+        const bool good = (r.attacker == game_.player) == r.success;
+        events_.emplace_back(intelText(assets_.lexicon(), game_, r), good ? kInfoColour : kBadColour);
+    }
+    for (const auto& d : summary.diplomacy) {
+        events_.emplace_back(diplomacyText(assets_.lexicon(), game_, d), d.text == 278 ? kBadColour : kInfoColour);
+    }
+    for (const auto& e : summary.events) {
+        events_.emplace_back(e, kNameColour);
+    }
+    for (const auto& t : summary.researched) {
+        events_.emplace_back(assets_.lexicon()[text::kResearch] + ": " + t, kNameColour);
+    }
+    for (const auto& s : summary.colonized) {
+        events_.emplace_back(format1(assets_.lexicon()[text::kColonized], s), kNameColour);
+    }
+    if (game_.fleet(fleet_) == nullptr) {
+        fleet_ = -1;
+        moving_ = false;
+    }
+    refreshFleet();
 }
 
 std::optional<Point> GalaxyScreen::command(Command c) {

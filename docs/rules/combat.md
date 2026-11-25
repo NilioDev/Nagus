@@ -1,8 +1,10 @@
 # Combat
 
-Our own rules, in the spirit of the original's automatic combat. The
-original's tactical battles are not made yet; every battle is resolved
-automatically.
+Our own rules, in the spirit of the original's combat. Battles between
+computer players, and all battles when tactical combat is set to
+*Automatic* in the game set-up, are resolved automatically as below. With
+*Manual*, the player fights their own battles on the combat screen (see
+[Tactical combat](#tactical-combat)).
 
 ## Who fights
 
@@ -48,3 +50,46 @@ sector, all of one empire's attacking fleets there act together:
 A colony with no people left is gone, and its system is free to colonize
 again. The player is told of each battle they fought in and each attack on
 or by them in the list on the left after the turn.
+
+## Tactical combat
+
+With tactical combat set to *Manual*, ending the turn stops after the
+fleets have moved: every battle the player takes part in opens the combat
+screen (the original's `<x>tactscn.wdf` layout), one after the other. The
+rest of the turn (the other battles, attacks on systems, research and so
+on) follows once they are fought. The original shows the battle in 3D; we
+show the player's ships on the left and the others' on the right, with the
+fire of the last round.
+
+First the player chooses (`tactical.wdf`) to let the battle be fought
+*Automatically* (as below, the player's ships choosing as the computer
+would) or to give orders *Manually*. Each round, the player gives all
+their ships one maneuver and presses *Turn*. The maneuvers and what they are
+good against are the original's (their names and help come from the
+lexicon); the numbers are ours:
+
+| Maneuver | What it does |
+| --- | --- |
+| Assault, Charge | Straight at the enemy |
+| Circle, Harry | Around the enemy |
+| Flyby, Strafe | Past the enemy |
+| Evade | Gives a quarter of the damage, takes half |
+| Ram | Rams an enemy ship: both take half the rammer's full hull, past shields |
+| Retreat | Fires nothing, takes three quarters of the damage, then leaves |
+| Open hailing frequencies | Fires nothing; if every side hails, the battle is avoided |
+
+Straight beats past, around beats straight, past beats around: fire from a
+maneuver that works well against the target's does half as much again, and
+fire against one it works poorly against does half. Charge, Harry and Strafe
+are at close range: a quarter more damage, given and taken. A round works
+like a round of the automatic battle otherwise (same firepower, shields and
+chance). Colonies' defences always fire straight.
+
+The computer's sides retreat when they have less than a third of their
+enemies' strength (firepower, hull and shields), hail in the first round
+when weaker, and otherwise attack, half the time with the maneuver that
+works well against what the strongest enemy did last round.
+
+The battle ends when no one left can shoot at an enemy, or after eight
+rounds. Ships that retreated move to the neighbouring sector nearest their
+empire's colonies, with their orders cleared.

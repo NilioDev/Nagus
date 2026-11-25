@@ -20,6 +20,7 @@ add_library(ngs_core STATIC
     src/game/save.cpp
     src/game/ai.cpp
     src/game/combat.cpp
+    src/game/tactical.cpp
     src/game/diplomacy.cpp
     src/game/game.cpp
     src/game/events.cpp
@@ -38,6 +39,7 @@ add_library(ngs_core STATIC
     src/ui/menus.cpp
     src/ui/options_screen.cpp
     src/ui/load_save_screen.cpp
+    src/ui/combat_screen.cpp
     src/ui/diplomacy_screen.cpp
     src/ui/ending_screen.cpp
     src/ui/fame_screen.cpp

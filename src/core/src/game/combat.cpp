@@ -74,16 +74,6 @@ int percentBonus(const Game& g, const Colony& c, int which) {
     return total;
 }
 
-// One side's part in a battle: a ship, or (ship -1) a colony's defences.
-struct Unit {
-    int owner = -1;
-    int fleet = -1; // index into Game::fleets
-    int ship = -1;
-    int firepower = 0;
-    int shields = 0;
-    int hull = 0;
-};
-
 } // namespace
 
 bool hostile(const Game& game, int a, int b) { return a != b && atWar(game, a, b); }
@@ -99,60 +89,80 @@ int shipShields(const ShipClass& s, const EmpireState& empire) {
 
 bool isArmed(const ShipClass& s) { return s.beamCount * s.beamDamage + s.torpedoCount * s.torpedoDamage > 0; }
 
-std::vector<Battle> fightBattles(Game& game) {
-    std::vector<Battle> battles;
-    std::map<std::pair<int, int>, std::vector<int>> sectors;
-    for (int i = 0; i < static_cast<int>(game.fleets.size()); ++i) {
-        const Fleet& f = game.fleets[static_cast<std::size_t>(i)];
-        sectors[{f.at.y, f.at.x}].push_back(i);
-    }
-    for (const auto& [key, fleets] : sectors) {
-        const Sector at{key.second, key.first};
-        std::vector<Unit> units;
-        for (const int fi : fleets) {
-            const Fleet& f = game.fleets[static_cast<std::size_t>(fi)];
-            const EmpireState* e = empireOf(game, f.owner);
-            for (int si = 0; si < static_cast<int>(f.ships.size()); ++si) {
-                const ShipClass* c = classOf(game, f.ships[static_cast<std::size_t>(si)]);
-                if (c == nullptr || e == nullptr) {
-                    continue;
-                }
-                units.push_back({f.owner, fi, si, shipFirepower(*c, *e), shipShields(*c, *e),
-                                 f.ships[static_cast<std::size_t>(si)].hull});
-            }
-        }
-        const int system = game.galaxy.systemAt(at);
-        if (const Colony* col = game.colonyAt(system); col != nullptr) {
-            const ColonyDefence d = colonyDefence(game, *col);
-            if (d.firepower > 0) {
-                units.push_back({col->owner, -1, -1, d.firepower, d.shields, 1});
-            }
-        }
-        // A battle needs someone who can shoot at an enemy.
-        auto canShoot = [&](const Unit& u) {
-            return u.firepower > 0 && u.hull > 0 && std::any_of(units.begin(), units.end(), [&](const Unit& v) {
-                       return v.hull > 0 && hostile(game, u.owner, v.owner);
-                   });
-        };
-        if (std::none_of(units.begin(), units.end(), canShoot)) {
+std::vector<CombatUnit> combatUnits(const Game& game, Sector at) {
+    std::vector<CombatUnit> units;
+    for (int fi = 0; fi < static_cast<int>(game.fleets.size()); ++fi) {
+        const Fleet& f = game.fleets[static_cast<std::size_t>(fi)];
+        if (!(f.at == at)) {
             continue;
         }
-        Battle battle;
-        battle.at = at;
-        for (const auto& u : units) {
-            auto it = std::find(battle.owners.begin(), battle.owners.end(), u.owner);
-            if (it == battle.owners.end()) {
-                battle.owners.push_back(u.owner);
-                battle.ships.push_back(0);
-                battle.lost.push_back(0);
-                it = battle.owners.end() - 1;
+        const EmpireState* e = empireOf(game, f.owner);
+        for (int si = 0; si < static_cast<int>(f.ships.size()); ++si) {
+            const Ship& ship = f.ships[static_cast<std::size_t>(si)];
+            const ShipClass* c = classOf(game, ship);
+            if (c == nullptr || e == nullptr || ship.hull <= 0) {
+                continue;
             }
-            battle.ships[static_cast<std::size_t>(it - battle.owners.begin())] += u.ship >= 0 ? 1 : 0;
+            units.push_back({f.owner, fi, si, ship.shipClass, shipFirepower(*c, *e), shipShields(*c, *e), ship.hull, c->hull});
         }
+    }
+    const int system = game.galaxy.systemAt(at);
+    if (const Colony* col = game.colonyAt(system); col != nullptr) {
+        const ColonyDefence d = colonyDefence(game, *col);
+        if (d.firepower > 0) {
+            units.push_back({col->owner, -1, -1, -1, d.firepower, d.shields, 1, 1});
+        }
+    }
+    return units;
+}
+
+bool battleStarts(const Game& game, const std::vector<CombatUnit>& units) {
+    // A battle needs someone who can shoot at an enemy.
+    return std::any_of(units.begin(), units.end(), [&](const CombatUnit& u) {
+        return u.firepower > 0 && u.hull > 0 && std::any_of(units.begin(), units.end(), [&](const CombatUnit& v) {
+                   return v.hull > 0 && hostile(game, u.owner, v.owner);
+               });
+    });
+}
+
+Battle battleSides(const std::vector<CombatUnit>& units, Sector at) {
+    Battle battle;
+    battle.at = at;
+    for (const auto& u : units) {
+        auto it = std::find(battle.owners.begin(), battle.owners.end(), u.owner);
+        if (it == battle.owners.end()) {
+            battle.owners.push_back(u.owner);
+            battle.ships.push_back(0);
+            battle.lost.push_back(0);
+            it = battle.owners.end() - 1;
+        }
+        battle.ships[static_cast<std::size_t>(it - battle.owners.begin())] += u.ship >= 0 ? 1 : 0;
+    }
+    return battle;
+}
+
+std::uint32_t combatRandom(std::uint32_t a, std::uint32_t b, std::uint32_t c, std::uint32_t d) { return mix(a, b, c, d); }
+
+std::vector<Battle> fightBattles(Game& game, const std::vector<Sector>& skip) {
+    std::vector<Battle> battles;
+    std::map<std::pair<int, int>, bool> sectors;
+    for (const Fleet& f : game.fleets) {
+        sectors[{f.at.y, f.at.x}] = true;
+    }
+    for (const auto& [key, unused] : sectors) {
+        const Sector at{key.second, key.first};
+        if (std::find(skip.begin(), skip.end(), at) != skip.end()) {
+            continue;
+        }
+        std::vector<CombatUnit> units = combatUnits(game, at);
+        if (!battleStarts(game, units)) {
+            continue;
+        }
+        Battle battle = battleSides(units, at);
         for (int round = 0; round < kRounds; ++round) {
             std::vector<int> damage(units.size());
             for (std::size_t a = 0; a < units.size(); ++a) {
-                const Unit& u = units[a];
+                const CombatUnit& u = units[a];
                 if (u.hull <= 0 || u.firepower <= 0) {
                     continue;
                 }
@@ -171,7 +181,7 @@ std::vector<Battle> fightBattles(Game& game) {
                 damage[targets[h % targets.size()]] += u.firepower * static_cast<int>(50 + (h >> 8) % 31) / 100;
             }
             for (std::size_t b = 0; b < units.size(); ++b) {
-                Unit& v = units[b];
+                CombatUnit& v = units[b];
                 const int through = damage[b] - std::min(damage[b], v.shields);
                 v.shields = std::max(0, v.shields - damage[b]);
                 // Colonies' defences are not destroyed, only kept busy.
@@ -192,11 +202,15 @@ std::vector<Battle> fightBattles(Game& game) {
         }
         battles.push_back(std::move(battle));
     }
+    removeWrecks(game);
+    return battles;
+}
+
+void removeWrecks(Game& game) {
     for (auto& f : game.fleets) {
         std::erase_if(f.ships, [](const Ship& s) { return s.hull <= 0; });
     }
     std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
-    return battles;
 }
 
 std::vector<Assault> attackSystems(Game& game) {

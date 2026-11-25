@@ -2,6 +2,7 @@
 #include "gamedata.hpp"
 #include "test.hpp"
 
+#include "nagus/game/combat.hpp"
 #include "nagus/settings.hpp"
 #include "nagus/ui/shell.hpp"
 
@@ -560,4 +561,80 @@ NGS_TEST("the options: volumes, kept with the settings") {
     NGS_CHECK(again.jukebox().speechVolume() == 50);
     NGS_CHECK(again.settings().volume[2] == 50);
     fs::remove_all(dir);
+}
+
+NGS_TEST("tactical combat: choosing manual orders, fighting rounds and back to the map") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path settings = fs::temp_directory_path() / "nagus-test-combat-settings.txt";
+    fs::remove(settings);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, settings);
+    Canvas canvas;
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(6);
+    shell.command(Command::Start);
+    Game& game = const_cast<Game&>(*shell.game());
+    NGS_CHECK(!game.settings.automaticCombat);
+    // Klingon warships wait at the player's home, at war.
+    for (auto& r : game.relations) {
+        r.treaty = Treaty::War;
+    }
+    const Sector home = game.galaxy.systems[static_cast<std::size_t>(game.galaxy.homes[static_cast<std::size_t>(game.player)])].sector;
+    int warship = -1;
+    for (std::size_t i = 0; i < game.economy.ships.size() && warship < 0; ++i) {
+        if (game.economy.ships[i].race == 3 && isArmed(game.economy.ships[i]) && game.economy.ships[i].role != ShipRole::Scout) {
+            warship = static_cast<int>(i);
+        }
+    }
+    for (int i = 0; i < 2; ++i) {
+        game.addFleet(3, home, warship);
+        game.addFleet(game.player, home, warship);
+    }
+    shell.draw(canvas, 0);
+    const int turn = game.turn;
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Combat);
+    NGS_CHECK(game.turn == turn); // halfway
+    CombatScreen& c = *shell.combatScreen();
+    NGS_CHECK(c.phase() == CombatScreen::Phase::Choose);
+    shell.draw(canvas, 0);
+    click(shell, centre(*c.button(CombatScreen::kManual)));
+    NGS_CHECK(c.phase() == CombatScreen::Phase::Orders);
+    // The gamepad chooses the maneuver and waits on Turn.
+    shell.command(Command::Right);
+    NGS_CHECK(c.chosen() == Maneuver::Charge);
+    NGS_CHECK(shell.pointer().x == centre(*c.button(CombatScreen::kTurn)).x);
+    click(shell, centre(c.maneuverRect(Maneuver::Circle)));
+    NGS_CHECK(c.chosen() == Maneuver::Circle);
+    shell.command(Command::Left);
+    NGS_CHECK(c.chosen() == Maneuver::Charge);
+    shell.clickAtPointer();
+    shell.draw(canvas, 100);
+    NGS_CHECK(c.battle().round() == 1);
+    for (int i = 0; i < kTacticalRounds && c.phase() == CombatScreen::Phase::Orders; ++i) {
+        click(shell, centre(*c.button(CombatScreen::kTurn)));
+        shell.draw(canvas, 200);
+    }
+    NGS_CHECK(c.phase() == CombatScreen::Phase::Over && !c.resultText().empty());
+    click(shell, centre(*c.button(CombatScreen::kFinish)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(game.turn == turn + 1);
+
+    // Next time: fought automatically.
+    game.addFleet(3, home, warship);
+    game.addFleet(game.player, home, warship);
+    click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
+    if (shell.showing() == Shell::Showing::Combat) {
+        click(shell, centre(*shell.combatScreen()->button(CombatScreen::kAutomatic)));
+        NGS_CHECK(shell.combatScreen()->phase() == CombatScreen::Phase::Over);
+        shell.draw(canvas, 300);
+        shell.command(Command::Start);
+    }
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy && game.turn == turn + 2);
+    fs::remove(settings);
 }

@@ -35,7 +35,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > empires are played by the computer: they build, settle new systems and
 > send out scouts and warships. The map shows only what your empire has
 > explored, with each empire's space in its colour. Empires at war fight
-> when their fleets meet (resolved automatically); *Orders* → *Attack
+> when their fleets meet. With tactical combat set to *Manual* in the game
+> set-up, your battles open the combat screen: let the battle be fought
+> automatically, or give your ships a maneuver each round (assault,
+> charge, circle, harry, flyby, strafe, evade, ram, retreat or hail);
+> *Orders* → *Attack
 > System* bombards an enemy colony, and troop transports invade it. On the
 > diplomacy screen (marker window) you meet the other races: propose
 > treaties from non-aggression to alliance, give gifts, declare war, answer
@@ -53,8 +57,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > speech then play, and the game goes into the hall of fame (main menu).
 > *Options* in the main menu sets the volume of the music, sound effects and
 > speech. With random events on, plague, earthquakes, comets, terrorists,
-> immigrants and a ship virus strike now and then. Not there yet: tactical
-> combat (battles are resolved automatically) and multiplayer. Buttons that
+> immigrants and a ship virus strike now and then. Not there yet:
+> multiplayer. Buttons that
 > do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
