@@ -6,9 +6,14 @@ plugins {
 
 def root = file('../..')
 def sdl = file('../sdl')
-def cmakeVersion = new File(root, 'CMakeLists.txt').text.find(/VERSION (\d+)\.(\d+)\.(\d+)/) { all, a, b, c ->
-    [name: "${a}.${b}.${c}", code: a.toInteger() * 10000 + b.toInteger() * 100 + c.toInteger()]
+def versionMatch = (new File(root, 'CMakeLists.txt').text =~ /VERSION (\d+)\.(\d+)\.(\d+)/)
+if (!versionMatch.find()) {
+    throw new GradleException('No VERSION in CMakeLists.txt')
 }
+def cmakeVersion = [
+    name: "${versionMatch.group(1)}.${versionMatch.group(2)}.${versionMatch.group(3)}".toString(),
+    code: versionMatch.group(1).toInteger() * 10000 + versionMatch.group(2).toInteger() * 100 + versionMatch.group(3).toInteger()
+]
 
 android {
     namespace = 'io.github.niliodev.nagus'

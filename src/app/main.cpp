@@ -20,6 +20,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -109,11 +110,8 @@ struct App {
 };
 
 fs::path pathFromUtf8(const char* s) {
-#ifdef _WIN32
-    return fs::u8path(s);
-#else
-    return fs::path(s);
-#endif
+    const std::string_view v(s);
+    return fs::path(std::u8string(v.begin(), v.end()));
 }
 
 nagus::LibraryState libraryState(const App& app) { return nagus::Importer::state(app.library); }
