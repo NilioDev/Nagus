@@ -47,6 +47,11 @@ public:
     static constexpr std::uint32_t kOrderColonize = 0x4b2;
     static constexpr std::uint32_t kOrderAttack = 0x4ce;
     static constexpr int kFleetLine = 14; // height of a fleet's line in the list on the left
+    // The most fleet lines shown at once; the arrows beside the list scroll
+    // through more.
+    static constexpr int kFleetLines = 10;
+    static constexpr std::uint32_t kListUp = 0x40e;
+    static constexpr std::uint32_t kListDown = 0x40f;
 
     GalaxyScreen(Assets& assets, Game& game);
 
@@ -78,7 +83,10 @@ public:
     // click on one chooses it (the panel below then shows its ships), and
     // for the player's own the next click on the map sends it there.
     std::vector<int> fleetsHere() const;
+    // Where fleet i of fleetsHere() is in the list, while it is in view.
     std::optional<Rect> fleetLine(int i) const;
+    void scrollFleets(int lines);
+    int firstFleetLine() const { return listFirst_; }
     int chosenFleet() const { return fleet_; }
     void chooseFleet(int id);
     bool moving() const { return moving_; }
@@ -130,6 +138,7 @@ private:
     Panel fleetPanel_;
     Panel orders_;
     int fleet_ = -1;      // the chosen fleet's id
+    int listFirst_ = 0;   // the first fleet line in view
     bool moving_ = false; // the next click on the map sends the chosen fleet
     bool ordersOpen_ = false;
 };
