@@ -24,7 +24,8 @@ struct ColonyDefence {
 };
 ColonyDefence colonyDefence(const Game& g, const Colony& c);
 
-// One side's part in a battle: a ship, or (ship -1) a colony's defences.
+// One side's part in a battle: a ship, a station (ship -1, station its
+// index in Game::stations), or (both -1) a colony's defences.
 struct CombatUnit {
     int owner = -1;
     int fleet = -1; // index into Game::fleets
@@ -34,6 +35,7 @@ struct CombatUnit {
     int shields = 0;
     int hull = 0;
     int maxHull = 0;
+    int station = -1;
 };
 // Everyone in a sector who would take part in a battle there.
 std::vector<CombatUnit> combatUnits(const Game& game, Sector at);
@@ -54,7 +56,8 @@ void removeWrecks(Game& game);
 // land and fight the people. Needs no armed defenders left in the sector.
 std::vector<Assault> attackSystems(Game& game);
 
-// Ships mend: fully at the owner's colonies, a little elsewhere.
+// Ships mend: fully at the owner's colonies and starbases, a little
+// elsewhere. Stations mend a little each turn.
 void repairShips(Game& game);
 
 } // namespace nagus

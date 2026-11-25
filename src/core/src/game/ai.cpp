@@ -99,7 +99,7 @@ int freeSystems(const Game& g, int empire, int reach) {
     int n = 0;
     for (int i = 0; i < static_cast<int>(g.galaxy.systems.size()); ++i) {
         if (freeForColony(g, i, empire) &&
-            distanceFromColonies(g.galaxy.systems[static_cast<std::size_t>(i)].sector, empire, g.colonies, g.galaxy) <= reach) {
+            distanceFromBases(g, g.galaxy.systems[static_cast<std::size_t>(i)].sector, empire) <= reach) {
             ++n;
         }
     }
@@ -221,7 +221,7 @@ std::optional<int> colonyTarget(const Game& g, const Fleet& f, const std::vector
             continue;
         }
         const StarSystem& s = g.galaxy.systems[static_cast<std::size_t>(i)];
-        if (distanceFromColonies(s.sector, f.owner, g.colonies, g.galaxy) > range) {
+        if (distanceFromBases(g, s.sector, f.owner) > range) {
             continue;
         }
         const int score = systemRoom(s, f.owner, g.economy) / 10 - 4 * distance(f.at, s.sector);
@@ -256,7 +256,7 @@ std::optional<int> attackTarget(const Game& g, int empire, const Fleet& f) {
     for (const auto& c : g.colonies) {
         const Sector at = g.galaxy.systems[static_cast<std::size_t>(c.system)].sector;
         if (!hostile(g, empire, c.owner) || !exploredBy(g, empire, at) ||
-            distanceFromColonies(at, empire, g.colonies, g.galaxy) > range) {
+            distanceFromBases(g, at, empire) > range) {
             continue;
         }
         if (const int d = distance(f.at, at); d < bestDistance) {
@@ -272,7 +272,7 @@ std::optional<Sector> attackedSector(const Game& g, int empire, const Fleet& f) 
     const int range = fleetRange(f, g.economy, g.empires[static_cast<std::size_t>(empire)]);
     for (const auto& o : g.fleets) {
         if (o.owner == empire && o.order == Fleet::Order::Attack &&
-            distanceFromColonies(o.at, empire, g.colonies, g.galaxy) <= range) {
+            distanceFromBases(g, o.at, empire) <= range) {
             return o.at;
         }
     }
@@ -367,7 +367,7 @@ void playEmpire(Game& game, int empire) {
                 const std::uint32_t h = mix(static_cast<std::uint32_t>(game.turn), static_cast<std::uint32_t>(id),
                                             static_cast<std::uint32_t>(attempt));
                 const Sector to{f.at.x + static_cast<int>(h % 9) - 4, f.at.y + static_cast<int>((h / 9) % 9) - 4};
-                if (game.galaxy.inside(to) && distanceFromColonies(to, empire, game.colonies, game.galaxy) <= range &&
+                if (game.galaxy.inside(to) && distanceFromBases(game, to, empire) <= range &&
                     orderMove(game, id, to)) {
                     break;
                 }
@@ -380,6 +380,14 @@ void playEmpire(Game& game, int empire) {
             if (fleetHas(game, f, isTransport) && !fleetHas(game, f, isWarshipRole)) {
                 if (const auto to = attackedSector(game, empire, f)) {
                     orderMove(game, id, *to);
+                } else if (const Colony* home = game.colonyAt(game.galaxy.systemAt(f.at)); home != nullptr && home->owner == empire) {
+                    // With no attack to join, they guard their colony with
+                    // an outpost, and then a starbase.
+                    for (const auto order : {Fleet::Order::BuildOutpost, Fleet::Order::BuildStarbase, Fleet::Order::Upgrade}) {
+                        if (orderBuildStation(game, id, order)) {
+                            break;
+                        }
+                    }
                 }
                 continue;
             }

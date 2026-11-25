@@ -217,7 +217,7 @@ void TacticalBattle::fight(const Game& game, Maneuver order) {
         v.shields = std::max(0, v.shields - damage[b]);
         lastDamage_[b] = damage[b] + collision[b];
         // Colonies' defences are not destroyed, only kept busy.
-        if (v.ship >= 0) {
+        if (v.ship >= 0 || v.station >= 0) {
             v.hull = std::max(0, v.hull - through - collision[b]);
         }
         if (v.hull > 0 && lastManeuver(v.owner) == Maneuver::Retreat && v.ship >= 0) {
@@ -244,6 +244,9 @@ Battle TacticalBattle::finish(Game& game) const {
     std::map<int, bool> retreated;
     for (std::size_t i = 0; i < units_.size(); ++i) {
         const CombatUnit& u = units_[i];
+        if (u.station >= 0 && static_cast<std::size_t>(u.station) < game.stations.size()) {
+            game.stations[static_cast<std::size_t>(u.station)].hull = std::max(0, u.hull);
+        }
         if (u.ship < 0 || u.fleet < 0 || static_cast<std::size_t>(u.fleet) >= game.fleets.size()) {
             continue;
         }
@@ -270,7 +273,7 @@ Battle TacticalBattle::finish(Game& game) const {
                 if ((dx == 0 && dy == 0) || !game.galaxy.inside(s)) {
                     continue;
                 }
-                const int d = distanceFromColonies(s, owner, game.colonies, game.galaxy);
+                const int d = distanceFromBases(game, s, owner);
                 if (!refuge || d < best) {
                     refuge = s;
                     best = d;

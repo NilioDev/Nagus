@@ -228,7 +228,7 @@ void CombatScreen::draw(Canvas& canvas, std::uint64_t ms) {
         const CombatUnit& u = units[i];
         const Rect r = places_[i];
         const Pixel colour = ownerColour(u.owner);
-        if (u.ship < 0) {
+        if (u.ship < 0 && u.station < 0) {
             // A colony's defences: the planet.
             const int system = game_.galaxy.systemAt(battle_.at());
             for (int row = 0; row < 40; ++row) {

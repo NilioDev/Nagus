@@ -48,6 +48,14 @@ struct IntelReport {
 enum class Ending : std::uint8_t { None, Annihilation, Domination, Alliance, Loss, Retired };
 inline constexpr int kEndings = 6;
 
+// An outpost or a starbase: a station in a sector (see docs/rules/ships.md).
+struct Station {
+    int owner = -1;
+    Sector at;
+    int shipClass = -1; // its class in EconomyData::ships (role outpost or starbase)
+    int hull = 0;
+};
+
 struct Game {
     GameSettings settings;
     Galaxy galaxy;
@@ -66,6 +74,7 @@ struct Game {
     std::vector<Colony> colonies;
     std::array<EmpireState, kEmpires> empires{};
     std::vector<Fleet> fleets;
+    std::vector<Station> stations;
     int nextFleetId = 1;
     // For each sector (y * width + x), a bit for each empire that has seen it.
     std::vector<std::uint8_t> explored;
@@ -90,9 +99,30 @@ struct Game {
     const Fleet* fleet(int id) const;
     // The fleets in a sector, of an owner or (-1) of anyone.
     std::vector<int> fleetsAt(Sector s, int owner = -1) const;
+    // The station in a sector, or null.
+    Station* stationAt(Sector s);
+    const Station* stationAt(Sector s) const;
     // A new fleet of one ship.
     Fleet& addFleet(int owner, Sector at, int shipClass);
 };
+
+// How far a sector is from an empire's nearest colony or station.
+int distanceFromBases(const Game& game, Sector s, int owner);
+// The best class of outpost or starbase an empire can build, or -1.
+int stationClass(const Game& game, int empire, ShipRole role);
+// Whether a fleet with troop transports can build an outpost where it is
+// (no station there yet), turn an outpost of its empire there into a
+// starbase, or upgrade its empire's station there to a better class.
+bool canBuildOutpost(const Game& game, const Fleet& fleet);
+bool canBuildStarbase(const Game& game, const Fleet& fleet);
+bool canUpgradeStation(const Game& game, const Fleet& fleet);
+// Gives one of those orders; the work goes on each turn until it is done.
+bool orderBuildStation(Game& game, int fleet, Fleet::Order order);
+// The class the fleet's station order builds, and the industry it takes.
+int stationTarget(const Game& game, const Fleet& fleet);
+int stationWork(const Game& game, const Fleet& fleet);
+// Industry each troop transport puts into a station a turn (our choice).
+inline constexpr int kStationWorkPerTransport = 150;
 
 // Whether an empire sees what is in a sector: near its colonies (two
 // sectors) and its fleets (one sector and their scan).

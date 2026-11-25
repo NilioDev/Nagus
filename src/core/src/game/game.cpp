@@ -132,6 +132,27 @@ std::vector<int> Game::fleetsAt(Sector s, int owner) const {
     return ids;
 }
 
+Station* Game::stationAt(Sector s) {
+    for (auto& st : stations) {
+        if (st.at == s) {
+            return &st;
+        }
+    }
+    return nullptr;
+}
+
+const Station* Game::stationAt(Sector s) const { return const_cast<Game*>(this)->stationAt(s); }
+
+int distanceFromBases(const Game& game, Sector s, int owner) {
+    int best = distanceFromColonies(s, owner, game.colonies, game.galaxy);
+    for (const auto& st : game.stations) {
+        if (st.owner == owner) {
+            best = std::min(best, distance(st.at, s));
+        }
+    }
+    return best;
+}
+
 Fleet& Game::addFleet(int owner, Sector at, int shipClass) {
     Fleet f;
     f.id = nextFleetId++;
@@ -147,7 +168,7 @@ Fleet& Game::addFleet(int owner, Sector at, int shipClass) {
 }
 
 bool visibleTo(const Game& game, int empire, Sector s) {
-    if (distanceFromColonies(s, empire, game.colonies, game.galaxy) <= 2) {
+    if (distanceFromBases(game, s, empire) <= 2) {
         return true;
     }
     for (const auto& f : game.fleets) {
@@ -193,6 +214,9 @@ void explore(Game& game) {
     for (const auto& c : game.colonies) {
         mark(c.owner, gal.systems[static_cast<std::size_t>(c.system)].sector, 2);
     }
+    for (const auto& st : game.stations) {
+        mark(st.owner, st.at, 2);
+    }
     for (const auto& f : game.fleets) {
         int scan = 0;
         for (const auto& ship : f.ships) {
@@ -211,7 +235,7 @@ bool orderMove(Game& game, int id, Sector to) {
     }
     const auto& empire = game.empires[static_cast<std::size_t>(f->owner)];
     if (fleetSpeed(*f, game.economy, empire) <= 0 ||
-        distanceFromColonies(to, f->owner, game.colonies, game.galaxy) > fleetRange(*f, game.economy, empire)) {
+        distanceFromBases(game, to, f->owner) > fleetRange(*f, game.economy, empire)) {
         return false;
     }
     f->destination = to == f->at ? std::nullopt : std::optional<Sector>(to);
@@ -375,6 +399,109 @@ bool orderWormhole(Game& game, int id) {
     f->destination.reset();
     f->order = Fleet::Order::Wormhole;
     return true;
+}
+
+int stationClass(const Game& game, int empire, ShipRole role) {
+    if (empire < 0 || empire >= kEmpires) {
+        return -1;
+    }
+    const EmpireState& e = game.empires[static_cast<std::size_t>(empire)];
+    int best = -1;
+    for (std::size_t i = 0; i < game.economy.ships.size(); ++i) {
+        const ShipClass& c = game.economy.ships[i];
+        const bool known = std::equal(c.tech.begin(), c.tech.end(), e.tech.begin(), [](int need, int have) { return need <= have; });
+        // The best: the one that costs most.
+        if (c.race == empire && c.role == role && known &&
+            (best < 0 || c.cost > game.economy.ships[static_cast<std::size_t>(best)].cost)) {
+            best = static_cast<int>(i);
+        }
+    }
+    return best;
+}
+
+namespace {
+
+int transports(const Game& game, const Fleet& f) {
+    return static_cast<int>(std::count_if(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        const ShipClass* c = shipClassOf(game, s);
+        return c != nullptr && c->role == ShipRole::Transport;
+    }));
+}
+
+ShipRole stationRole(const Game& game, const Station& st) {
+    return st.shipClass >= 0 && static_cast<std::size_t>(st.shipClass) < game.economy.ships.size()
+               ? game.economy.ships[static_cast<std::size_t>(st.shipClass)].role
+               : ShipRole::Outpost;
+}
+
+} // namespace
+
+bool canBuildOutpost(const Game& game, const Fleet& f) {
+    return transports(game, f) > 0 && game.stationAt(f.at) == nullptr && stationClass(game, f.owner, ShipRole::Outpost) >= 0;
+}
+
+bool canBuildStarbase(const Game& game, const Fleet& f) {
+    const Station* st = game.stationAt(f.at);
+    return transports(game, f) > 0 && st != nullptr && st->owner == f.owner && stationRole(game, *st) == ShipRole::Outpost &&
+           stationClass(game, f.owner, ShipRole::Starbase) >= 0;
+}
+
+bool canUpgradeStation(const Game& game, const Fleet& f) {
+    const Station* st = game.stationAt(f.at);
+    if (transports(game, f) == 0 || st == nullptr || st->owner != f.owner) {
+        return false;
+    }
+    const int best = stationClass(game, f.owner, stationRole(game, *st));
+    return best >= 0 && best != st->shipClass &&
+           game.economy.ships[static_cast<std::size_t>(best)].cost > game.economy.ships[static_cast<std::size_t>(st->shipClass)].cost;
+}
+
+bool orderBuildStation(Game& game, int id, Fleet::Order order) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr) {
+        return false;
+    }
+    const bool ok = order == Fleet::Order::BuildOutpost    ? canBuildOutpost(game, *f)
+                    : order == Fleet::Order::BuildStarbase ? canBuildStarbase(game, *f)
+                    : order == Fleet::Order::Upgrade       ? canUpgradeStation(game, *f)
+                                                           : false;
+    if (!ok) {
+        return false;
+    }
+    f->destination.reset();
+    if (f->order != order) {
+        f->progress = 0;
+    }
+    f->order = order;
+    return true;
+}
+
+int stationTarget(const Game& game, const Fleet& f) {
+    const Station* st = game.stationAt(f.at);
+    switch (f.order) {
+    case Fleet::Order::BuildOutpost:
+        return stationClass(game, f.owner, ShipRole::Outpost);
+    case Fleet::Order::BuildStarbase:
+        return stationClass(game, f.owner, ShipRole::Starbase);
+    case Fleet::Order::Upgrade:
+        return st != nullptr ? stationClass(game, f.owner, stationRole(game, *st)) : -1;
+    default:
+        return -1;
+    }
+}
+
+int stationWork(const Game& game, const Fleet& f) {
+    const int target = stationTarget(game, f);
+    if (target < 0) {
+        return 0;
+    }
+    const int cost = game.economy.ships[static_cast<std::size_t>(target)].cost;
+    // An upgrade costs what the better class costs more.
+    const Station* st = game.stationAt(f.at);
+    if (f.order == Fleet::Order::Upgrade && st != nullptr && st->shipClass >= 0) {
+        return std::max(1, cost - game.economy.ships[static_cast<std::size_t>(st->shipClass)].cost);
+    }
+    return std::max(1, cost);
 }
 
 bool canTrain(const Game& game, const Fleet& f) {
@@ -546,6 +673,48 @@ void intercept(Game& game, TurnSummary& summary) {
     }
 }
 
+void buildStations(Game& game, TurnSummary& summary) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::BuildOutpost && f.order != Fleet::Order::BuildStarbase && f.order != Fleet::Order::Upgrade) {
+            continue;
+        }
+        const bool ok = f.order == Fleet::Order::BuildOutpost    ? canBuildOutpost(game, f)
+                        : f.order == Fleet::Order::BuildStarbase ? canBuildStarbase(game, f)
+                                                                 : canUpgradeStation(game, f);
+        if (!ok) {
+            f.order = Fleet::Order::None;
+            f.progress = 0;
+            continue;
+        }
+        f.progress += transports(game, f) * kStationWorkPerTransport;
+        if (f.progress < stationWork(game, f)) {
+            continue;
+        }
+        // Done: the oldest transport is used up to arm and man it.
+        const int target = stationTarget(game, f);
+        const ShipClass& c = game.economy.ships[static_cast<std::size_t>(target)];
+        if (Station* st = game.stationAt(f.at)) {
+            st->shipClass = target;
+            st->hull = c.hull;
+        } else {
+            game.stations.push_back({f.owner, f.at, target, c.hull});
+        }
+        f.ships.erase(std::find_if(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+            const ShipClass* sc = shipClassOf(game, s);
+            return sc != nullptr && sc->role == ShipRole::Transport;
+        }));
+        f.order = Fleet::Order::None;
+        f.progress = 0;
+        if (f.owner == game.player) {
+            const int system = game.galaxy.systemAt(f.at);
+            const std::string where = system >= 0 ? " at " + game.galaxy.systems[static_cast<std::size_t>(system)].name
+                                                  : " at " + std::to_string(f.at.x + 1) + "," + std::to_string(f.at.y + 1);
+            summary.events.push_back(c.name + " finished" + where);
+        }
+    }
+    std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
+}
+
 void trainCrews(Game& game) {
     for (auto& f : game.fleets) {
         if (f.order != Fleet::Order::Train) {
@@ -646,6 +815,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
         }
     }
     raid(game, summary);
+    buildStations(game, summary);
     repairShips(game);
     trainCrews(game);
     summary.intel = intelTurn(game);

@@ -364,7 +364,7 @@ void GalaxyScreen::drawLayers(Canvas& canvas) {
                 if (!c) {
                     continue;
                 }
-                const int d = distanceFromColonies({x, y}, game_.player, game_.colonies, g);
+                const int d = distanceFromBases(game_, {x, y}, game_.player);
                 for (int r = 0; r < 3; ++r) {
                     if (d == rangeSectors(r, empire)) {
                         canvas.frame({c->x - size / 2 + 2, c->y - size / 2 + 2, size - 3, size - 3}, kRangeColours[r]);
@@ -598,6 +598,15 @@ void GalaxyScreen::refreshFleet() {
     orders_.setEnabled(kOrderDefend, mine && canDefend(game_, *f));
     orders_.setEnabled(kOrderWormhole, mine && canEnterWormhole(game_, *f));
     orders_.setEnabled(kOrderTrain, mine && canTrain(game_, *f));
+    // Outpost and starbase share a place: the starbase where there is an
+    // outpost of the player's.
+    const Station* st = f != nullptr ? game_.stationAt(f->at) : nullptr;
+    const bool starbase = st != nullptr && st->owner == game_.player;
+    orders_.setVisible(kOrderOutpost, !starbase);
+    orders_.setVisible(kOrderStarbase, starbase);
+    orders_.setEnabled(kOrderOutpost, mine && canBuildOutpost(game_, *f));
+    orders_.setEnabled(kOrderStarbase, mine && canBuildStarbase(game_, *f));
+    orders_.setEnabled(kOrderUpgrade, mine && canUpgradeStation(game_, *f));
     fleetPanel_.setEnabled(kFleetCloak, mine && (f->cloaked || canCloak(game_, *f)));
     fleetPanel_.setOn(kFleetCloak, mine && f->cloaked);
     // Redeploying needs a second ship, in this fleet or another one here.
@@ -694,7 +703,7 @@ void GalaxyScreen::drawFleets(Canvas& canvas) {
     if (const Fleet* f = game_.fleet(fleet_); moving_ && f != nullptr) {
         const auto target = sectorAt(pointer_);
         if (target) {
-            const bool ok = distanceFromColonies(*target, f->owner, game_.colonies, game_.galaxy) <=
+            const bool ok = distanceFromBases(game_, *target, f->owner) <=
                             fleetRange(*f, game_.economy, game_.empires[static_cast<std::size_t>(f->owner)]);
             for (const Sector s : path(f->at, *target)) {
                 if (const auto c = sectorCentre(s)) {
@@ -723,6 +732,20 @@ void GalaxyScreen::drawFleets(Canvas& canvas) {
         if (f.id == fleet_) {
             canvas.frame({x - 1, y - 1, w + 2, w + 2}, kMoveColour);
         }
+    }
+    // Outposts and starbases: their small picture in the sector's bottom
+    // right corner, when zoomed in.
+    for (const auto& st : game_.stations) {
+        const auto c = sectorCentre(st.at);
+        if (!c || whole_ || st.shipClass < 0 || static_cast<std::size_t>(st.shipClass) >= game_.economy.ships.size() ||
+            (st.owner != game_.player && !visibleTo(game_, game_.player, st.at))) {
+            continue;
+        }
+        const ShipClass& sc = game_.economy.ships[static_cast<std::size_t>(st.shipClass)];
+        const Image& pic = assets_.image("i_" + sc.picture + (sc.role == ShipRole::Outpost ? "11.tga" : ".tga"));
+        canvas.draw(pic, c->x + size / 2 - pic.width - 2, c->y + size / 2 - pic.height - 2);
+        canvas.frame({c->x + size / 2 - pic.width - 3, c->y + size / 2 - pic.height - 3, pic.width + 2, pic.height + 2},
+                     st.owner >= 0 && st.owner < kEmpires ? kEmpireColours[st.owner] : kMinorColour);
     }
 }
 
@@ -793,6 +816,12 @@ void GalaxyScreen::drawFleetPanel(Canvas& canvas) {
             canvas.text(small, lex[657], text.x + 6, y, kInfoColour);
         } else if (f->order == Fleet::Order::Train) {
             canvas.text(small, lex[664], text.x + 6, y, kInfoColour);
+        } else if (f->order == Fleet::Order::BuildOutpost || f->order == Fleet::Order::BuildStarbase ||
+                   f->order == Fleet::Order::Upgrade) {
+            const int label = f->order == Fleet::Order::BuildOutpost ? 653 : f->order == Fleet::Order::BuildStarbase ? 654 : 665;
+            const int work = std::max(1, stationWork(game_, *f));
+            canvas.text(small, lex[static_cast<std::size_t>(label)] + "  " + std::to_string(std::min(100, f->progress * 100 / work)) + "%",
+                        text.x + 6, y, kInfoColour);
         }
         y += small.height() + 4;
         canvas.text(small, lex[f->avoid ? 652 : 658] + (f->cloaked ? "   " + lex[162] : std::string()), text.x + 6, y, kNameColour);
@@ -914,6 +943,12 @@ void GalaxyScreen::pointerReleased(Point p) {
                 orderWormhole(game_, fleet_);
             } else if (*order == kOrderTrain) {
                 orderTrain(game_, fleet_);
+            } else if (*order == kOrderOutpost) {
+                orderBuildStation(game_, fleet_, Fleet::Order::BuildOutpost);
+            } else if (*order == kOrderStarbase) {
+                orderBuildStation(game_, fleet_, Fleet::Order::BuildStarbase);
+            } else if (*order == kOrderUpgrade) {
+                orderBuildStation(game_, fleet_, Fleet::Order::Upgrade);
             }
             ordersOpen_ = false;
             refreshFleet();

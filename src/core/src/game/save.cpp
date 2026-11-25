@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 4;
+constexpr std::uint32_t kVersion = 5;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -228,12 +228,20 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         w.u8(static_cast<std::uint32_t>(f.order));
         w.u8(f.avoid ? 1 : 0);
         w.u8(f.cloaked ? 1 : 0);
+        w.i32(f.progress);
         w.u32(static_cast<std::uint32_t>(f.ships.size()));
         for (const auto& ship : f.ships) {
             w.i32(ship.shipClass);
             w.i32(ship.hull);
             w.u8(static_cast<std::uint32_t>(ship.experience));
         }
+    }
+    w.u32(static_cast<std::uint32_t>(g.stations.size()));
+    for (const auto& st : g.stations) {
+        w.i32(st.owner);
+        writeSector(w, st.at);
+        w.i32(st.shipClass);
+        w.i32(st.hull);
     }
     return w.take();
 }
@@ -488,13 +496,15 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.destination = to;
         }
         const int order = r.u8();
-        const Fleet::Order last = version >= 4 ? Fleet::Order::Train : version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack;
+        const Fleet::Order last = version >= 5   ? Fleet::Order::Upgrade
+                                  : version >= 4 ? Fleet::Order::Train : version >= 3 ? Fleet::Order::Scrap : Fleet::Order::Attack;
         if (order > static_cast<int>(last)) {
             throw FormatError("damaged saved game");
         }
         f.order = static_cast<Fleet::Order>(order);
         f.avoid = version >= 3 && r.u8() != 0;
         f.cloaked = version >= 4 && r.u8() != 0;
+        f.progress = version >= 5 ? number(r, 0, kBig) : 0;
         for (std::uint32_t k = 0, m = count(r, kMaxShips); k < m; ++k) {
             Ship ship;
             ship.shipClass = number(r, 0, lastShip);
@@ -508,6 +518,19 @@ Game loadGame(ByteView data, const EconomyData& economy) {
             f.ships.push_back(ship);
         }
         g.fleets.push_back(std::move(f));
+    }
+    if (version >= 5) {
+        for (std::uint32_t i = 0, n = count(r, kMaxFleets); i < n; ++i) {
+            Station st;
+            st.owner = number(r, 0, kEmpires - 1);
+            st.at = readSector(r);
+            st.shipClass = number(r, 0, lastShip);
+            st.hull = number(r, 1, kBig);
+            if (!gal.inside(st.at) || g.stationAt(st.at) != nullptr) {
+                throw FormatError("damaged saved game");
+            }
+            g.stations.push_back(st);
+        }
     }
     if (r.left() != 0) {
         throw FormatError("damaged saved game");
