@@ -25,7 +25,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > factories, power plants, research and intelligence, switch structures on
 > and off, choose what to build and buy it with credits. *Turn* ends the
 > turn: colonies grow, make food, industry, research and credits, and finish
-> what they build. *Summary* on the map shows last turn's events, your
+> what they build. *Economic*, *Military* and *Events* below the map switch
+> the map's mode, each with its own layers chosen under *Overlay* (system
+> names, ship ranges, paths, defences, territory, build orders,
+> population); *Events* lists last turn's events below the map. *Summary*
+> on the map shows last turn's events, your
 > treaties and a list of your systems (click one to open it). On the research screen you share your research between
 > the six fields and see how far each has come. The marker window (right
 > click, Esc or B) takes you between the map, your systems, research and the

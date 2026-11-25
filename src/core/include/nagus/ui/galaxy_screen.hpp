@@ -101,6 +101,20 @@ public:
     bool moving() const { return moving_; }
     bool ordersOpen() const { return ordersOpen_; }
     std::optional<Rect> orderButton(std::uint32_t id) const;
+    // The map's modes: each keeps its own layers, and Events shows last
+    // turn's events below the map.
+    enum class Mode { Economy, Military, Events };
+    // The layers of the overlay menu, in its order.
+    enum class Layer { Names, Ranges, Paths, Defences, Territory, TradeRoutes, Building, Population, Bonuses };
+    static constexpr int kLayers = 9;
+    static constexpr std::uint32_t kLayerButtons[kLayers] = {0x578, 0x579, 0x57a, 0x57b, 0x57c, 0x57d, 0x57e, 0x57f, 0x580};
+    Mode mode() const { return mode_; }
+    void setMode(Mode m);
+    bool shows(Layer l) const { return (layers_[static_cast<std::size_t>(mode_)] >> static_cast<int>(l) & 1u) != 0; }
+    void toggle(Layer l);
+    bool overlayOpen() const { return overlayOpen_; }
+    std::optional<Rect> layerButton(Layer l) const;
+
     // Back: stops sending a fleet, or closes the orders, or lets go of the
     // chosen fleet. Returns false when there was nothing to stop.
     bool cancel();
@@ -127,6 +141,9 @@ private:
     void drawSystem(Canvas& canvas, const StarSystem& s, std::uint64_t ms);
     void drawFleets(Canvas& canvas);
     void drawFleetPanel(Canvas& canvas);
+    void drawLayers(Canvas& canvas);
+    void drawEvents(Canvas& canvas);
+    void refreshModes();
     void refreshFleet();
     std::string fleetName(const Fleet& f) const;
 
@@ -146,6 +163,10 @@ private:
     std::vector<std::pair<std::string, Pixel>> events_; // what happened last turn, and its colour
     Panel fleetPanel_;
     Panel orders_;
+    Panel overlay_;
+    bool overlayOpen_ = false;
+    Mode mode_ = Mode::Economy;
+    std::array<std::uint32_t, 3> layers_{};
     int fleet_ = -1;      // the chosen fleet's id
     int listFirst_ = 0;   // the first fleet line in view
     // Redeploying: a click on a ship takes it out of the fleet, a click on

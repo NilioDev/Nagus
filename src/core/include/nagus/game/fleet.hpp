@@ -36,6 +36,9 @@ struct Fleet {
 // Sectors a turn: by the slowest ship's role, and one more for each four
 // levels of propulsion.
 int fleetSpeed(const Fleet& f, const EconomyData& data, const EmpireState& empire);
+// How far from the empire's nearest colony ships of a range class (0
+// short, 1 medium, 2 long) may go.
+int rangeSectors(int rangeClass, const EmpireState& empire);
 // How far from the empire's nearest colony the fleet may go.
 int fleetRange(const Fleet& f, const EconomyData& data, const EmpireState& empire);
 // How far a sector is from an empire's nearest colony (a large number when

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nagus/ui/galaxy_screen.hpp"
 
-#include "nagus/ui/diplomacy_screen.hpp"
+#include "nagus/game/combat.hpp"
 #include "nagus/game/tactical.hpp"
+#include "nagus/ui/diplomacy_screen.hpp"
 #include "nagus/ui/intel_screen.hpp"
 
 #include <algorithm>
@@ -82,7 +83,24 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     : assets_(assets), game_(game), prefix_(kPrefixes[std::clamp(game.player, 0, kEmpires - 1)]),
       panel_(assets, std::string(1, prefix_) + "maingal.wdf"), info_(assets, std::string(1, prefix_) + "_starmp.wdf"),
       system_(assets, std::string(1, prefix_) + "_sysmap.wdf"), animations_(assets.resources().names(".ani")),
-      fleetPanel_(assets, std::string(1, prefix_) + "_tfship.wdf"), orders_(assets, std::string(1, prefix_) + "_tford.wdf") {
+      fleetPanel_(assets, std::string(1, prefix_) + "_tfship.wdf"), orders_(assets, std::string(1, prefix_) + "_tford.wdf"),
+      overlay_(assets, std::string(1, prefix_) + "_ovrlay.wdf") {
+    // Each mode's layers to begin with.
+    auto bits = [](std::initializer_list<Layer> ls) {
+        std::uint32_t b = 0;
+        for (const Layer l : ls) {
+            b |= 1u << static_cast<int>(l);
+        }
+        return b;
+    };
+    layers_ = {bits({Layer::Names, Layer::Territory, Layer::Building, Layer::Population}),
+               bits({Layer::Names, Layer::Territory, Layer::Ranges, Layer::Paths, Layer::Defences}),
+               bits({Layer::Names, Layer::Territory, Layer::Paths})};
+    // There are no trade routes or sector bonuses yet.
+    overlay_.setEnabled(kLayerButtons[static_cast<int>(Layer::TradeRoutes)], false);
+    overlay_.setEnabled(kLayerButtons[static_cast<int>(Layer::Bonuses)], false);
+    const Rect ob = panel_.rect(kOverlay);
+    overlay_.setOrigin({ob.x, ob.y - overlay_.layout().rect.h - 4});
     map_ = panel_.rect(kMap);
     const Rect infoArea = panel_.rect(kInfo);
     info_.setOrigin({infoArea.x, infoArea.y});
@@ -95,9 +113,10 @@ GalaxyScreen::GalaxyScreen(Assets& assets, Game& game)
     for (const auto& e : orders_.layout().elements) {
         orders_.setEnabled(e.id, false);
     }
-    for (const std::uint32_t id : {kEconomy, kMilitary, kEvents, kOverlay, kListUp, kListDown}) {
+    for (const std::uint32_t id : {kListUp, kListDown}) {
         panel_.setEnabled(id, false);
     }
+    refreshModes();
     for (std::size_t i = 0; i < std::size(text::kObjectKinds); ++i) {
         kindNames_.push_back(text::kObjectKinds[i] != 0 ? assets.lexicon()[text::kObjectKinds[i]] : "Wormhole");
     }
@@ -229,6 +248,9 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
     }
     // The empires' space: the sectors around the colonies the player knows of.
     for (const auto& col : game_.colonies) {
+        if (!shows(Layer::Territory)) {
+            break;
+        }
         const Sector at = g.systems[static_cast<std::size_t>(col.system)].sector;
         if (!exploredBy(game_, game_.player, at)) {
             continue;
@@ -266,7 +288,7 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
             canvas.fill({c->x - 1, c->y - 1, 3, 3}, rgb(255, 255, 255));
         }
     }
-    if (!whole_) {
+    if (!whole_ && shows(Layer::Names)) {
         for (const auto& s : g.systems) {
             const auto c = sectorCentre(s.sector);
             if (!c || !s.star || !exploredBy(game_, game_.player, s.sector)) {
@@ -285,6 +307,7 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
             canvas.text(small, s.name, c->x - w / 2, c->y + size / 2 - small.height() + 2, colour);
         }
     }
+    drawLayers(canvas);
     drawFleets(canvas);
     // Space not explored yet is dark.
     for (int y = 0; y < g.height; ++y) {
@@ -312,12 +335,100 @@ void GalaxyScreen::draw(Canvas& canvas, std::uint64_t ms) {
     const int at = exploredBy(game_, game_.player, chosen_) ? g.systemAt(chosen_) : -1;
     if (game_.fleet(fleet_) != nullptr) {
         drawFleetPanel(canvas);
+    } else if (mode_ == Mode::Events) {
+        drawEvents(canvas);
     } else if (at >= 0 && !g.systems[static_cast<std::size_t>(at)].planets.empty()) {
         drawSystem(canvas, g.systems[static_cast<std::size_t>(at)], ms);
     } else {
         drawSector(canvas, at);
     }
     drawList(canvas);
+    if (overlayOpen_) {
+        overlay_.draw(canvas);
+    }
+}
+
+void GalaxyScreen::drawLayers(Canvas& canvas) {
+    const Galaxy& g = game_.galaxy;
+    const int size = sectorSize();
+    const int player = std::clamp(game_.player, 0, kEmpires - 1);
+    const Font& small = assets_.font(kSmallFonts[player]);
+    const auto& empire = game_.empires[static_cast<std::size_t>(player)];
+    // How far the player's ships reach: the edge of each range, short in
+    // green, medium in yellow, long in red.
+    if (shows(Layer::Ranges)) {
+        constexpr Pixel kRangeColours[3] = {0xff40e070u, 0xffe0e040u, 0xffff5050u};
+        for (int y = 0; y < g.height; ++y) {
+            for (int x = 0; x < g.width; ++x) {
+                const auto c = sectorCentre({x, y});
+                if (!c) {
+                    continue;
+                }
+                const int d = distanceFromColonies({x, y}, game_.player, game_.colonies, g);
+                for (int r = 0; r < 3; ++r) {
+                    if (d == rangeSectors(r, empire)) {
+                        canvas.frame({c->x - size / 2 + 2, c->y - size / 2 + 2, size - 3, size - 3}, kRangeColours[r]);
+                    }
+                }
+            }
+        }
+    }
+    if (whole_) {
+        return;
+    }
+    for (const auto& col : game_.colonies) {
+        const Sector at = g.systems[static_cast<std::size_t>(col.system)].sector;
+        const auto c = sectorCentre(at);
+        if (!c || !exploredBy(game_, game_.player, at)) {
+            continue;
+        }
+        const int top = c->y - size / 2 + 2;
+        const int left = c->x - size / 2 + 3;
+        // The colony's people, its defences, and what it builds (the
+        // player's own only).
+        if (shows(Layer::Population)) {
+            const std::string pop = std::to_string(col.population);
+            canvas.text(small, pop, c->x + size / 2 - small.width(pop) - 3, top, kInfoColour);
+        }
+        if (shows(Layer::Defences)) {
+            const ColonyDefence d = colonyDefence(game_, col);
+            if (d.firepower > 0 || d.shields > 0) {
+                canvas.text(small, std::to_string(d.firepower) + (d.shields > 0 ? "+" : ""), left + 10, top, kBadColour);
+            }
+        }
+        if (shows(Layer::Building) && col.owner == game_.player && !col.queue.empty()) {
+            std::string name = itemName(col.queue.front(), game_.economy);
+            while (!name.empty() && small.width(name) > size - 6) {
+                name.pop_back();
+            }
+            canvas.text(small, name, left, top + small.height() + 1, kNameColour);
+        }
+    }
+}
+
+void GalaxyScreen::drawEvents(Canvas& canvas) {
+    const int player = std::clamp(game_.player, 0, kEmpires - 1);
+    const Font& small = assets_.font(kSmallFonts[player]);
+    // In the panel below the map, right of the box on its left.
+    info_.draw(canvas);
+    const std::string head = assets_.lexicon()[305]; // "EVENT|SECTOR"
+    canvas.text(small, head.substr(0, head.find('|')), info_.rect(kInfoSector), kInfoColour, Align::Center);
+    const Rect area = panel_.rect(kInfo);
+    const Rect box{area.x + 215, area.y + 42, area.w - 245, area.h - 52};
+    int y = box.y;
+    if (events_.empty()) {
+        canvas.text(small, assets_.lexicon()[text::kTurn] + " " + std::to_string(game_.turn) + ": -", box.x, y, kNameColour);
+        return;
+    }
+    for (const auto& [e, colour] : events_) {
+        for (const auto& line : wrapText(small, e, box.w)) {
+            if (y + small.height() > box.y + box.h) {
+                return;
+            }
+            canvas.text(small, line, box.x, y, colour);
+            y += small.height() + 2;
+        }
+    }
 }
 
 void GalaxyScreen::drawSector(Canvas& canvas, int at) {
@@ -419,6 +530,9 @@ void GalaxyScreen::pointerMoved(Point p) {
     if (ordersOpen_) {
         orders_.pointerMoved(p);
     }
+    if (overlayOpen_) {
+        overlay_.pointerMoved(p);
+    }
 }
 
 std::string GalaxyScreen::fleetName(const Fleet& f) const {
@@ -509,7 +623,40 @@ std::optional<Rect> GalaxyScreen::orderButton(std::uint32_t id) const {
     return orders_.rect(id);
 }
 
+void GalaxyScreen::setMode(Mode m) {
+    mode_ = m;
+    refreshModes();
+}
+
+void GalaxyScreen::toggle(Layer l) {
+    layers_[static_cast<std::size_t>(mode_)] ^= 1u << static_cast<int>(l);
+    refreshModes();
+}
+
+void GalaxyScreen::refreshModes() {
+    panel_.setOn(kEconomy, mode_ == Mode::Economy);
+    panel_.setOn(kMilitary, mode_ == Mode::Military);
+    panel_.setOn(kEvents, mode_ == Mode::Events);
+    panel_.setOn(kOverlay, overlayOpen_);
+    for (int i = 0; i < kLayers; ++i) {
+        overlay_.setOn(kLayerButtons[i], shows(static_cast<Layer>(i)));
+    }
+}
+
+std::optional<Rect> GalaxyScreen::layerButton(Layer l) const {
+    const auto id = kLayerButtons[static_cast<int>(l)];
+    if (!overlayOpen_ || !overlay_.usable(id)) {
+        return std::nullopt;
+    }
+    return overlay_.rect(id);
+}
+
 bool GalaxyScreen::cancel() {
+    if (overlayOpen_) {
+        overlayOpen_ = false;
+        refreshModes();
+        return true;
+    }
     if (ordersOpen_) {
         ordersOpen_ = false;
         return true;
@@ -529,7 +676,7 @@ void GalaxyScreen::drawFleets(Canvas& canvas) {
     const int size = sectorSize();
     // Where the player's fleets are going.
     for (const auto& f : game_.fleets) {
-        if (f.owner != game_.player || !f.destination) {
+        if (f.owner != game_.player || !f.destination || !shows(Layer::Paths)) {
             continue;
         }
         for (const Sector s : path(f.at, *f.destination)) {
@@ -659,6 +806,13 @@ void GalaxyScreen::pointerPressed(Point p) {
         orders_.pointerPressed(p);
         return;
     }
+    if (overlayOpen_) {
+        const Rect r{overlay_.origin().x, overlay_.origin().y, overlay_.layout().rect.w, overlay_.layout().rect.h};
+        if (r.contains(p.x, p.y)) {
+            overlay_.pointerPressed(p);
+            return;
+        }
+    }
     // A fleet in the list on the left: chosen, or joined to the chosen one.
     const auto here = fleetsHere();
     for (int i = 0; i < static_cast<int>(here.size()); ++i) {
@@ -682,8 +836,9 @@ void GalaxyScreen::pointerPressed(Point p) {
             }
         }
     }
-    // The list's arrows lie over the edge of the panel below the map.
-    for (const std::uint32_t id : {kListUp, kListDown}) {
+    // The list's arrows and the buttons under the map lie over the edge of
+    // the panel below the map.
+    for (const std::uint32_t id : {kListUp, kListDown, kEconomy, kMilitary, kEvents, kOverlay, kWholeMap}) {
         if (panel_.usable(id) && panel_.rect(id).contains(p.x, p.y)) {
             panel_.pointerPressed(p);
             return;
@@ -742,6 +897,16 @@ void GalaxyScreen::pointerReleased(Point p) {
         }
         return;
     }
+    if (overlayOpen_) {
+        if (const auto layer = overlay_.pointerReleased(p)) {
+            for (int i = 0; i < kLayers; ++i) {
+                if (kLayerButtons[i] == *layer) {
+                    toggle(static_cast<Layer>(i));
+                }
+            }
+            return;
+        }
+    }
     if (game_.fleet(fleet_) != nullptr) {
         const auto b = fleetPanel_.pointerReleased(p);
         if (b && *b == kFleetOrders) {
@@ -768,6 +933,16 @@ void GalaxyScreen::pointerReleased(Point p) {
         outcome_ = Outcome::Summary;
     } else if (id && (*id == kListUp || *id == kListDown)) {
         scrollFleets(*id == kListUp ? -(kFleetLines - 1) : kFleetLines - 1);
+    } else if (id && *id == kOverlay) {
+        overlayOpen_ = !overlayOpen_;
+        refreshModes();
+    } else if (id && (*id == kEconomy || *id == kMilitary || *id == kEvents)) {
+        setMode(*id == kEconomy ? Mode::Economy : *id == kMilitary ? Mode::Military : Mode::Events);
+        // The events show below the map in place of the chosen fleet.
+        if (mode_ == Mode::Events) {
+            fleet_ = -1;
+            moving_ = false;
+        }
     }
 }
 
@@ -839,6 +1014,9 @@ void GalaxyScreen::report(const TurnSummary& summary) {
 std::optional<Point> GalaxyScreen::command(Command c) {
     if (ordersOpen_) {
         return orders_.step(c, pointer_);
+    }
+    if (overlayOpen_ && c != Command::Next && c != Command::Previous) {
+        return overlay_.step(c, pointer_);
     }
     const bool onMap = map_.contains(pointer_.x, pointer_.y);
     Sector next = chosen_;

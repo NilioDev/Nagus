@@ -55,3 +55,16 @@ The main screen (`<x>maingal.wdf`, one per empire) shows the map in element
 galaxy at once with the small pictures. The panel below the map
 (`<x>_starmp.wdf`, placed in element `0x3f6`) names the chosen sector and
 what is in it. Sectors are named "column.row", counted from 1 (our guess).
+
+## Map modes and layers
+
+The buttons below the map choose its mode: *Economic*, *Military* or
+*Events*. Each mode keeps its own choice of layers from the *Overlay* menu:
+system names, the edges of the player's ship ranges (short green, medium
+yellow, long red), the paths of the player's moving fleets, colony
+defences (firepower, and "+" with shields), territory, what the player's
+colonies build, and each colony's population. Economic starts with names,
+territory, build orders and population; Military with names, territory,
+ranges, paths and defences; Events with names, territory and paths. In
+Events mode the panel below the map lists last turn's events. Trade routes
+and system bonuses are not part of Nagus yet, so their switches are dimmed.
