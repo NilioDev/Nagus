@@ -6,6 +6,7 @@
 #include "nagus/data/resources.hpp"
 #include "nagus/game_files.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <random>

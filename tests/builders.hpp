@@ -7,6 +7,7 @@
 #include "nagus/util/bytes.hpp"
 #include "nagus/util/inflate.hpp"
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <utility>
