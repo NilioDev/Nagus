@@ -249,7 +249,9 @@ Battle TacticalBattle::finish(Game& game) const {
         }
         Fleet& f = game.fleets[static_cast<std::size_t>(u.fleet)];
         if (static_cast<std::size_t>(u.ship) < f.ships.size()) {
-            f.ships[static_cast<std::size_t>(u.ship)].hull = u.hull;
+            Ship& ship = f.ships[static_cast<std::size_t>(u.ship)];
+            ship.hull = u.hull;
+            ship.experience = std::min(kMaxExperience, ship.experience + kBattleExperience);
         }
         if (u.hull <= 0) {
             const auto side = std::find(battle.owners.begin(), battle.owners.end(), u.owner) - battle.owners.begin();

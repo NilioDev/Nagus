@@ -248,6 +248,7 @@ bool orderRaid(Game& game, int id) {
     }
     f->destination.reset();
     f->order = Fleet::Order::Raid;
+    f->cloaked = false;
     return true;
 }
 
@@ -270,6 +271,134 @@ bool orderAvoid(Game& game, int id, bool avoid) {
     return true;
 }
 
+namespace {
+
+const ShipClass* shipClassOf(const Game& game, const Ship& s) {
+    return s.shipClass >= 0 && static_cast<std::size_t>(s.shipClass) < game.economy.ships.size()
+               ? &game.economy.ships[static_cast<std::size_t>(s.shipClass)]
+               : nullptr;
+}
+
+bool hasWarship(const Game& game, const Fleet& f) {
+    return std::any_of(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        const ShipClass* c = shipClassOf(game, s);
+        return c != nullptr && isArmed(*c);
+    });
+}
+
+} // namespace
+
+bool fleetSeen(const Game& game, int empire, const Fleet& f) {
+    return f.owner == empire || (!f.cloaked && visibleTo(game, empire, f.at));
+}
+
+bool canCloak(const Game& game, const Fleet& f) {
+    return !f.ships.empty() && std::all_of(f.ships.begin(), f.ships.end(), [&](const Ship& s) {
+        const ShipClass* c = shipClassOf(game, s);
+        return c != nullptr && c->cloak;
+    });
+}
+
+bool orderCloak(Game& game, int id, bool cloak) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || (cloak && !canCloak(game, *f))) {
+        return false;
+    }
+    f->cloaked = cloak;
+    if (cloak && (f->order == Fleet::Order::Attack || f->order == Fleet::Order::Raid || f->order == Fleet::Order::Defend)) {
+        f->order = Fleet::Order::None;
+    }
+    return true;
+}
+
+bool canDefend(const Game& game, const Fleet& f) { return hasWarship(game, f); }
+
+bool orderDefend(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !canDefend(game, *f)) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Defend;
+    f->cloaked = false;
+    f->avoid = false;
+    return true;
+}
+
+int interceptChance(const Game& game, const Fleet& f) {
+    if (f.owner < 0 || f.owner >= kEmpires) {
+        return 0;
+    }
+    // Our choice: faster fleets catch more.
+    return std::clamp(40 + 15 * fleetSpeed(f, game.economy, game.empires[static_cast<std::size_t>(f.owner)]), 0, 95);
+}
+
+int wormholeExit(const Game& game, int system) {
+    // Our choice: the wormholes are paired in the order of the systems; an
+    // odd one out has no endpoint.
+    int count = 0;
+    int mine = -1;
+    std::vector<int> wormholes;
+    for (std::size_t i = 0; i < game.galaxy.systems.size(); ++i) {
+        const int kind = game.galaxy.systems[i].kind;
+        if (kind >= 0 && static_cast<std::size_t>(kind) < game.kindCodes.size() &&
+            game.kindCodes[static_cast<std::size_t>(kind)] == "worm") {
+            if (static_cast<int>(i) == system) {
+                mine = count;
+            }
+            wormholes.push_back(static_cast<int>(i));
+            ++count;
+        }
+    }
+    if (mine < 0) {
+        return -1;
+    }
+    const int other = mine ^ 1;
+    return other < count ? wormholes[static_cast<std::size_t>(other)] : -1;
+}
+
+bool canEnterWormhole(const Game& game, const Fleet& f) {
+    const int at = game.galaxy.systemAt(f.at);
+    if (at < 0) {
+        return false;
+    }
+    const int kind = game.galaxy.systems[static_cast<std::size_t>(at)].kind;
+    return kind >= 0 && static_cast<std::size_t>(kind) < game.kindCodes.size() &&
+           game.kindCodes[static_cast<std::size_t>(kind)] == "worm";
+}
+
+bool orderWormhole(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !canEnterWormhole(game, *f)) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Wormhole;
+    return true;
+}
+
+bool canTrain(const Game& game, const Fleet& f) {
+    const Colony* c = game.colonyAt(game.galaxy.systemAt(f.at));
+    if (c == nullptr || c->owner != f.owner) {
+        return false;
+    }
+    const bool school = std::any_of(c->structures.begin(), c->structures.end(), [&](const Structure& st) {
+        return st.on && st.building >= 0 && static_cast<std::size_t>(st.building) < game.economy.buildings.size() &&
+               game.economy.buildings[static_cast<std::size_t>(st.building)].bonus == bonus::kShipExperience;
+    });
+    return school && std::any_of(f.ships.begin(), f.ships.end(), [](const Ship& s) { return s.experience < kTrainingLimit; });
+}
+
+bool orderTrain(Game& game, int id) {
+    Fleet* f = game.fleet(id);
+    if (f == nullptr || !canTrain(game, *f)) {
+        return false;
+    }
+    f->destination.reset();
+    f->order = Fleet::Order::Train;
+    return true;
+}
+
 int splitShip(Game& game, int id, int ship) {
     Fleet* f = game.fleet(id);
     if (f == nullptr || f->ships.size() < 2 || ship < 0 || static_cast<std::size_t>(ship) >= f->ships.size()) {
@@ -280,6 +409,7 @@ int splitShip(Game& game, int id, int ship) {
     out.owner = f->owner;
     out.at = f->at;
     out.avoid = f->avoid;
+    out.cloaked = f->cloaked;
     out.ships.push_back(f->ships[static_cast<std::size_t>(ship)]);
     f->ships.erase(f->ships.begin() + ship);
     // f may move when the list grows.
@@ -294,6 +424,8 @@ bool mergeFleets(Game& game, int into, int from) {
         return false;
     }
     a->ships.insert(a->ships.end(), b->ships.begin(), b->ships.end());
+    // Ships without a cloaking device show the fleet.
+    a->cloaked = a->cloaked && canCloak(game, *a);
     game.fleets.erase(std::find_if(game.fleets.begin(), game.fleets.end(), [&](const Fleet& f) { return f.id == from; }));
     return true;
 }
@@ -349,6 +481,85 @@ void moveFleets(Game& game) {
         }
         if (f.at == *f.destination) {
             f.destination.reset();
+        }
+    }
+}
+
+void travelWormholes(Game& game, TurnSummary& summary) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::Wormhole) {
+            continue;
+        }
+        f.order = Fleet::Order::None;
+        if (!canEnterWormhole(game, f)) {
+            continue;
+        }
+        const int at = game.galaxy.systemAt(f.at);
+        const int exit = wormholeExit(game, at);
+        const std::string& where = game.galaxy.systems[static_cast<std::size_t>(at)].name;
+        if (exit < 0) {
+            if (f.owner == game.player) {
+                summary.events.push_back(std::to_string(f.ships.size()) + (f.ships.size() == 1 ? " ship" : " ships") +
+                                         " lost in the " + where + " wormhole");
+            }
+            f.ships.clear();
+            continue;
+        }
+        f.at = game.galaxy.systems[static_cast<std::size_t>(exit)].sector;
+        if (f.owner == game.player) {
+            summary.events.push_back("A fleet went through the " + where + " wormhole to " +
+                                     game.galaxy.systems[static_cast<std::size_t>(exit)].name);
+        }
+    }
+    std::erase_if(game.fleets, [](const Fleet& f) { return f.ships.empty(); });
+}
+
+// Defending fleets catch enemies that stopped next to them.
+void intercept(Game& game, TurnSummary& summary) {
+    for (std::size_t i = 0; i < game.fleets.size(); ++i) {
+        Fleet& f = game.fleets[i];
+        if (f.order != Fleet::Order::Defend || !canDefend(game, f)) {
+            continue;
+        }
+        const Fleet* target = nullptr;
+        for (const auto& o : game.fleets) {
+            if (distance(o.at, f.at) == 1 && hostile(game, f.owner, o.owner) && fleetSeen(game, f.owner, o) &&
+                (target == nullptr || o.id < target->id)) {
+                target = &o;
+            }
+        }
+        if (target == nullptr) {
+            continue;
+        }
+        const std::uint32_t roll = combatRandom(static_cast<std::uint32_t>(game.turn), static_cast<std::uint32_t>(f.id),
+                                                static_cast<std::uint32_t>(target->id), 0x1e7u) % 100;
+        if (static_cast<int>(roll) >= interceptChance(game, f)) {
+            continue;
+        }
+        if (f.owner == game.player || target->owner == game.player) {
+            const std::string who = f.owner == game.player ? "Our fleet intercepted an enemy fleet"
+                                                           : "An enemy fleet intercepted our fleet";
+            const int system = game.galaxy.systemAt(target->at);
+            summary.events.push_back(system >= 0 ? who + " at " + game.galaxy.systems[static_cast<std::size_t>(system)].name : who);
+        }
+        f.at = target->at;
+    }
+}
+
+void trainCrews(Game& game) {
+    for (auto& f : game.fleets) {
+        if (f.order != Fleet::Order::Train) {
+            continue;
+        }
+        if (!canTrain(game, f)) {
+            f.order = Fleet::Order::None;
+            continue;
+        }
+        for (auto& s : f.ships) {
+            s.experience = std::max(s.experience, std::min(kTrainingLimit, s.experience + kTrainingExperience));
+        }
+        if (!canTrain(game, f)) {
+            f.order = Fleet::Order::None;
         }
     }
 }
@@ -409,8 +620,10 @@ TurnSummary beginEndTurn(Game& game) {
         }
     }
     scrapFleets(game);
+    travelWormholes(game, summary);
     colonize(game, summary);
     moveFleets(game);
+    intercept(game, summary);
     return summary;
 }
 
@@ -434,6 +647,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
     }
     raid(game, summary);
     repairShips(game);
+    trainCrews(game);
     summary.intel = intelTurn(game);
     summary.happenings = randomEvents(game);
     for (int e = 0; e < kEmpires; ++e) {

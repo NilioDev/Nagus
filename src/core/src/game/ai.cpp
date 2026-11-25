@@ -239,7 +239,8 @@ int difficulty(const Game& g) { return std::clamp(g.settings.difficulty, 0, Game
 int idleWarships(const Game& g, int empire) {
     int n = 0;
     for (const auto& f : g.fleets) {
-        if (f.owner == empire && !f.destination && f.order == Fleet::Order::None && fleetHas(g, f, isWarshipRole)) {
+        if (f.owner == empire && !f.destination && (f.order == Fleet::Order::None || f.order == Fleet::Order::Defend) &&
+            fleetHas(g, f, isWarshipRole)) {
             n += 1;
         }
     }
@@ -339,7 +340,7 @@ void playEmpire(Game& game, int empire) {
     }
     std::vector<int> ids;
     for (const auto& f : game.fleets) {
-        if (f.owner == empire && !f.destination && f.order == Fleet::Order::None) {
+        if (f.owner == empire && !f.destination && (f.order == Fleet::Order::None || f.order == Fleet::Order::Defend)) {
             ids.push_back(f.id);
         }
     }
@@ -356,8 +357,11 @@ void playEmpire(Game& game, int empire) {
                 orderMove(game, id, game.galaxy.systems[static_cast<std::size_t>(*target)].sector);
             }
         } else if (fleetHas(game, f, isScout)) {
-            // Scouts look around: a sector within reach, a different one
-            // each time.
+            // Scouts look around, unseen where they can: a sector within
+            // reach, a different one each time.
+            if (!f.cloaked && canCloak(game, f)) {
+                orderCloak(game, id, true);
+            }
             const int range = fleetRange(f, game.economy, e);
             for (int attempt = 0; attempt < 8; ++attempt) {
                 const std::uint32_t h = mix(static_cast<std::uint32_t>(game.turn), static_cast<std::uint32_t>(id),
@@ -382,7 +386,12 @@ void playEmpire(Game& game, int empire) {
             if (idleWarships(game, empire) >= kStrikeGroup[difficulty(game)]) {
                 if (const auto target = attackTarget(game, empire, f)) {
                     orderMove(game, id, game.galaxy.systems[static_cast<std::size_t>(*target)].sector);
+                    continue;
                 }
+            }
+            // Waiting warships guard where they are.
+            if (f.order != Fleet::Order::Defend) {
+                orderDefend(game, id);
             }
         }
     }

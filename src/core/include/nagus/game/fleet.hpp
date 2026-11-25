@@ -19,10 +19,17 @@ inline constexpr int kColonistsPerCapacity = 10;
 struct Ship {
     int shipClass = -1; // index into EconomyData::ships
     int hull = 0;       // what is left of its hull
+    int experience = 0; // the crew's, 0 to kMaxExperience
 };
 
+// Crew experience (our own scale): five levels of 20 points each, from
+// green to legendary.
+inline constexpr int kMaxExperience = 100;
+enum class CrewLevel : std::uint8_t { Green, Regular, Veteran, Elite, Legendary };
+CrewLevel crewLevel(int experience);
+
 struct Fleet {
-    enum class Order : std::uint8_t { None, Colonize, Attack, Raid, Scrap };
+    enum class Order : std::uint8_t { None, Colonize, Attack, Raid, Scrap, Defend, Wormhole, Train };
     int id = 0;
     int owner = -1;
     Sector at;
@@ -30,6 +37,8 @@ struct Fleet {
     Order order = Order::None;
     // Avoids battles: it fights only when an enemy that engages finds it.
     bool avoid = false;
+    // Cloaked: other empires do not see it, and it takes no part in battles.
+    bool cloaked = false;
     std::vector<Ship> ships;
 };
 

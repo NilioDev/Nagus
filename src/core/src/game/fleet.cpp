@@ -25,6 +25,10 @@ const ShipClass* classOf(const Ship& s, const EconomyData& data) {
 
 int distance(Sector a, Sector b) { return std::max(std::abs(a.x - b.x), std::abs(a.y - b.y)); }
 
+CrewLevel crewLevel(int experience) {
+    return static_cast<CrewLevel>(std::clamp(experience, 0, kMaxExperience - 1) / 20);
+}
+
 int fleetSpeed(const Fleet& f, const EconomyData& data, const EmpireState& empire) {
     int speed = std::numeric_limits<int>::max();
     for (const auto& s : f.ships) {

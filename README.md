@@ -37,7 +37,9 @@ and with gamepad, mouse, keyboard and touch controls.
 > list on the left and click a sector on the map to send it there, and use
 > *Orders* → *Colonize* with a colony ship to found new colonies;
 > *Redeploy* splits and joins fleets, and *Orders* also has avoid or engage,
-> raid and scrap. *Save Game*
+> raid, scrap, intercept, entering a wormhole and training crews at an
+> academy (crews grow from green to legendary, also in battle). Romulan and
+> some Klingon ships can *Cloak* to hide from the other empires. *Save Game*
 > and *Load Game* in the main menu keep up to twelve games. The other four
 > empires are played by the computer: they build, settle new systems and
 > send out scouts and warships. The map shows only what your empire has

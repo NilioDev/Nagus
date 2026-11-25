@@ -125,6 +125,40 @@ inline constexpr int kRaidCredits = 25;
 bool orderScrap(Game& game, int fleet);
 // Tells a fleet to avoid battles, or to engage the enemy (the default).
 bool orderAvoid(Game& game, int fleet, bool avoid);
+// Whether an empire sees a fleet: one of its own, or one in a sector it sees
+// that is not cloaked.
+bool fleetSeen(const Game& game, int empire, const Fleet& fleet);
+// Whether every ship of the fleet has a cloaking device.
+bool canCloak(const Game& game, const Fleet& fleet);
+// Cloaks or decloaks a fleet. A cloaked fleet is hidden from other empires
+// and takes no part in battles; attacking, raiding or defending decloaks it.
+bool orderCloak(Game& game, int fleet, bool cloak);
+// Whether the fleet has a warship to defend its sector with.
+bool canDefend(const Game& game, const Fleet& fleet);
+// Tells a fleet to stay and defend its sector: after the fleets move, it
+// may intercept an enemy fleet that stops next to it.
+bool orderDefend(Game& game, int fleet);
+// The chance (percent) that a defending fleet intercepts an enemy fleet.
+int interceptChance(const Game& game, const Fleet& fleet);
+// The wormhole a wormhole leads to (system indices), or -1 when it has no
+// endpoint.
+int wormholeExit(const Game& game, int system);
+// Whether the fleet is at a wormhole.
+bool canEnterWormhole(const Game& game, const Fleet& fleet);
+// Tells a fleet to go through the wormhole where it is, at the end of the
+// turn. Without an endpoint, the fleet is lost.
+bool orderWormhole(Game& game, int fleet);
+// Whether the fleet is at one of its empire's colonies with a working
+// training facility, and a crew there can still learn.
+bool canTrain(const Game& game, const Fleet& fleet);
+// Tells a fleet to train its crews, each turn until it moves or they are
+// as good as training makes them.
+bool orderTrain(Game& game, int fleet);
+// Experience a crew gains: a turn of training, and a battle it lives
+// through. Training goes up to kTrainingLimit; battles beyond.
+inline constexpr int kTrainingExperience = 10;
+inline constexpr int kTrainingLimit = 60;
+inline constexpr int kBattleExperience = 5;
 // Takes one ship out of a fleet into a fleet of its own, in the same
 // sector. Returns the new fleet's id, or -1.
 int splitShip(Game& game, int fleet, int ship);
