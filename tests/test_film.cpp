@@ -6,6 +6,8 @@
 #include "nagus/data/resources.hpp"
 #include "nagus/video/avi.hpp"
 
+#include <algorithm>
+
 using namespace nagus;
 using namespace nagus::test;
 
