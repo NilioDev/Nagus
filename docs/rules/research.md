@@ -22,3 +22,18 @@ own approximation of the original's rules.
 
 Buildings need their field's level (see the build list in
 [the economy](economy.md)).
+
+## The databases
+
+The research screen has two more pages, opened with its *Field Database*
+and *Object Database* buttons (and *Management* to go back):
+
+- The field database lists a field's levels with their descriptions from
+  `techdesc.tec`, the points each needs and whether it is reached; *Next*
+  and *Previous* change the field.
+- The object database sorts the buildings into research, development,
+  food, energy and defence (by their output and class) and lists the ship
+  classes, with descriptions from `edifdesc.bst` and `shipdesc.sst` and a
+  page of statistics (such as hull, shields, weapons, build cost and the
+  research levels needed). Entries the player can already build are shown bright.
+- Up and Down (or a click near the ends of a list) move through a list.

@@ -120,6 +120,7 @@ struct Building {
     std::uint32_t energy = 0; // energy it needs to work
     int workers = 0;          // people (millions) needed to work it
     int amount = 0;           // what it makes, or the size of its bonus
+    std::uint32_t description = 0; // offset of its text in edifdesc.bst
 
     bool buildableBy(int empire) const { return empire >= 0 && empire < 8 && (excluded & (1u << empire)) == 0; }
 };
@@ -148,6 +149,7 @@ struct ShipClass {
     int scan = 0;         // added to the scan range
     int capacity = 0;     // colonists or troops
     bool cloak = false;   // has a cloaking device
+    std::uint32_t description = 0; // offset of its text in shipdesc.sst
     int upgradesFrom = -1; // the class this one improves on (an index)
     std::array<int, 6> tech{}; // levels needed: biotech, computers, construction, energy, propulsion, weapons
 };
