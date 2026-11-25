@@ -126,6 +126,7 @@ void startShell(App& app) {
     try {
         auto res = std::make_shared<nagus::Resources>(app.library);
         app.shell = std::make_unique<nagus::Shell>(res, app.prefDir / "settings.txt");
+        app.shell->enableFilms();
         SDL_HideCursor();
     } catch (const std::exception& e) {
         std::lock_guard lock(app.import.mutex);

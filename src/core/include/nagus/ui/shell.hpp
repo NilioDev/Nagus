@@ -9,6 +9,7 @@
 #include "nagus/settings.hpp"
 #include "nagus/sound/jukebox.hpp"
 #include "nagus/ui/diplomacy_screen.hpp"
+#include "nagus/ui/film_screen.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/intel_screen.hpp"
 #include "nagus/ui/load_save_screen.hpp"
@@ -41,7 +42,7 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -52,6 +53,10 @@ public:
     DiplomacyScreen* diplomacyScreen() { return diplomacy_.get(); }
     IntelScreen* intelScreen() { return intel_.get(); }
     LoadSaveScreen* loadSaveScreen() { return loadSave_.get(); }
+    FilmScreen* filmScreen() { return film_.get(); }
+    // Turns the films on (the app does; tests leave them off) and plays the
+    // opening film.
+    void enableFilms();
     // Where saved games are kept: next to the settings file.
     std::filesystem::path savesFolder() const { return settingsFile_.parent_path() / "saves"; }
 
@@ -102,6 +107,12 @@ private:
     std::unique_ptr<IntelScreen> intel_;
     std::unique_ptr<LoadSaveScreen> loadSave_;
     std::unique_ptr<Panel> marker_;
+    std::unique_ptr<FilmScreen> film_;
+    Showing afterFilm_ = Showing::MainMenu;
+    bool films_ = false;
+    // Plays a film, then shows `next`; shows `next` at once if the film
+    // cannot be played.
+    void playFilm(const std::string& film, const std::string& sound, Showing next);
     void openMarker();
     void markerChose(std::uint32_t id);
     int playerColony() const;

@@ -55,7 +55,11 @@ void Shell::show(Showing s) {
     intel_.reset();
     loadSave_.reset();
     marker_.reset();
+    if (s != Showing::Film) {
+        film_.reset();
+    }
     switch (s) {
+    case Showing::Film: break;
     case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
     case Showing::Galaxy:
         if (!galaxy_) {
@@ -92,14 +96,41 @@ MenuScreen& Shell::screen() {
     case Showing::Intel: return *intel_;
     case Showing::Save:
     case Showing::Load: return *loadSave_;
+    case Showing::Film: return *film_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
 }
 
+void Shell::enableFilms() {
+    films_ = true;
+    if (showing_ == Showing::MainMenu && !game_) {
+        playFilm("open.avi", "intro.wav", Showing::MainMenu);
+    }
+}
+
+void Shell::playFilm(const std::string& film, const std::string& sound, Showing next) {
+    if (films_) {
+        try {
+            film_ = std::make_unique<FilmScreen>(assets_.resources(), jukebox_, film, sound);
+            afterFilm_ = next;
+            show(Showing::Film);
+            return;
+        } catch (const FormatError&) {
+            // No film: go straight on.
+        }
+    }
+    show(next);
+}
+
 void Shell::settle() {
     const Outcome o = screen().takeOutcome();
     switch (showing_) {
+    case Showing::Film:
+        if (o != Outcome::None) {
+            show(afterFilm_);
+        }
+        break;
     case Showing::MainMenu:
         if (o == Outcome::NewGame) {
             show(Showing::GameSetup);
@@ -142,7 +173,8 @@ void Shell::settle() {
             const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
             galaxy_.reset();
             game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), loadEconomyData(assets_.resources()), seed));
-            show(Showing::Galaxy);
+            // The chosen empire's film.
+            playFilm(std::string(1, "chfkr"[std::clamp(game_->player, 0, kEmpires - 1)]) + ".avi", "", Showing::Galaxy);
         } else if (o == Outcome::Back) {
             show(Showing::GameSetup);
         }
@@ -164,6 +196,9 @@ void Shell::settle() {
 }
 
 int Shell::wantedTrack() const {
+    if (showing_ == Showing::Film) {
+        return -1;
+    }
     const bool inGame = game_ && showing_ != Showing::MainMenu && showing_ != Showing::GameSetup &&
                         showing_ != Showing::EmpireSelect && showing_ != Showing::Save && showing_ != Showing::Load;
     return inGame ? kEmpireTracks + std::clamp(game_->player, 0, kEmpires - 1) : kMenuTrack;
@@ -186,6 +221,10 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     updateSound();
     canvas.clear();
     screen().draw(canvas, ms);
+    if (showing_ == Showing::Film && film_->done()) {
+        settle();
+        return draw(canvas, ms);
+    }
     if (!notice_.empty()) {
         canvas.blend({0, 0, canvas.width(), canvas.height()}, rgb(0, 0, 0), 160);
         const Rect box{150, 220, 500, 160};
@@ -197,7 +236,7 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     if (marker_) {
         marker_->draw(canvas);
     }
-    if (pointerVisible_) {
+    if (pointerVisible_ && showing_ != Showing::Film) {
         const Cursor& c = assets_.cursor(kPointer);
         canvas.draw(c.frame(ms), pointer_.x - c.hotX, pointer_.y - c.hotY);
     }

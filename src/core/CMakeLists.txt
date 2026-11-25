@@ -28,11 +28,14 @@ add_library(ngs_core STATIC
     src/sound/pcm.cpp
     src/sound/archives.cpp
     src/sound/jukebox.cpp
+    src/video/avi.cpp
+    src/video/cinepak.cpp
     src/ui/assets.cpp
     src/ui/screen.cpp
     src/ui/menus.cpp
     src/ui/load_save_screen.cpp
     src/ui/diplomacy_screen.cpp
+    src/ui/film_screen.cpp
     src/ui/galaxy_screen.cpp
     src/ui/intel_screen.cpp
     src/ui/research_screen.cpp
