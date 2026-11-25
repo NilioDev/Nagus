@@ -1,0 +1,51 @@
+# Build output
+/build*/
+/out/
+/dist/
+CMakeUserPresets.json
+.cache/
+compile_commands.json
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+android/sdl/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+__MACOSX/
+
+# Original game data: never commit
+/gamedata/*
+!/gamedata/README.md
+*.res
+*.RES
+*.snd
+*.SND
+*.avi
+*.AVI
+*.wav
+*.WAV
+*.tga
+*.TGA
+*.wdf
+*.fnt
+*.exe
+*.EXE
+*.icd
+*.dll
+*.DLL
+*.cab
+*.bin
+*.BIN
+*.cue
+*.iso
+*.ISO
+*.zip
+*.sav
