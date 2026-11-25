@@ -87,7 +87,17 @@ public:
     // chosen fleet. Returns false when there was nothing to stop.
     bool cancel();
 
+    // Ends the turn (the Turn button). With tactical combat, the turn
+    // stops halfway when the player has battles to fight: the outcome is
+    // Combat, battlesWaiting() says where, and finishTurn completes it.
+    void endPlayerTurn();
+    const std::vector<Sector>& battlesWaiting() const { return waiting_; }
+    void finishTurn(const std::vector<Battle>& fought);
+
 private:
+    void report(const TurnSummary& summary);
+    TurnSummary pending_;
+    std::vector<Sector> waiting_;
     int sectorSize() const;
     void keepInView();
     std::string sectorName(Sector s) const;

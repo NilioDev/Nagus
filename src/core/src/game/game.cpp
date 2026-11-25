@@ -266,7 +266,7 @@ void colonize(Game& game, TurnSummary& summary) {
 
 } // namespace
 
-TurnSummary endTurn(Game& game) {
+TurnSummary beginEndTurn(Game& game) {
     TurnSummary summary;
     // The computer players give their orders.
     for (int e = 0; e < kEmpires; ++e) {
@@ -296,7 +296,16 @@ TurnSummary endTurn(Game& game) {
     }
     colonize(game, summary);
     moveFleets(game);
-    const auto battles = fightBattles(game);
+    return summary;
+}
+
+void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& fought) {
+    std::vector<Sector> skip;
+    for (const auto& b : fought) {
+        skip.push_back(b.at);
+    }
+    auto battles = fightBattles(game, skip);
+    battles.insert(battles.begin(), fought.begin(), fought.end());
     for (const auto& b : battles) {
         if (std::find(b.owners.begin(), b.owners.end(), game.player) != b.owners.end()) {
             summary.battles.push_back(b);
@@ -328,6 +337,11 @@ TurnSummary endTurn(Game& game) {
         summary.ending = game.ending;
     }
     game.turn += 1;
+}
+
+TurnSummary endTurn(Game& game) {
+    TurnSummary summary = beginEndTurn(game);
+    finishEndTurn(game, summary, {});
     return summary;
 }
 

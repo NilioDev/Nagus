@@ -152,6 +152,12 @@ struct TurnSummary {
     Ending ending = Ending::None;
 };
 TurnSummary endTurn(Game& game);
+// endTurn in two halves, for battles the player fights themselves between
+// them: the first gives the orders, builds and moves the fleets; the second
+// fights the other battles (fought: those the player fought, already
+// written into the game by TacticalBattle::finish) and does the rest.
+TurnSummary beginEndTurn(Game& game);
+void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& fought);
 
 // Reads what the galaxy maker needs from the game's files.
 GalaxyData loadGalaxyData(const Resources& resources, const Lexicon& lexicon);

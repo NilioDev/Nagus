@@ -66,10 +66,14 @@ void Shell::show(Showing s) {
     }
     fame_.reset();
     options_.reset();
+    if (s != Showing::Combat) {
+        combat_.reset();
+    }
     switch (s) {
     case Showing::Options: options_ = std::make_unique<OptionsScreen>(assets_, jukebox_, settings_); break;
     case Showing::Film:
-    case Showing::Ending: break;
+    case Showing::Ending:
+    case Showing::Combat: break;
     case Showing::Fame:
         fame_ = std::make_unique<FameScreen>(assets_, loadFame(fameFile()), fameRow_);
         fameRow_ = -1;
@@ -114,6 +118,7 @@ MenuScreen& Shell::screen() {
     case Showing::Ending: return *ending_;
     case Showing::Fame: return *fame_;
     case Showing::Options: return *options_;
+    case Showing::Combat: return *combat_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -256,6 +261,17 @@ void Shell::settle() {
     case Showing::Galaxy:
         if (o == Outcome::Open && galaxy_->chosenColony() >= 0) {
             show(Showing::System);
+        } else if (o == Outcome::Combat) {
+            fought_.clear();
+            nextBattle_ = 0;
+            nextCombat();
+        }
+        break;
+    case Showing::Combat:
+        if (o == Outcome::Accept) {
+            fought_.push_back(combat_->battle().finish(*game_));
+            nextBattle_ += 1;
+            nextCombat();
         }
         break;
     case Showing::System:
@@ -267,6 +283,22 @@ void Shell::settle() {
         }
         break;
     }
+}
+
+void Shell::nextCombat() {
+    const auto& waiting = galaxy_->battlesWaiting();
+    for (; nextBattle_ < waiting.size(); ++nextBattle_) {
+        // An earlier battle may have ended this one (ships that retreated).
+        auto screen = std::make_unique<CombatScreen>(assets_, *game_, waiting[nextBattle_]);
+        if (!screen->battle().over()) {
+            combat_ = std::move(screen);
+            show(Showing::Combat);
+            return;
+        }
+    }
+    galaxy_->finishTurn(fought_);
+    fought_.clear();
+    show(Showing::Galaxy);
 }
 
 int Shell::wantedTrack() const {
