@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::string_view kMagic = "NAGUSSAV";
 // Version 2 added the human players and whom offers wait for.
-constexpr std::uint32_t kVersion = 6;
+constexpr std::uint32_t kVersion = 7;
 constexpr std::uint32_t kOldestVersion = 1;
 // Limits for what a saved game may hold, so a damaged file cannot ask for
 // huge amounts of memory.
@@ -243,6 +243,11 @@ Bytes saveGame(const Game& g, const SaveInfo& info) {
         writeSector(w, st.at);
         w.i32(st.shipClass);
         w.i32(st.hull);
+    }
+    w.u32(static_cast<std::uint32_t>(g.tradeRoutes.size()));
+    for (const auto& tr : g.tradeRoutes) {
+        w.i32(tr.from);
+        w.i32(tr.to);
     }
     return w.take();
 }
@@ -534,6 +539,14 @@ Game loadGame(ByteView data, const EconomyData& economy) {
                 throw FormatError("damaged saved game");
             }
             g.stations.push_back(st);
+        }
+    }
+    if (version >= 7) {
+        for (std::uint32_t i = 0, n = count(r, kMaxFleets); i < n; ++i) {
+            TradeRoute tr;
+            tr.from = number(r, 0, lastSystem);
+            tr.to = number(r, 0, lastSystem);
+            g.tradeRoutes.push_back(tr);
         }
     }
     if (r.left() != 0) {

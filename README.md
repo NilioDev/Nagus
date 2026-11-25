@@ -27,8 +27,11 @@ and with gamepad, mouse, keyboard and touch controls.
 > turn: colonies grow, make food, industry, research and credits, and finish
 > what they build. *Economic*, *Military* and *Events* below the map switch
 > the map's mode, each with its own layers chosen under *Overlay* (system
-> names, ship ranges, paths, defences, territory, build orders,
-> population); *Events* lists last turn's events below the map. *Summary*
+> names, ship ranges, paths, defences, territory, trade routes, build
+> orders, population); *Events* lists last turn's events below the map. In
+> *Economic* mode, one of your systems shows its trade routes on the left:
+> click *Trade Routes* and then a system of a race you have a friendship
+> (or better) with to trade, and earn credits each turn. *Summary*
 > on the map shows last turn's events, your
 > treaties and a list of your systems (click one to open it). On the research screen you share your research between
 > the six fields and see how far each has come. The marker window (right

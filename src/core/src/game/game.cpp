@@ -7,6 +7,7 @@
 #include "nagus/game/events.hpp"
 #include "nagus/game/intel.hpp"
 #include "nagus/game/research.hpp"
+#include "nagus/game/trade.hpp"
 #include "nagus/game/victory.hpp"
 
 #include <algorithm>
@@ -893,6 +894,7 @@ void finishEndTurn(Game& game, TurnSummary& summary, const std::vector<Battle>& 
     raid(game, summary);
     buildStations(game, summary);
     terraform(game, summary);
+    tradeTurn(game, summary.events);
     repairShips(game);
     trainCrews(game);
     summary.intel = intelTurn(game);

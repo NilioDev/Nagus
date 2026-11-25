@@ -1033,7 +1033,7 @@ NGS_TEST("the map's modes and layers") {
     click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kOverlay)));
     NGS_CHECK(screen.overlayOpen());
     screen.draw(canvas, 0);
-    NGS_CHECK(!screen.layerButton(L::TradeRoutes)); // none yet
+    NGS_CHECK(screen.layerButton(L::TradeRoutes) && !screen.layerButton(L::Bonuses)); // no bonuses yet
     click(screen, centre(*screen.layerButton(L::Names)));
     click(screen, centre(*screen.layerButton(L::Ranges)));
     NGS_CHECK(!screen.shows(L::Names) && screen.shows(L::Ranges));
@@ -1047,4 +1047,54 @@ NGS_TEST("the map's modes and layers") {
     click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kEvents)));
     NGS_CHECK(screen.mode() == GalaxyScreen::Mode::Events && screen.chosenFleet() < 0);
     screen.draw(canvas, 0);
+}
+
+NGS_TEST("setting up and ending a trade route on the map") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    const EconomyData economy = loadEconomyData(*res);
+    GameSettings settings;
+    settings.empire = 1;
+    Game g = newGame(settings, loadGalaxyData(*res, assets.lexicon()), economy, 3);
+    g.fleets.clear();
+    // A minor race nearby, a friend.
+    const int sol = g.galaxy.homes[1];
+    const Sector home = g.galaxy.systems[static_cast<std::size_t>(sol)].sector;
+    int minor = -1;
+    for (std::size_t i = 0; i < g.galaxy.systems.size(); ++i) {
+        const StarSystem& s = g.galaxy.systems[i];
+        if (s.race >= kEmpires && (minor < 0 || distance(s.sector, home) <
+                                                     distance(g.galaxy.systems[static_cast<std::size_t>(minor)].sector, home))) {
+            minor = static_cast<int>(i);
+        }
+    }
+    NGS_CHECK(minor >= 0);
+    const int race = g.galaxy.systems[static_cast<std::size_t>(minor)].race;
+    g.relations[static_cast<std::size_t>(1) * g.races.size() + static_cast<std::size_t>(race)].treaty = Treaty::Friendship;
+    GalaxyScreen screen(assets, g);
+    Canvas canvas;
+    screen.choose(home);
+    screen.draw(canvas, 0);
+    NGS_CHECK(screen.mode() == GalaxyScreen::Mode::Economy && screen.routeHeader() && screen.routesHere().empty());
+    click(screen, centre(*screen.routeHeader()));
+    NGS_CHECK(screen.choosingPartner());
+    const Sector there = g.galaxy.systems[static_cast<std::size_t>(minor)].sector;
+    screen.choose(home); // keeps the partner in view
+    click(screen, centre(*screen.routeHeader()));
+    const auto c = screen.sectorCentre(there);
+    NGS_CHECK(c.has_value());
+    if (c) {
+        click(screen, *c);
+    }
+    NGS_CHECK(!screen.choosingPartner() && g.tradeRoutes.size() == 1 && g.tradeRoutes[0].to == minor);
+    screen.draw(canvas, 0);
+    // Clicking it ends it; in military mode the list has none.
+    click(screen, centre(*screen.routeLine(0)));
+    NGS_CHECK(g.tradeRoutes.empty());
+    click(screen, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kMilitary)));
+    NGS_CHECK(!screen.routeHeader());
 }

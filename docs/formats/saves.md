@@ -20,7 +20,7 @@ count and then its entries.
 | What | Type |
 | --- | --- |
 | Magic `NAGUSSAV` | 8 bytes |
-| Version (6; versions 1 to 5 still load) | u32 |
+| Version (7; versions 1 to 6 still load) | u32 |
 | Name shown in the list | text |
 | Description shown in the list | text |
 | Turn | i32 |
@@ -46,6 +46,7 @@ count and then its entries.
 | Next fleet number | i32 |
 | Fleets | list, see below |
 | Stations (from version 5) | list, see below |
+| Trade routes (from version 7) | list of from and to systems (2 × i32) |
 
 A race: name and picture (text), its first regard for each empire
 (5 × i32), aggression in percent (i32) and the offset of its description

@@ -98,6 +98,14 @@ public:
     std::vector<int> fleetsHere() const;
     // Where fleet i of fleetsHere() is in the list, while it is in view.
     std::optional<Rect> fleetLine(int i) const;
+    // Economic mode, at one of the player's colonies: the trade routes
+    // under the fleets in the list. A click on the header starts (or stops)
+    // choosing a partner system on the map; a click on a route ends it.
+    static constexpr std::uint32_t kTradeRoutes = 0x408;
+    std::optional<Rect> routeHeader() const;
+    std::optional<Rect> routeLine(int i) const;
+    std::vector<TradeRoute> routesHere() const;
+    bool choosingPartner() const { return choosingPartner_; }
     void scrollFleets(int lines);
     bool redeploying() const { return redeploy_; }
     // Where a ship of the chosen fleet is shown in the panel below the map.
@@ -171,6 +179,8 @@ private:
     Panel fleetPanel_;
     Panel orders_;
     Panel overlay_;
+    Panel routes_; // the trade routes header
+    bool choosingPartner_ = false;
     bool overlayOpen_ = false;
     Mode mode_ = Mode::Economy;
     std::array<std::uint32_t, 3> layers_{};

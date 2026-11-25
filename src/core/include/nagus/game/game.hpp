@@ -48,6 +48,14 @@ struct IntelReport {
 enum class Ending : std::uint8_t { None, Annihilation, Domination, Alliance, Loss, Retired };
 inline constexpr int kEndings = 6;
 
+// A trade route from one of an empire's colonies to another race's system
+// (see trade.hpp).
+struct TradeRoute {
+    int from = -1; // system of the empire's colony
+    int to = -1;   // system of the other race
+    bool operator==(const TradeRoute&) const = default;
+};
+
 // An outpost or a starbase: a station in a sector (see docs/rules/ships.md).
 struct Station {
     int owner = -1;
@@ -75,6 +83,7 @@ struct Game {
     std::array<EmpireState, kEmpires> empires{};
     std::vector<Fleet> fleets;
     std::vector<Station> stations;
+    std::vector<TradeRoute> tradeRoutes;
     int nextFleetId = 1;
     // For each sector (y * width + x), a bit for each empire that has seen it.
     std::vector<std::uint8_t> explored;
