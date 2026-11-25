@@ -9,6 +9,7 @@
 #include "nagus/settings.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
 #include "nagus/ui/menus.hpp"
+#include "nagus/ui/system_screen.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -35,12 +36,13 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
     const Game* game() const { return game_.get(); }
     GalaxyScreen* galaxyScreen() { return galaxy_.get(); }
+    SystemScreen* systemScreen() { return system_.get(); }
     // The seed for the next new galaxy (random unless set, for tests).
     void setSeed(std::uint32_t seed) { seed_ = seed; }
 
@@ -56,7 +58,8 @@ private:
     std::unique_ptr<MainMenu> mainMenu_;
     std::unique_ptr<GameSetup> setup_;
     std::unique_ptr<EmpireSelect> empires_;
-    std::unique_ptr<GalaxyScreen> galaxy_;
+    std::unique_ptr<GalaxyScreen> galaxy_; // kept while another screen of the game shows
+    std::unique_ptr<SystemScreen> system_;
     std::unique_ptr<Game> game_;
     std::optional<std::uint32_t> seed_;
     std::string notice_;

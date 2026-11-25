@@ -53,3 +53,13 @@ technologies of every field at the level of its civilization setting
 (beginning 1 to advanced 5), 1000 credits and a shipyard of its own kind.
 Its people work enough farms and power plants, and the others split five to
 three to two between industry, research and intelligence.
+
+## The build list
+
+The build list offers one more facility of each kind (while the colony has
+room for more), the upgrade to a better facility once the empire's
+technology allows it, and structures the empire can build that the colony
+does not have yet: one shipyard to a system, structures for the home system
+only there, and those that need a planet type only where there is one. Not
+offered yet: structures of minor races, those for special planets (such as
+dilithium) and those for conquered systems. The queue holds five items.

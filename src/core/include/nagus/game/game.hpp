@@ -59,6 +59,30 @@ inline constexpr std::size_t kHomeSystems[kEmpires] = {121, 1160, 357, 958, 1092
 inline constexpr std::size_t kObjectKinds[] = {94, 1450, 802, 810, 987, 889, 1452, 1446, 420, 96, 0, 968};
 inline constexpr std::size_t kTurn = 1370;
 inline constexpr std::size_t kSector = 1107; // "Sector %s"
+inline constexpr std::size_t kBuild = 108;
+inline constexpr std::size_t kBuildQueue = 112;   // "BUILD QUEUE"
+inline constexpr std::size_t kCredits = 193;
+inline constexpr std::size_t kEnergy = 279;
+inline constexpr std::size_t kFood = 365;
+inline constexpr std::size_t kIndustry = 528;
+inline constexpr std::size_t kIntelligence = 548;
+inline constexpr std::size_t kLabor = 594;
+inline constexpr std::size_t kPlanets = 623;
+inline constexpr std::size_t kTurns = 624;        // "%d turns"
+inline constexpr std::size_t kOneTurn = 886;      // "1 turn"
+inline constexpr std::size_t kMaxPop = 626;
+inline constexpr std::size_t kPopulation = 919;
+inline constexpr std::size_t kProduction = 926;
+inline constexpr std::size_t kResearch = 996;
+inline constexpr std::size_t kTradeGoods = 1364;
+inline constexpr std::size_t kUnassigned = 1381;
+inline constexpr std::size_t kBuildCost = 109;
+inline constexpr std::size_t kMaintenance = 282;  // "Energy Maintenance Cost"
+inline constexpr std::size_t kStructures = 1185;  // "STRUCTURES"
+inline constexpr std::size_t kCurrentStructures = 209;
+inline constexpr std::size_t kEmpty = 276;        // "empty"
+inline constexpr std::size_t kUpgradeTo = 1400;   // "Upgrade to %s"
+inline constexpr std::size_t kGrowthRate = 425;
 } // namespace text
 
 } // namespace nagus

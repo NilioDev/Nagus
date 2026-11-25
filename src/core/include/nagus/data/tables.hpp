@@ -102,7 +102,9 @@ struct Building {
     TechField field = TechField::Biotech;
     int level = 0;         // the technology level it needs
     std::uint8_t excluded = 0; // bit e set: empire e can not build it
-    int planetType = 8;    // a planet type it needs; 8 for none
+    std::uint32_t minorRaces = 0xffffffffu; // minor races whose systems it needs (all bits: none)
+    int systemKind = 9;    // the system it needs: 0 the home system, 1 the race's own, 9 any (others not known)
+    int planetType = 8;    // a planet type it needs; 8 for none, above for special planets
     int bonus = 0;         // what it does (edifbnft.bst), for structures
     Class kind = Class::Facility;
     Output output = Output::Industry; // what it adds to

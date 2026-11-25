@@ -65,6 +65,7 @@ struct Structure {
 struct Colony {
     int system = -1; // index into Galaxy::systems
     int owner = -1;  // the empire (0-4) or minor race
+    bool home = false; // the owner's home system
     int population = 0;    // millions
     int maxPopulation = 0; // millions
     int food = 0;          // food in store

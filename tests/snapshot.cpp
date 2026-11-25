@@ -97,6 +97,18 @@ int main(int argc, char** argv) {
         shot("galaxy.bmp");
         press("hmaingal.wdf", GalaxyScreen::kWholeMap);
         shot("galaxy-whole.bmp");
+        press("hmaingal.wdf", GalaxyScreen::kWholeMap);
+        // The home system's screen, each tab.
+        const Rect info = assets.layout("hmaingal.wdf").find(GalaxyScreen::kInfo)->rect;
+        shell.pointerMoved({info.centerX(), info.centerY()});
+        shell.clickAtPointer();
+        if (shell.systemScreen() != nullptr) {
+            shot("system-summary.bmp");
+            for (const char* name : {"system-labor.bmp", "system-energy.bmp", "system-build.bmp", "system-structures.bmp"}) {
+                shell.command(Command::Next);
+                shot(name);
+            }
+        }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "%s\n", e.what());
         return 1;

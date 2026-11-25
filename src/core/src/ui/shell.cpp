@@ -24,10 +24,15 @@ void Shell::show(Showing s) {
     mainMenu_.reset();
     setup_.reset();
     empires_.reset();
-    galaxy_.reset();
+    system_.reset();
     switch (s) {
     case Showing::MainMenu: mainMenu_ = std::make_unique<MainMenu>(assets_, game_ != nullptr); break;
-    case Showing::Galaxy: galaxy_ = std::make_unique<GalaxyScreen>(assets_, *game_); break;
+    case Showing::Galaxy:
+        if (!galaxy_) {
+            galaxy_ = std::make_unique<GalaxyScreen>(assets_, *game_);
+        }
+        break;
+    case Showing::System: system_ = std::make_unique<SystemScreen>(assets_, *game_, galaxy_ ? galaxy_->chosenColony() : 0); break;
     case Showing::GameSetup: setup_ = std::make_unique<GameSetup>(assets_, settings_); break;
     case Showing::EmpireSelect: empires_ = std::make_unique<EmpireSelect>(assets_, settings_); break;
     }
@@ -39,6 +44,7 @@ MenuScreen& Shell::screen() {
     case Showing::GameSetup: return *setup_;
     case Showing::EmpireSelect: return *empires_;
     case Showing::Galaxy: return *galaxy_;
+    case Showing::System: return *system_;
     case Showing::MainMenu: break;
     }
     return *mainMenu_;
@@ -70,6 +76,7 @@ void Shell::settle() {
             settings_ = empires_->settings();
             saveSettings(settingsFile_, settings_);
             const std::uint32_t seed = seed_ ? *seed_ : std::random_device{}();
+            galaxy_.reset();
             game_ = std::make_unique<Game>(newGame(settings_, loadGalaxyData(assets_.resources(), assets_.lexicon()), loadEconomyData(assets_.resources()), seed));
             show(Showing::Galaxy);
         } else if (o == Outcome::Back) {
@@ -77,6 +84,14 @@ void Shell::settle() {
         }
         break;
     case Showing::Galaxy:
+        if (o == Outcome::Open && galaxy_->chosenColony() >= 0) {
+            show(Showing::System);
+        }
+        break;
+    case Showing::System:
+        if (o == Outcome::Back) {
+            show(Showing::Galaxy);
+        }
         break;
     }
 }

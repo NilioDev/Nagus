@@ -130,14 +130,55 @@ int planetCount(Random& rng) {
 // An empire's home planets, from the table of home systems. The planets'
 // types are not in the table yet (as far as known): gas giants are marked,
 // the home world itself is terran with an oxygen-rich atmosphere.
+// "Cardassia 5" becomes "Cardassia V".
+std::string numbered(const std::string& name) {
+    const auto space = name.rfind(' ');
+    if (space == std::string::npos || space + 1 >= name.size() || name.size() - space > 3 ||
+        !std::all_of(name.begin() + static_cast<std::ptrdiff_t>(space) + 1, name.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+        return name;
+    }
+    return name.substr(0, space + 1) + roman(std::stoi(name.substr(space + 1)));
+}
+
+struct SolPlanet {
+    const char* name;
+    int type;
+    int atmosphere;
+    int size;
+};
+// Types: 0 arctic, 1 barren, 2 desert, 7 volcanic; atmospheres: 9 none,
+// 11 sulfuric, 12 thin oxygen.
+constexpr SolPlanet kSolPlanets[] = {
+    {"Mercury", 1, 9, 0}, {"Venus", 7, 11, 1}, {"Mars", 2, 12, 0}, {"Pluto", 0, 9, 0}};
+
 std::vector<Planet> homePlanets(const GalaxyData& data, const std::string& race, Random& rng) {
     std::vector<Planet> planets;
     for (const auto& h : data.homePlanets) {
         if (h.race != race) {
             continue;
         }
-        Planet p = h.kind == 10 ? Planet{} : randomPlanet(data, rng);
-        p.name = h.name;
+        Planet p;
+        if (h.kind != 10) {
+            // Only planets marked as gas giants are.
+            for (int tries = 0; tries < 20 && (tries == 0 || p.type == kGasGiant); ++tries) {
+                p = randomPlanet(data, rng);
+            }
+            if (p.type == kGasGiant) {
+                p.type = 1;
+                p.atmosphere = 9;
+                p.room = roomFor(data, p.type, p.size, rng);
+            }
+        }
+        p.name = numbered(h.name);
+        // The planets of the Sol system as they are.
+        for (const auto& [name, type, atmosphere, size] : kSolPlanets) {
+            if (h.name == name) {
+                p.type = type;
+                p.atmosphere = atmosphere;
+                p.size = size;
+                p.room = roomFor(data, p.type, p.size, rng);
+            }
+        }
         if (h.kind == 10) {
             p.type = kGasGiant;
             p.atmosphere = 8;
@@ -147,13 +188,18 @@ std::vector<Planet> homePlanets(const GalaxyData& data, const std::string& race,
         }
         planets.push_back(p);
     }
-    // The home world: Earth where there is one, else the planet in the
-    // middle that is not a gas giant.
+    // The home world: Earth where there is one, else the planet marked
+    // with 1, else the planet in the middle that is not a gas giant.
     int home = -1;
-    for (std::size_t i = 0; i < planets.size(); ++i) {
-        if (planets[i].name == "Earth") {
-            home = static_cast<int>(i);
+    std::size_t k = 0;
+    for (const auto& h : data.homePlanets) {
+        if (h.race != race) {
+            continue;
         }
+        if (h.name == "Earth" || (home < 0 && h.kind == 1)) {
+            home = static_cast<int>(k);
+        }
+        ++k;
     }
     for (int i = static_cast<int>(planets.size()) / 2; home < 0 && i < static_cast<int>(planets.size()); ++i) {
         if (planets[static_cast<std::size_t>(i)].type != kGasGiant) {

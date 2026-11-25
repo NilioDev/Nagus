@@ -12,6 +12,11 @@
 
 namespace nagus {
 
+// Draws a star system's star and its turning planets in a row, with their
+// names, into `strip` (as below the galaxy map and the system screen).
+void drawPlanetStrip(Canvas& canvas, Assets& assets, const Game& game, const StarSystem& s, const Rect& strip,
+                     const Font& small, std::uint64_t ms, const std::vector<std::string>& animations);
+
 class GalaxyScreen : public MenuScreen {
 public:
     // Element numbers in the main screen's layout (the same for all empires).
@@ -43,6 +48,11 @@ public:
     std::optional<Point> command(Command c) override;
 
     Sector chosen() const { return chosen_; }
+    void choose(Sector s);
+    // The player's colony in the chosen sector (an index into Game::colonies), or -1.
+    int chosenColony() const;
+    // What happened in the last turn, for the player.
+    const std::vector<std::string>& events() const { return events_; }
     bool wholeMap() const { return whole_; }
     // Where a sector's middle is on the screen, when it is in view.
     std::optional<Point> sectorCentre(Sector s) const;
@@ -50,7 +60,6 @@ public:
 
 private:
     int sectorSize() const;
-    void choose(Sector s);
     void keepInView();
     std::string sectorName(Sector s) const;
     void drawSector(Canvas& canvas, int at);
@@ -70,6 +79,7 @@ private:
     Point pointer_;
     std::vector<std::string> kindNames_;
     std::vector<std::string> animations_; // the names of the game's animations
+    std::vector<std::string> events_;
 };
 
 } // namespace nagus

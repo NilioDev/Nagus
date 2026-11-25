@@ -163,6 +163,19 @@ std::vector<BuildItem> buildOptions(const Colony& c, const EmpireState& empire, 
         if (b.kind == Building::Class::Facility || b.cost == 0 || !available(b, empire, c.owner)) {
             continue;
         }
+        // Not yet: buildings of minor races, for special planets or for
+        // conquered systems.
+        if (b.minorRaces != 0xffffffffu || b.planetType > kPlanetTypes || (b.systemKind != 9 && b.systemKind > 1) ||
+            (b.systemKind == 0 && !c.home)) {
+            continue;
+        }
+        // One shipyard to a system.
+        if (b.bonus == bonus::kShipyard && std::any_of(c.structures.begin(), c.structures.end(), [&](const Structure& st) {
+                const Building* other = buildingAt(data, st.building);
+                return other != nullptr && other->bonus == bonus::kShipyard;
+            })) {
+            continue;
+        }
         if (b.planetType < kPlanetTypes &&
             std::none_of(s.planets.begin(), s.planets.end(), [&](const Planet& p) { return p.type == b.planetType; })) {
             continue;
@@ -226,6 +239,7 @@ Colony homeColony(int system, const StarSystem& s, int empire, const EmpireState
     Colony c;
     c.system = system;
     c.owner = empire;
+    c.home = true;
     c.maxPopulation = std::max(kPeoplePerFacility, systemRoom(s, empire, data));
     c.population = std::max(kPeoplePerFacility, c.maxPopulation * 7 / 10);
     for (int o = 0; o < kOutputs; ++o) {
@@ -241,7 +255,7 @@ Colony homeColony(int system, const StarSystem& s, int empire, const EmpireState
     }
     // People on enough farms to feed everyone and enough power plants for
     // the structures; the others split between industry, research and
-    // intelligence. A few facilities more than there are workers (our choice).
+    // intelligence. One farm and one factory more than there are workers (our choice).
     const ColonyOutput none = colonyOutput(c, data);
     auto needed = [&](Output o, int amount) {
         const Building* f = buildingAt(data, c.facility[static_cast<std::size_t>(indexOf(o))]);
@@ -262,7 +276,7 @@ Colony homeColony(int system, const StarSystem& s, int empire, const EmpireState
         if (c.facility[i] < 0) {
             continue;
         }
-        const int extra = std::min(spare, o == indexOf(Output::Industry) ? 2 : 1);
+        const int extra = std::min(spare, o == indexOf(Output::Industry) || o == indexOf(Output::Food) ? 1 : 0);
         spare -= extra;
         c.facilities[i] = work[i] + extra;
         c.working[i] = work[i];

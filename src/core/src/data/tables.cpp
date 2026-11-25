@@ -208,7 +208,9 @@ std::vector<Building> readBuildings(ByteView data) {
         const std::uint8_t field = rec.u8();
         b.level = rec.u8();
         b.excluded = rec.u8();
-        rec.seek(at + 0x71);
+        b.minorRaces = rec.u32();
+        rec.seek(at + 0x70);
+        b.systemKind = rec.u8();
         b.planetType = rec.u8();
         b.bonus = rec.u8();
         const std::uint8_t kind = rec.u8();
