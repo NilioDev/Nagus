@@ -187,6 +187,26 @@ NGS_TEST("the home system's screen: people at work, the build queue and the next
     shell.command(Command::Back);
     click(shell, centre(*shell.markerButton(Shell::kMarkerGalaxy)));
     NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    // A fleet at home: chosen in the list, then sent to a sector nearby.
+    GalaxyScreen& map = *shell.galaxyScreen();
+    NGS_CHECK(map.fleetsHere().size() == 2 && map.fleetLine(0).has_value());
+    click(shell, centre(*map.fleetLine(0)));
+    NGS_CHECK(map.chosenFleet() > 0 && map.moving());
+    const Sector home = map.chosen();
+    std::optional<Sector> target;
+    for (const Sector d : {Sector{1, 0}, Sector{-1, 0}, Sector{0, 1}, Sector{0, -1}}) {
+        const Sector s{home.x + d.x, home.y + d.y};
+        if (!target && map.sectorCentre(s)) {
+            target = s;
+        }
+    }
+    NGS_CHECK(target.has_value());
+    click(shell, *map.sectorCentre(*target));
+    NGS_CHECK(!map.moving());
+    const Fleet* sent = game.fleet(map.chosenFleet());
+    NGS_CHECK(sent != nullptr && sent->destination == target);
+    shell.draw(canvas, 0);
+
     const int progress = colony.progress;
     for (int t = 0; t < 30 && !colony.queue.empty(); ++t) {
         click(shell, centre(element(assets, "hmaingal.wdf", GalaxyScreen::kTurn)));
