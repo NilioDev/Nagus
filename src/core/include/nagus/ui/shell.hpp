@@ -8,6 +8,7 @@
 #include "nagus/game/game.hpp"
 #include "nagus/settings.hpp"
 #include "nagus/ui/galaxy_screen.hpp"
+#include "nagus/ui/load_save_screen.hpp"
 #include "nagus/ui/menus.hpp"
 #include "nagus/ui/research_screen.hpp"
 #include "nagus/ui/system_screen.hpp"
@@ -37,7 +38,7 @@ public:
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
     bool quit() const { return quit_; }
 
-    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research };
+    enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Save, Load };
     Showing showing() const { return showing_; }
     bool noticeOpen() const { return !notice_.empty(); }
     // The game being played, if any.
@@ -45,6 +46,9 @@ public:
     GalaxyScreen* galaxyScreen() { return galaxy_.get(); }
     SystemScreen* systemScreen() { return system_.get(); }
     ResearchScreen* researchScreen() { return research_.get(); }
+    LoadSaveScreen* loadSaveScreen() { return loadSave_.get(); }
+    // Where saved games are kept: next to the settings file.
+    std::filesystem::path savesFolder() const { return settingsFile_.parent_path() / "saves"; }
 
     // The marker window: in the game, Back (right click, Esc, B) opens it
     // where the pointer is; its buttons go to the game's screens.
@@ -75,10 +79,13 @@ private:
     std::unique_ptr<GalaxyScreen> galaxy_; // kept while another screen of the game shows
     std::unique_ptr<SystemScreen> system_;
     std::unique_ptr<ResearchScreen> research_;
+    std::unique_ptr<LoadSaveScreen> loadSave_;
     std::unique_ptr<Panel> marker_;
     void openMarker();
     void markerChose(std::uint32_t id);
     int playerColony() const;
+    void saveTo(int slot);
+    void loadFrom(int slot);
     std::unique_ptr<Game> game_;
     std::optional<std::uint32_t> seed_;
     std::string notice_;

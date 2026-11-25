@@ -98,6 +98,33 @@ private:
     std::size_t pos_;
 };
 
+// Writes little-endian numbers and texts, for our own files (saved games).
+class Writer {
+public:
+    void u8(std::uint32_t v) { out_.push_back(static_cast<std::uint8_t>(v)); }
+    void u16(std::uint32_t v) {
+        u8(v);
+        u8(v >> 8);
+    }
+    void u32(std::uint32_t v) {
+        u16(v);
+        u16(v >> 16);
+    }
+    void i32(std::int32_t v) { u32(static_cast<std::uint32_t>(v)); }
+    // A text: its length (16 bits), then its bytes.
+    void text(std::string_view s) {
+        const std::size_t n = s.size() < 0xffff ? s.size() : 0xffff;
+        u16(static_cast<std::uint32_t>(n));
+        out_.insert(out_.end(), s.begin(), s.begin() + static_cast<std::ptrdiff_t>(n));
+    }
+    void bytes(std::string_view s) { out_.insert(out_.end(), s.begin(), s.end()); }
+    const Bytes& data() const { return out_; }
+    Bytes take() { return std::move(out_); }
+
+private:
+    Bytes out_;
+};
+
 inline std::uint16_t readU16(ByteView d, std::size_t at) { return Reader(d, at).u16(); }
 inline std::uint32_t readU32(ByteView d, std::size_t at) { return Reader(d, at).u32(); }
 

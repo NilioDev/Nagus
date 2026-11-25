@@ -6,6 +6,7 @@
 #include "nagus/ui/shell.hpp"
 
 #include <filesystem>
+#include <fstream>
 
 using namespace nagus;
 using namespace nagus::test;
@@ -62,7 +63,7 @@ NGS_TEST("main menu to set-up to empire choice and back") {
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     // A disabled button does nothing.
-    click(shell, centre(element(assets, "opening.wdf", MainMenu::kLoad)));
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kHallOfFame)));
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
 
     click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
@@ -227,17 +228,84 @@ NGS_TEST("the gamepad's d-pad moves the pointer between buttons") {
     Shell shell(res, fs::temp_directory_path() / "nagus-test-pad-settings.txt");
     const Rect newGame = element(assets, "opening.wdf", MainMenu::kNewSinglePlayer);
     const Rect quit = element(assets, "opening.wdf", MainMenu::kQuit);
+    const Rect load = element(assets, "opening.wdf", MainMenu::kLoad);
     shell.pointerMoved({10, 10});
     shell.command(Command::Down); // to the nearest usable button
     shell.command(Command::Down);
     const Point p = shell.pointer();
-    NGS_CHECK(newGame.contains(p.x, p.y) || quit.contains(p.x, p.y));
-    // Move to New Single Player Game and press A.
-    shell.pointerMoved(centre(quit));
+    NGS_CHECK(newGame.contains(p.x, p.y) || load.contains(p.x, p.y) || quit.contains(p.x, p.y));
+    // Up from Load Game is New Single Player Game; press A there.
+    shell.pointerMoved(centre(load));
     shell.command(Command::Up);
     NGS_CHECK(newGame.contains(shell.pointer().x, shell.pointer().y));
     shell.clickAtPointer();
     NGS_CHECK(shell.showing() == Shell::Showing::GameSetup);
     shell.command(Command::Back);
     NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+}
+
+NGS_TEST("saving from the main menu and loading the game again") {
+    const auto lib = gameLibrary();
+    if (!lib) {
+        NGS_SKIP("no game files in gamedata/");
+    }
+    const fs::path dir = fs::temp_directory_path() / "nagus-test-saves";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    auto res = std::make_shared<Resources>(*lib);
+    Assets assets(res);
+    Shell shell(res, dir / "settings.txt");
+    Canvas canvas;
+    // Without a game there is nothing to save, but the list can be opened.
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kSave)));
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kLoad)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Load);
+    NGS_CHECK(shell.loadSaveScreen()->chosen() == -1);
+    shell.draw(canvas, 0);
+    shell.command(Command::Back);
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kNewSinglePlayer)));
+    click(shell, centre(element(assets, "gmesetup.wdf", GameSetup::kAccept)));
+    shell.setSeed(9);
+    shell.command(Command::Start);
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    const Bytes before = saveGame(*shell.game(), {});
+
+    // Back opens the marker window; its menu button goes to the main menu.
+    shell.command(Command::Back);
+    const auto menu = shell.markerButton(Shell::kMarkerMenu);
+    NGS_CHECK(menu.has_value());
+    click(shell, centre(*menu));
+    NGS_CHECK(shell.showing() == Shell::Showing::MainMenu);
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kSave)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Save);
+    NGS_CHECK(shell.loadSaveScreen()->chosen() == 0);
+    shell.draw(canvas, 0);
+    click(shell, centre(element(assets, "loadsave.wdf", LoadSaveScreen::kAccept)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(fs::exists(saveSlotFile(shell.savesFolder(), 0)));
+    const SaveSlot slot = readSaveSlot(saveSlotFile(shell.savesFolder(), 0));
+    NGS_CHECK(slot.used && !slot.damaged && slot.info.turn == shell.game()->turn);
+
+    // A damaged file in another place cannot be chosen.
+    {
+        std::ofstream bad(saveSlotFile(shell.savesFolder(), 3), std::ios::binary);
+        bad << "NAGUSSAV and then nonsense";
+    }
+    shell.command(Command::Back);
+    click(shell, centre(*shell.markerButton(Shell::kMarkerMenu)));
+    click(shell, centre(element(assets, "opening.wdf", MainMenu::kLoad)));
+    NGS_CHECK(shell.showing() == Shell::Showing::Load);
+    LoadSaveScreen& list = *shell.loadSaveScreen();
+    NGS_CHECK(list.chosen() == 0);
+    list.choose(3);
+    NGS_CHECK(list.chosen() == 0);
+    shell.draw(canvas, 0);
+    // A second click on the chosen line loads it.
+    click(shell, centre(element(assets, "loadsave.wdf", LoadSaveScreen::slotButton(0))));
+    NGS_CHECK(shell.showing() == Shell::Showing::Galaxy);
+    NGS_CHECK(saveGame(*shell.game(), {}) == before);
+    fs::remove_all(dir);
 }
