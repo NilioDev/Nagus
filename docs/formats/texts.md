@@ -20,3 +20,17 @@ Texts are Windows-1252.
 Texts separated by zero bytes. The first five are the descriptions of the
 major empires, in the order Cardassian, Federation, Ferengi, Klingon,
 Romulan, shown on the empire choice screen.
+
+## Tooltips (`teachtip.tdb`)
+
+The help text shown when the pointer rests on a button, found by the
+button's number in its layout (the same numbers as in the `.wdf` files).
+
+| Offset | Size | What |
+| --- | --- | --- |
+| 0 | 4 | Number of tooltips (394) |
+| 4 | 12 | Unknown; not needed |
+| 16 | 16 × count | Per tooltip: button number, length counting the closing zero, an address in the original's memory (not used), and the offset of the text from the end of this table |
+
+Each text starts with a space and has its own line breaks (LF, sometimes
+CR LF), which Nagus keeps; the original draws the lines as they are.

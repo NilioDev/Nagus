@@ -48,6 +48,8 @@ public:
     // The original's pointer is drawn while a mouse or gamepad is in use,
     // and hidden for touch.
     void setPointerVisible(bool visible) { pointerVisible_ = visible; }
+    // The button whose tooltip was drawn last, if any.
+    std::optional<std::uint32_t> tooltipShown() const { return tipShown_; }
     bool quit() const { return quit_; }
 
     enum class Showing { MainMenu, GameSetup, EmpireSelect, Galaxy, System, Research, Diplomacy, Intel, Save, Load, Film, Ending, Fame, Options, Combat, Multiplayer };
@@ -152,6 +154,13 @@ private:
     std::string hostAddress_;
     std::string toast_;
     std::uint64_t toastUntil_ = 0;
+    // The tooltip: the button the pointer rests on and since when. A click
+    // hides it until the pointer goes to another button.
+    void drawTooltip(Canvas& canvas, std::uint64_t ms);
+    std::optional<std::uint32_t> tipButton_;
+    std::uint64_t tipSince_ = 0;
+    bool tipHidden_ = false;
+    std::optional<std::uint32_t> tipShown_;
     std::uint64_t now_ = 0;
     void pollNetwork();
     bool blocked() const;

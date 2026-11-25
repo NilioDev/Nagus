@@ -56,7 +56,7 @@ and with gamepad, mouse, keyboard and touch controls.
 > can also retire from the main menu. The original's end pictures and
 > speech then play, and the game goes into the hall of fame (main menu).
 > *Options* in the main menu sets the volume of the music, sound effects,
-> speech and all together, and switches tactical combat, random events and
+> speech and all together, and switches tooltips, tactical combat, random events and
 > saving each turn (on by default: *Continue* in the main menu then picks up
 > where you left off, even after closing Nagus). With random events on, plague, earthquakes, comets, terrorists,
 > immigrants and a ship virus strike now and then. *New Multi-Player Game*
@@ -64,7 +64,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > join with the host's address, everyone chooses an empire, and each turn
 > ends when every player has given their orders (see
 > [multiplayer](docs/rules/multiplayer.md); over the internet the host
-> forwards port 47621). Buttons that do not work yet are shown dimmed.
+> forwards port 47621). Rest the pointer on a button to read what it does,
+> as in the original. Buttons that do not work yet are shown dimmed.
 
 Nagus is not affiliated with or endorsed by the makers of the original
 game. It contains none of the original game's files: you need your own copy.

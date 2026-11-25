@@ -25,8 +25,8 @@ constexpr int kTestSound = 76;
 
 OptionsScreen::OptionsScreen(Assets& assets, Jukebox& jukebox, GameSettings settings)
     : assets_(assets), jukebox_(jukebox), panel_(assets, "options.wdf"), settings_(settings), before_(settings) {
-    // No tooltips, and the timers are for multiplayer games.
-    panel_.setEnabled(kTooltips, false);
+    // The timers are for multiplayer games with a time limit, which Nagus
+    // does not have.
     for (const auto id : kTimerArrows) {
         panel_.setEnabled(id, false);
     }
@@ -34,6 +34,7 @@ OptionsScreen::OptionsScreen(Assets& assets, Jukebox& jukebox, GameSettings sett
 }
 
 void OptionsScreen::refresh() {
+    panel_.setOn(kTooltips, settings_.tooltips);
     panel_.setOn(kTactical, !settings_.automaticCombat);
     panel_.setOn(kEvents, settings_.randomEvents);
     panel_.setOn(kAutosave, settings_.autosave);
@@ -52,8 +53,8 @@ std::uint32_t OptionsScreen::rowElement(int row) const {
     if (row < kVolumes) {
         return kBars[row];
     }
-    constexpr std::uint32_t kSwitches[3] = {kTactical, kEvents, kAutosave};
-    return row < kVolumes + 3 ? kSwitches[row - kVolumes] : kAccept;
+    constexpr std::uint32_t kSwitches[4] = {kTooltips, kTactical, kEvents, kAutosave};
+    return row < kVolumes + 4 ? kSwitches[row - kVolumes] : kAccept;
 }
 
 void OptionsScreen::change(int row, int volume) {
@@ -65,7 +66,9 @@ void OptionsScreen::change(int row, int volume) {
 }
 
 void OptionsScreen::toggle(std::uint32_t id) {
-    if (id == kTactical) {
+    if (id == kTooltips) {
+        settings_.tooltips = !settings_.tooltips;
+    } else if (id == kTactical) {
         settings_.automaticCombat = !settings_.automaticCombat;
     } else if (id == kEvents) {
         settings_.randomEvents = !settings_.randomEvents;
@@ -98,7 +101,7 @@ void OptionsScreen::draw(Canvas& canvas, std::uint64_t) {
             canvas.frame({b.x - 2, b.y - 2, b.w + 4, b.h + 4}, kChosen, 1);
         }
     }
-    field(canvas, kValues[0], lex[kOff], true);
+    field(canvas, kValues[0], lex[settings_.tooltips ? kOn : kOff]);
     field(canvas, kValues[1], lex[settings_.automaticCombat ? kAutomatic : kManual]);
     field(canvas, kValues[2], lex[settings_.randomEvents ? kOn : kOff]);
     field(canvas, kValues[3], lex[settings_.autosave ? kOn : kOff]);

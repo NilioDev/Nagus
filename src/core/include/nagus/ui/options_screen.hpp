@@ -31,9 +31,9 @@ public:
 
     static constexpr int kVolumes = 4;
     static constexpr int kStep = 10;
-    // For the keys and gamepad: the bars, then the three switches, then
+    // For the keys and gamepad: the bars, then the four switches, then
     // Accept.
-    static constexpr int kRows = kVolumes + 4;
+    static constexpr int kRows = kVolumes + 5;
 
     OptionsScreen(Assets& assets, Jukebox& jukebox, GameSettings settings);
 

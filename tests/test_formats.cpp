@@ -9,6 +9,7 @@
 #include "nagus/data/image.hpp"
 #include "nagus/data/layout.hpp"
 #include "nagus/data/lexicon.hpp"
+#include "nagus/data/tips.hpp"
 #include "nagus/data/resources.hpp"
 #include "nagus/data/tables.hpp"
 #include "nagus/data/zip_archive.hpp"
@@ -117,6 +118,38 @@ NGS_TEST("lexicon texts by number") {
     NGS_CHECK(lex[7].empty());
 }
 
+NGS_TEST("tooltips by button, and damaged tooltip tables") {
+    const Bytes data = makeTips({{0x8c, " Click here to start a new game.  The \ncomputer AI will control it.\n"},
+                                 {0x8f, " Quit.\r\n"}});
+    const Tips tips(data);
+    NGS_CHECK(tips.size() == 2);
+    NGS_CHECK(tips[0x8c].size() == 2);
+    NGS_CHECK(tips[0x8c][0] == "Click here to start a new game.  The");
+    NGS_CHECK(tips[0x8c][1] == "computer AI will control it.");
+    NGS_CHECK(tips[0x8f].size() == 1 && tips[0x8f][0] == "Quit.");
+    NGS_CHECK(tips[0x90].empty());
+    // Every cut is refused, never read past.
+    for (std::size_t n = 0; n < data.size(); ++n) {
+        bool refused = false;
+        try {
+            const Tips cut(ByteView(data.data(), n));
+        } catch (const FormatError&) {
+            refused = true;
+        }
+        NGS_CHECK(refused);
+    }
+    Bytes huge = data;
+    huge[0] = 0xff;
+    huge[1] = 0xff;
+    bool refused = false;
+    try {
+        const Tips bad(huge);
+    } catch (const FormatError&) {
+        refused = true;
+    }
+    NGS_CHECK(refused);
+}
+
 NGS_TEST("all layouts, fonts, pointers and texts of the original read") {
     const auto lib = gameLibrary();
     if (!lib) {
@@ -151,6 +184,9 @@ NGS_TEST("all layouts, fonts, pointers and texts of the original read") {
     NGS_CHECK(lex.size() == 1460);
     NGS_CHECK(lex[text::kAccept] == "Accept");
     NGS_CHECK(lex[text::kCancel] == "Cancel");
+    const Tips tips(res.file("teachtip.tdb"));
+    NGS_CHECK(tips.size() > 380);
+    NGS_CHECK(!tips[0x8c].empty() && tips[0x8c][0].starts_with("Click here"));
 }
 
 NGS_TEST("tables of races, stars, home systems and technologies") {

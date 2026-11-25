@@ -7,6 +7,29 @@ Assets::Assets(std::shared_ptr<Resources> resources) : resources_(std::move(reso
     lexicon_ = Lexicon(resources_->file("lexicon.dic"));
 }
 
+const Tips& Assets::tips() {
+    if (!tips_) {
+        tips_.emplace();
+        if (resources_->has("teachtip.tdb")) {
+            try {
+                tips_.emplace(resources_->file("teachtip.tdb"));
+            } catch (const FormatError&) {
+                tips_.emplace();
+            }
+        }
+    }
+    return *tips_;
+}
+
+void Assets::hover(const void* owner, std::optional<std::uint32_t> button) {
+    if (button) {
+        hovered_ = button;
+        hoverOwner_ = owner;
+    } else {
+        unhover(owner);
+    }
+}
+
 const Image& Assets::image(const std::string& name) {
     const std::string key = lower(name);
     auto it = images_.find(key);

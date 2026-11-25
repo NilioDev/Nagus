@@ -125,6 +125,7 @@ void Shell::show(Showing s) {
         break;
     }
     }
+    assets_.clearHover();
     screen().pointerMoved(pointer_);
 }
 
@@ -627,9 +628,53 @@ void Shell::draw(Canvas& canvas, std::uint64_t ms) {
     if (marker_) {
         marker_->draw(canvas);
     }
+    drawTooltip(canvas, ms);
     if (pointerVisible_ && showing_ != Showing::Film && showing_ != Showing::Ending) {
         const Cursor& c = assets_.cursor(kPointer);
         canvas.draw(c.frame(ms), pointer_.x - c.hotX, pointer_.y - c.hotY);
+    }
+}
+
+void Shell::drawTooltip(Canvas& canvas, std::uint64_t ms) {
+    constexpr std::uint64_t kDelay = 700;
+    const auto button = assets_.hovered();
+    if (button != tipButton_) {
+        tipButton_ = button;
+        tipSince_ = ms;
+        tipHidden_ = false;
+    }
+    tipShown_.reset();
+    if (!settings_.tooltips || !pointerVisible_ || !button || tipHidden_ || ms - tipSince_ < kDelay ||
+        !notice_.empty() || blocked() || showing_ == Showing::Film || showing_ == Showing::Ending) {
+        return;
+    }
+    const auto& lines = assets_.tips()[*button];
+    if (lines.empty()) {
+        return;
+    }
+    const Font& font = assets_.font("human15.fnt");
+    const int lineHeight = font.height() + 1;
+    int w = 0;
+    for (const auto& l : lines) {
+        w = std::max(w, font.width(l));
+    }
+    w += 12;
+    const int h = static_cast<int>(lines.size()) * lineHeight + 8;
+    // Below and right of the pointer, kept on the screen.
+    int x = pointer_.x + 12;
+    int y = pointer_.y + 20;
+    if (x + w > kScreenWidth) {
+        x = std::max(0, pointer_.x - w - 4);
+    }
+    if (y + h > kScreenHeight) {
+        y = std::max(0, pointer_.y - h - 4);
+    }
+    const Rect box{x, y, w, h};
+    tipShown_ = button;
+    canvas.fill(box, rgb(0, 0, 0));
+    canvas.frame(box, rgb(255, 153, 0), 1);
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        canvas.text(font, lines[i], x + 6, y + 4 + static_cast<int>(i) * lineHeight, rgb(255, 204, 102));
     }
 }
 
@@ -707,6 +752,7 @@ void Shell::openMarker() {
     // Centred on the pointer, inside the screen.
     marker_->setOrigin({std::clamp(pointer_.x - w / 2, 0, kScreenWidth - w), std::clamp(pointer_.y - h / 2, 0, kScreenHeight - h)});
     marker_->setEnabled(kMarkerSystem, playerColony() >= 0);
+    assets_.clearHover();
     marker_->pointerMoved(pointer_);
 }
 
@@ -731,6 +777,8 @@ void Shell::markerChose(std::uint32_t id) {
 
 void Shell::pointerMoved(Point p) {
     pointer_ = p;
+    // The panels under the pointer say which button it is on.
+    assets_.clearHover();
     if (marker_) {
         marker_->pointerMoved(p);
         return;
@@ -748,6 +796,7 @@ bool Shell::blocked() const {
 
 void Shell::pointerPressed(Point p) {
     pointer_ = p;
+    tipHidden_ = true;
     if (blocked()) {
         return;
     }
@@ -796,6 +845,7 @@ void Shell::clickAtPointer() {
 }
 
 void Shell::command(Command c) {
+    tipHidden_ = true;
     if (blocked()) {
         return;
     }
@@ -809,6 +859,7 @@ void Shell::command(Command c) {
             marker_.reset();
         } else if (const auto jump = marker_->step(c, pointer_)) {
             pointer_ = *jump;
+            assets_.clearHover();
             marker_->pointerMoved(pointer_);
         }
         return;
@@ -821,6 +872,7 @@ void Shell::command(Command c) {
     }
     if (const auto jump = screen().command(c)) {
         pointer_ = *jump;
+        assets_.clearHover();
         screen().pointerMoved(pointer_);
     }
     settle();

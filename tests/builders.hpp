@@ -180,6 +180,26 @@ inline Bytes makeIso(const std::vector<std::pair<std::string, Bytes>>& rootFiles
 }
 
 // A small lexicon file: the given texts, in order.
+// A tooltip table (teachtip.tdb) with the given texts for the given buttons.
+inline Bytes makeTips(const std::vector<std::pair<std::uint32_t, std::string>>& tips) {
+    Bytes text;
+    Bytes out;
+    put32(out, static_cast<std::uint32_t>(tips.size()));
+    put32(out, 0);
+    put32(out, 0);
+    put32(out, 0);
+    for (const auto& [id, t] : tips) {
+        put32(out, id);
+        put32(out, static_cast<std::uint32_t>(t.size() + 1));
+        put32(out, 0x5a0000);
+        put32(out, static_cast<std::uint32_t>(text.size()));
+        putText(text, t);
+        text.push_back(0);
+    }
+    out.insert(out.end(), text.begin(), text.end());
+    return out;
+}
+
 inline Bytes makeLexicon(const std::vector<std::string>& texts) {
     Bytes body;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> entries;
