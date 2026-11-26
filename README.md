@@ -58,7 +58,8 @@ and with gamepad, mouse, keyboard and touch controls.
 > when their fleets meet. With tactical combat set to *Manual* in the game
 > set-up, your battles open the combat screen, which shows the battle in
 > 3D with the game's own ship models (or flat, from above), with a camera
-> you can turn, zoom and switch between views: hail, let the battle be
+> you can turn, zoom and switch between views, and plays each round again
+> on request (rewind, play, fast forward): hail, let the battle be
 > fought automatically, or fight and give your ships a maneuver each round
 > (assault, charge, circle, harry, flyby, strafe, evade, ram, retreat or
 > hail);
@@ -178,6 +179,7 @@ itself. You can also give files when starting it:
 | Change a field's share of research | Click the bar or its arrows | | A on the arrows |
 | Switch the combat view between 3D and flat | Click *Playback* or *Tactical* | Tab or Page Down / Page Up | RB / LB |
 | Move the combat camera (3D view) | The camera panel on the left, *Views* for other views, or drag across the battle | | Left stick to the panel, A |
+| Play the last round again (3D combat view) | The tape buttons under the camera panel | | Left stick to them, A |
 | Back to the main menu while playing (*Continue* returns) | Right click, then the emblem | Esc, then the emblem | B, then A on the emblem |
 | Save or load a game | *Save Game* or *Load Game* in the main menu, click a place, then *Accept* (or click the place again) | Arrow keys, Enter | D-pad, A, or Start to accept |
 | Change a volume or switch an option (*Options*) | Click its bar or button | Arrow keys | D-pad |

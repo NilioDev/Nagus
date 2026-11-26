@@ -44,6 +44,14 @@ public:
     static constexpr std::uint32_t kViews = 0x17db;
     static constexpr std::uint32_t kStatus = 0x17dc;
     static constexpr std::uint32_t kAuto = 0x17dd;
+    static constexpr std::uint32_t kVcrArea = 0x17de;
+    // <x>bvcr.wdf, under the camera panel: plays the last round again.
+    static constexpr std::uint32_t kTapeStart = 0x189c;
+    static constexpr std::uint32_t kRewind = 0x189d;
+    static constexpr std::uint32_t kStop = 0x189e;
+    static constexpr std::uint32_t kPlay = 0x189f;
+    static constexpr std::uint32_t kForward = 0x18a0;
+    static constexpr std::uint32_t kTapeEnd = 0x18a1;
     // <x>b_views.wdf: where the camera is.
     static constexpr std::uint32_t kTopView = 0x1af4;
     static constexpr std::uint32_t kChaseView = 0x1af5;
@@ -79,6 +87,11 @@ public:
     float cameraZoom() const { return zoom_; }
     bool viewsOpen() const { return viewsOpen_; }
     bool statusShown() const { return hud_; }
+    // The last round as a tape: where it is (ms), how long, and how fast it
+    // runs (0 stopped, 1 playing, 3 fast forward, -3 rewinding).
+    std::int64_t tapeTime() const { return tapeMs_; }
+    std::int64_t tapeLength() const;
+    int tapeRate() const { return tapeRate_; }
     // Whether a unit shows as a 3D model (the game has it).
     bool hasModel(std::size_t unit);
     void choose(Maneuver m) { chosen_ = m; }
@@ -106,6 +119,17 @@ private:
     // Handles a button of the camera panels; false when it is none of theirs.
     bool cameraButton(std::uint32_t id);
     void fightToEnd(bool hail);
+    // A new round to play: the tape from the start.
+    void newRound();
+    void runTape(std::uint64_t ms);
+    // When a shot of the last round starts on the tape, and when a unit
+    // took its last hit (-1 for none).
+    static std::int64_t shotStart(std::size_t shot);
+    std::int64_t lastHit(std::size_t unit) const;
+    // A shot's fire at this point of the tape: 0 none, up to 1 just fired.
+    float shotLight(std::size_t shot) const;
+    // Whether a unit that has no hull left still shows (before its last hit).
+    bool stillThere(std::size_t unit) const;
 
     Assets& assets_;
     const Game& game_;
@@ -127,8 +151,10 @@ private:
     std::vector<Rect> places_; // for each unit, in the Tactical view
     std::vector<Vec3> spots_;  // for each unit, in the Visual view
     std::vector<Rect> shown_;  // where each showed last in the Visual view
-    bool newShots_ = false;
-    std::uint64_t shotsAt_ = 0;
+    Panel vcr_;
+    std::int64_t tapeMs_ = 0;
+    int tapeRate_ = 0;
+    std::optional<std::uint64_t> lastMs_;
     Point pointer_{};
     std::map<std::string, Image> mirrored_;
 };
